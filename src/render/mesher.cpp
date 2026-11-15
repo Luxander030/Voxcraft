@@ -1,6 +1,7 @@
 #include "render/mesher.h"
 #include "core/profiler.h"
 #include "world/worldgen.h"
+#include "render/visibility.h"
 
 namespace vx {
 
@@ -319,7 +320,13 @@ bool sectionTriviallyEmpty(const MeshSnapshot& s, int sy, const BlockRegistry& r
 void meshSection(const MeshSnapshot& s, int sy, const MeshContext& ctx, SectionMesh& out) {
     VX_TIME_US(Stat::MeshTimeUs);
     for (auto& d : out.data) d.clear();
-    if (sectionTriviallyEmpty(s, sy, *ctx.reg)) return;
+    const Section& self = s.sec[MeshSnapshot::idx(0, 0)][sy];
+    if (sectionTriviallyEmpty(s, sy, *ctx.reg)) { out.connectivity = self.isEmpty() ? ALL_CONNECTED : NONE_CONNECTED; return; }
+    {
+        thread_local bool opq[4096];
+        for (int i = 0; i < 4096; i++) opq[i] = ctx.reg->opaque(self.get(i));
+        out.connectivity = computeConnectivity(opq);
+    }
     thread_local std::unique_ptr<Padded> tp;   // 40 KiB scratch per worker, reused
     if (!tp) tp = std::make_unique<Padded>();
     Padded& p = *tp;

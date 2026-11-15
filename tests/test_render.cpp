@@ -112,3 +112,25 @@ TEST(render_meshes_generated_terrain) {
     CHECK(quads > 50);
     CHECK(secs > 0);
 }
+
+#include "render/visibility.h"
+TEST(render_section_connectivity_and_occlusion_traversal) {
+    bool opq[4096] = {};
+    CHECK_EQ(computeConnectivity(opq), ALL_CONNECTED);
+    for (int i = 0; i < 4096; i++) opq[i] = ((i >> 8) == 8);   // horizontal floor at y = 8 splits top from bottom
+    FaceMask m = computeConnectivity(opq);
+    CHECK(!connected(m, FACE_NY, FACE_PY));
+    CHECK(connected(m, FACE_NX, FACE_PX));
+    CHECK(connected(m, FACE_NY, FACE_NX));
+    for (int i = 0; i < 4096; i++) opq[i] = true;
+    CHECK_EQ(computeConnectivity(opq), NONE_CONNECTED);
+    // world of solid rock with the camera in a sealed one-section cave: only that section is visible
+    auto rock = [](const SectionKey& k) { return (k.x == 0 && k.y == 3 && k.z == 0) ? ALL_CONNECTED : NONE_CONNECTED; };
+    int n = 0;
+    traverseVisible({0, 3, 0}, 8, rock, [](const SectionKey&) { return true; }, [&](const SectionKey&) { n++; });
+    CHECK(n <= 7);   // itself + the six walls it borders (drawn, but nothing behind them)
+    // open air everywhere: everything in range is reachable
+    int open = 0;
+    traverseVisible({0, 8, 0}, 4, [](const SectionKey&) { return ALL_CONNECTED; }, [](const SectionKey&) { return true; }, [&](const SectionKey&) { open++; });
+    CHECK_EQ(open, 9 * 9 * 16);
+}

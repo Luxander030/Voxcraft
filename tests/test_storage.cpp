@@ -370,3 +370,28 @@ TEST(worldgen_v3_adds_villages_only_where_they_stand) {
     CHECK(furnished > 0);
     CHECK(differ < total / 4);   // villages are local; everything else is unchanged
 }
+
+TEST(storage_region_cache_is_bounded_and_eviction_is_lossless) {
+    auto dir = vxtest::tempDir("lru");
+    World w(blocks(), jobs(), vxtest::testItems());
+    w.storage().maxCachedRegions = 8;
+    std::string err; REQUIRE(w.create(dir, testMeta(17), &err));
+    std::vector<std::pair<BlockPos, BlockState>> edits;
+    BlockState marker = blocks().stateOf("bricks");
+    for (int i = 0; i < 20; i++) {   // 20 chunks in 20 different region files
+        ChunkPos cp{i * 32, (i % 4) * 32};
+        ChunkPtr c = w.loadChunkSync(cp);
+        BlockPos p{cp.x * 16 + 3, 200, cp.z * 16 + 3};
+        REQUIRE(w.setBlock(p, marker));
+        edits.push_back({p, marker});
+    }
+    REQUIRE(w.save(true, {}, &err));
+    CHECK(w.storage().cachedRegionCount() <= 8);
+    CHECK_EQ(w.storage().usage().regionFiles, (u64)20);
+    w.close();
+    World r(blocks(), jobs(), vxtest::testItems());
+    r.storage().maxCachedRegions = 4;
+    REQUIRE(r.open(dir, &err));
+    for (auto& [p, s] : edits) { r.loadChunkSync(p.chunk()); CHECK_EQ(r.getBlock(p), s); }
+    CHECK(r.storage().cachedRegionCount() <= 4);
+}

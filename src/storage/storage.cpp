@@ -234,7 +234,7 @@ fs::path WorldStorage::regionPath(RegionPos p) const {
 
 bool WorldStorage::open(const fs::path& dir, bool create, std::string* err) {
     std::lock_guard<std::mutex> lk(m_);
-    dir_ = dir; cache_.clear(); missing_.clear();
+    dir_ = dir; cache_.clear(); missing_.clear(); lastUse_.clear();
     std::error_code ec;
     if (!fs::exists(dir_ / "world.json", ec) && !fs::exists(dir_ / "world.json.new", ec)) {
         if (!create) { if (err) *err = "not a world: " + dir_.string(); return false; }
@@ -305,6 +305,7 @@ bool WorldStorage::loadMeta(WorldMeta& out, std::string* err) {
 }
 
 RegionFile* WorldStorage::cachedRegion(RegionPos p) {
+    lastUse_[p] = ++useClock_;
     auto it = cache_.find(p);
     if (it != cache_.end()) return &it->second;
     if (missing_.count(p)) return nullptr;
@@ -323,18 +324,34 @@ RegionFile* WorldStorage::cachedRegion(RegionPos p) {
     return &(cache_[p] = std::move(rf));
 }
 
+void WorldStorage::trimCache() {
+    // The cache always mirrors what is on disk after a commit, so evicting is just forgetting.
+    while (cache_.size() > maxCachedRegions) {
+        auto victim = cache_.begin(); u64 best = UINT64_MAX;
+        for (auto it = cache_.begin(); it != cache_.end(); ++it) { u64 u = lastUse_[it->first]; if (u < best) { best = u; victim = it; } }
+        lastUse_.erase(victim->first);
+        cache_.erase(victim);
+    }
+    if (missing_.size() > 4096) missing_.clear();   // negative cache: cheap to rebuild
+}
+
 std::vector<u8> WorldStorage::readRecord(ChunkPos c) {
     std::lock_guard<std::mutex> lk(m_);
-    RegionFile* rf = cachedRegion(regionOf(c));
-    if (!rf) return {};
-    auto it = rf->records.find(regionLocal(c));
-    return it == rf->records.end() ? std::vector<u8>{} : it->second;
+    std::vector<u8> out;
+    if (RegionFile* rf = cachedRegion(regionOf(c))) {
+        auto it = rf->records.find(regionLocal(c));
+        if (it != rf->records.end()) out = it->second;
+    }
+    trimCache();
+    return out;
 }
 
 bool WorldStorage::hasRecord(ChunkPos c) {
     std::lock_guard<std::mutex> lk(m_);
     RegionFile* rf = cachedRegion(regionOf(c));
-    return rf && rf->records.count(regionLocal(c));
+    bool has = rf && rf->records.count(regionLocal(c));
+    trimCache();
+    return has;
 }
 
 std::optional<std::vector<u8>> WorldStorage::readExtra(const std::string& name) { return readFile(dir_ / pathFromUtf8(name)); }
@@ -380,7 +397,7 @@ bool WorldStorage::commit(const Batch& b, std::string* err) {
         ops.push_back({1, name});
     }
     syncDirectory(dir_ / "region"); syncDirectory(dir_);
-    if (ops.empty()) return true;
+    if (ops.empty()) { trimCache(); return true; }
     if (s_fault == SaveFault::AfterNewFiles) { if (err) *err = "simulated crash after new files"; return false; }
     // 2. commit point: journal written atomically (tmp + rename)
     ByteWriter jw; jw.u32_(JOURNAL_MAGIC); jw.var(ops.size());
@@ -398,6 +415,7 @@ bool WorldStorage::commit(const Batch& b, std::string* err) {
     }
     syncDirectory(dir_ / "region"); syncDirectory(dir_);
     fs::remove(dir_ / "save.journal", ec);
+    trimCache();   // only after a successful commit: the cache then mirrors the disk exactly
     return true;
 }
 

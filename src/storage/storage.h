@@ -105,6 +105,13 @@ private:
     std::mutex m_;
     std::map<RegionPos, RegionFile> cache_;  // parsed region files (records only - small, sparse)
     std::map<RegionPos, bool> missing_;
+    std::map<RegionPos, u64> lastUse_;
+    u64 useClock_ = 0;
+    void trimCache();   // LRU bound; only called where no RegionFile pointers are held
+public:
+    size_t maxCachedRegions = 64;
+    size_t cachedRegionCount() const { return cache_.size(); }
+private:
 };
 
 } // namespace vx

@@ -51,6 +51,25 @@ Storage tests (`voxtests`):
 
 Audio bank: 51 sounds synthesized in 18 ms at startup, 1.6 MiB of RAM, 0 bytes on disk.
 
+### Occlusion (cave) culling: section connectivity graph
+
+Same world and seed, render distance 10, Release, macOS arm64; `--no-occlusion` vs default:
+
+| Scene | Visible sections | Draw calls | Triangles |
+|---|---|---|---|
+| Underground pocket (y = 24) | 279 → **4** | 341 → **7** | 113 k → **1.3 k** (−99%) |
+| Surface, hilly | 286 → **152** | 333 → **270** | 148 k → **109 k** (−26%) |
+
+The cost is a connectivity flood fill per meshed section, which runs on worker threads and adds
+about 0.2 ms per chunk, plus a BFS over the visible sections on the main thread. The frame time
+on this Mac is vsync-bound (16.7 ms) with or without culling, so the gain is GPU headroom. It
+matters most on integrated GPUs and at long render distances. F6 toggles culling for comparison.
+
+### Region cache bound
+`WorldStorage` keeps at most 64 parsed region files (LRU; `maxCachedRegions`). Evicting is
+always safe, because the cache only ever mirrors committed data and the World reads its pending
+writes before going to disk (`storage_region_cache_is_bounded_and_eviction_is_lossless`).
+
 Greedy merging turns a flat 16×16 floor from 512 quads into 2 (`render_greedy_merges_flat_floor`).
 
 ## Storage optimizations in place
@@ -73,8 +92,6 @@ Greedy merging turns a flat 16×16 floor from 512 quads into 2 (`render_greedy_m
 
 ## Known bottlenecks / open items
 
-- `WorldStorage` keeps parsed records of every touched region in memory. Records are small, but
-  the cache should get an LRU bound for very large edited worlds.
 - Full relight of a chunk on any opacity change. Incremental light updates are planned once the
   renderer can show the difference.
 - GPU metrics will be added with the renderer (draw calls, triangles, upload bytes counters

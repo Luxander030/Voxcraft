@@ -48,6 +48,7 @@ void init() {
         G->app = AppState::Playing;
     } else G->app = AppState::Title;
     G->lastSave = 0;
+    if (G->noOcclusion) G->renderer.occlusionCulling = false;
 }
 
 void environment(FrameEnv& env, const Vec3& eye) {
@@ -91,7 +92,7 @@ void frame() {
         G->renderer.render({0, 0, 0}, 0, 0, sapp_width(), sapp_height(), env, nullptr, G->ui, nullptr);
         if (G->opt.smokeFrames) {   // --title-smoke: capture the menu and exit
             G->frame++;
-            if (G->frame == 2) vx_platform_activate();
+            if (G->frame == 2 && !G->opt.screenshot.empty()) vx_platform_activate();   // only steal focus when capturing
             if (G->opt.menuState == 1 && G->frame == 5) { refreshWorldList(); G->app = AppState::Worlds; }
             if (G->opt.menuState == 2 && G->frame == 5) { G->app = AppState::CreateWorld; G->focusField = 1; }
             if (G->opt.menuState == 3 && G->frame == 5) { G->app = AppState::Settings; }
@@ -111,7 +112,7 @@ void frame() {
 
     if (G->opt.smokeFrames) {   // scripted: look around, fly forward, then pose creatures and open the inventory
         int last = G->opt.smokeFrames;
-        if (G->frame == 2) vx_platform_activate();
+        if (G->frame == 2 && !G->opt.screenshot.empty()) vx_platform_activate();   // only steal focus when capturing
         // focus changes while the window activates would pause the game; the script stays in control
         if (G->screen == Screen::Pause && (int)G->frame < last - 30) G->screen = Screen::None;
         if (G->opt.menuState == 4 && (int)G->frame == last - 30) { G->screen = Screen::Pause; G->mouseLocked = false; }
@@ -120,6 +121,12 @@ void frame() {
             G->world->meta.dayTime = G->opt.menuState == 7 ? 18000 : G->opt.menuState == 8 ? 4500 : 6000;
         }
         if (G->opt.menuState >= 6 && (int)G->frame >= last - 20) { G->player.pitch = G->opt.menuState == 7 ? 0.9f : G->opt.menuState == 8 ? 1.2f : 0.3f; if (G->opt.menuState == 8) G->player.yaw = PI * 0.5f; }
+        if (G->smokeUnderground && G->frame == 20 && G->playerReady) {   // measurement: a pocket deep underground
+            BlockPos c{(int)std::floor(G->player.pos.x), 24, (int)std::floor(G->player.pos.z)};
+            for (int dy = 0; dy < 3; dy++) for (int dz = -2; dz <= 2; dz++) for (int dx = -2; dx <= 2; dx++) G->world->setBlock({c.x + dx, c.y + dy, c.z + dz}, AIR);
+            G->player.pos = {c.x + 0.5f, (float)c.y, c.z + 0.5f}; G->player.prevPos = G->player.pos; G->player.flying = false;
+        }
+        if (G->smokeUnderground && G->frame > 20) { G->input.forward = 0; }
         if (G->opt.menuState == 10 && G->frame == 10) {   // armor + farming kit, then the inventory
             G->armor[1] = {G->items.id("iron_chestplate"), 1, 40}; G->armor[3] = {G->items.id("hide_boots"), 1, 0}; G->armor[0] = {G->items.id("azurite_helm"), 1, 0};
             for (const char* n : {"iron_hoe", "grain_seeds", "bread", "bow", "arrow", "bedroll", "hopper", "comparator", "ember_striker"}) giveOrDropInv({G->items.id(n), (u8)(G->items.maxStack(G->items.id(n)) > 1 ? 12 : 1), 0});
@@ -272,6 +279,7 @@ void event(const sapp_event* e) {
         }
         if (k == SAPP_KEYCODE_F3) G->debug = !G->debug;
         if (k == SAPP_KEYCODE_F11) sapp_toggle_fullscreen();
+        if (k == SAPP_KEYCODE_F6 && !e->key_repeat) { G->renderer.occlusionCulling = !G->renderer.occlusionCulling; showStatus(G->renderer.occlusionCulling ? "Occlusion culling on" : "Occlusion culling off"); }
         if (k == SAPP_KEYCODE_F5 && !e->key_repeat) { if (saveWorld(true)) showStatus("World saved"); }
         if (k == SAPP_KEYCODE_F4 && !e->key_repeat) {   // developer convenience: switch game mode
             G->world->meta.gameMode = G->creative() ? "survival" : "creative";
@@ -337,6 +345,8 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--radius") G->opt.radius = clamp(atoi(next()), 2, 32);
         else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
+        else if (a == "--no-occlusion") G->noOcclusion = true;
+        else if (a == "--underground") G->smokeUnderground = true;
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
         else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : m == "armor" ? 10 : 0; }
     }

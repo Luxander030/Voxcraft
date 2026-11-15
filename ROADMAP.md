@@ -18,13 +18,15 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Section mesher: face culling, greedy merging, smooth light + AO, plants, fluids, small shapes. 12-byte packed vertices, shared index buffer.
 - ✅ Hand-written MSL + HLSL shaders; opaque / cutout / translucent passes; reversed-Z infinite projection; frustum culling per section; fog; day/night light.
 - ✅ Original 5×7 bitmap font, HUD, hotbar with isometric icons, block outline, F3 debug overlay.
-- ⬜ Cave/occlusion culling, LOD for far terrain.
+- ✅ Cave/occlusion culling via section connectivity graph (−99% draws underground, −26% on hilly surfaces).
+- ⬜ LOD for far terrain.
 
 ## Phase 3 — World and chunk foundation ✅
 - ✅ Block registry, chunk data, modification tracking, deterministic generator v1, lighting, sparse journaled storage (Tests A–F), streaming.
 
 ## Phase 4 — Optimization foundation 🔶
 - ✅ Background generation/lighting/meshing, chunk cache budget, storage cleanup, save validation, `vxworld`, `voxbench`, profiling overlay.
+- ✅ Region-file cache bounded (LRU, lossless eviction).
 - ⬜ Mesh/texture VRAM budget enforcement, memory-pressure response.
 
 ## Phase 5 — Player gameplay 🔶

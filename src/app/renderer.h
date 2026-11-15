@@ -48,6 +48,7 @@ public:
     const Stats& stats() const { return stats_; }
     const BlockTextures& textures() const { return tex_; }
     int renderRadius = 10;
+    bool occlusionCulling = true;   // cave culling via the section connectivity graph
 
     // WorldListener
     void onChunkReady(ChunkPos p) override;
@@ -55,7 +56,7 @@ public:
     void onChunkUnloaded(ChunkPos p) override;
 
 private:
-    struct SectionGpu { sg_buffer buf{}; int first[ML_COUNT] = {}; int count[ML_COUNT] = {}; size_t bytes = 0; };
+    struct SectionGpu { sg_buffer buf{}; int first[ML_COUNT] = {}; int count[ML_COUNT] = {}; size_t bytes = 0; u16 conn = 0x7FFF; };
     struct ChunkGpu { SectionGpu sec[SECTIONS]; u16 dirty = 0; bool inflight = false; u32 gen = 0; };
     void upload(ChunkPos p, u32 gen, int sy, const SectionMesh& m);
     void freeSection(SectionGpu& s);

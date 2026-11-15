@@ -92,6 +92,7 @@ struct Game {
     bool keys[512] = {};
     bool mouseDown[3] = {};
     float mouseX = 0, mouseY = 0;
+    bool noOcclusion = false, smokeUnderground = false;
     bool mouseLocked = false, debug = false, quitting = false, initFailed = false, ignoreChar = false, quitToTitle = false;
 
     // interaction state

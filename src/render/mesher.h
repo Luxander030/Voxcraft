@@ -27,6 +27,7 @@ enum MeshLayer { ML_OPAQUE = 0, ML_CUTOUT = 1, ML_TRANSLUCENT = 2, ML_COUNT = 3 
 
 struct SectionMesh {
     std::vector<u32> data[ML_COUNT];   // 3 u32 per vertex, 4 vertices per quad
+    u16 connectivity = 0x7FFF;         // face-pair visibility through the section (render/visibility.h)
     int quads(int l) const { return (int)(data[l].size() / 12); }
     int totalQuads() const { return quads(0) + quads(1) + quads(2); }
     bool empty() const { return data[0].empty() && data[1].empty() && data[2].empty(); }

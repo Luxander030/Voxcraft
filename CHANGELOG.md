@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Optimization
+- Occlusion culling with a section connectivity graph (F6 toggles it). Underground scenes draw
+  about 99% fewer triangles.
+- LRU bound on the region-file cache.
+- Smoke runs only bring the window to the front when a screenshot is requested.
+
 ### Farming, armor and bedrolls
 - Hoes, farmland with moisture, grain growth stages, seeds and bread.
 - Twelve armor pieces with inventory slots, damage reduction, durability and an armor bar.

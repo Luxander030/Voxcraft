@@ -1,6 +1,7 @@
 #include "app/renderer.h"
 #include "app/shaders.h"
 #include "core/profiler.h"
+#include "render/visibility.h"
 
 namespace vx {
 
@@ -210,6 +211,7 @@ void Renderer::upload(ChunkPos p, u32 gen, int sy, const SectionMesh& m) {
     if (it == chunks_.end() || it->second.gen != gen) return;   // unloaded or superseded
     SectionGpu& s = it->second.sec[sy];
     freeSection(s);
+    s.conn = m.connectivity;   // kept for empty sections too: they still block or pass visibility
     if (m.empty()) return;
     Stopwatch sw;
     std::vector<u32> all; all.reserve(m.bytes() / 4);
@@ -281,13 +283,29 @@ void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, c
     struct Item { const SectionGpu* s; Vec3 origin; float d; };
     std::vector<Item> items; items.reserve(chunks_.size() * 4);
     float maxD = (float)(renderRadius * 16 + 16);
-    for (auto& [p, c] : chunks_) {
+    for (auto& [p, c] : chunks_) for (auto& s : c.sec) if (s.buf.id) { stats_.sections++; stats_.gpuBytes += s.bytes; }
+    if (occlusionCulling) {
+        SectionKey cam{(int)std::floor(eye.x) >> 4, clamp((int)std::floor(eye.y) >> 4, 0, SECTIONS - 1), (int)std::floor(eye.z) >> 4};
+        traverseVisible(cam, renderRadius + 1,
+            [&](const SectionKey& k) -> FaceMask { auto it = chunks_.find({k.x, k.z}); return it == chunks_.end() ? ALL_CONNECTED : it->second.sec[k.y].conn; },
+            [&](const SectionKey& k) {
+                Vec3 o{(float)(k.x * 16) - eye.x, (float)(k.y * 16) - eye.y, (float)(k.z * 16) - eye.z};
+                if ((o.x + 8) * (o.x + 8) + (o.z + 8) * (o.z + 8) > maxD * maxD) return false;
+                return fr.visible({o, o + Vec3(16, 16, 16)});
+            },
+            [&](const SectionKey& k) {
+                auto it = chunks_.find({k.x, k.z});
+                if (it == chunks_.end() || !it->second.sec[k.y].buf.id) return;
+                Vec3 o{(float)(k.x * 16) - eye.x, (float)(k.y * 16) - eye.y, (float)(k.z * 16) - eye.z};
+                Vec3 cc = o + Vec3(8, 8, 8);
+                items.push_back({&it->second.sec[k.y], o, dot(cc, cc)});
+            });
+    } else for (auto& [p, c] : chunks_) {
         float ox = (float)(p.x * 16) - eye.x, oz = (float)(p.z * 16) - eye.z;
         if ((ox + 8) * (ox + 8) + (oz + 8) * (oz + 8) > maxD * maxD) continue;
         for (int sy = 0; sy < SECTIONS; sy++) {
             const SectionGpu& s = c.sec[sy];
             if (!s.buf.id) continue;
-            stats_.sections++; stats_.gpuBytes += s.bytes;
             Vec3 o{ox, (float)(sy * 16) - eye.y, oz};
             if (!fr.visible({o, o + Vec3(16, 16, 16)})) continue;
             Vec3 cc = o + Vec3(8, 8, 8);
