@@ -41,6 +41,7 @@ int BlockBehaviors::strongPower(const BlockPos& b) const {
         BlockPos n = b + d; BlockState ns = w_.getBlock(n); u16 ni = w_.reg.def(ns).index;
         if (ni == relayIdx_ && w_.reg.getProp(ns, "powered") && eq(n + FOUR[w_.reg.getProp(ns, "facing")], b)) best = 15;
         if (ni == watcherIdx_ && w_.reg.getProp(ns, "powered") && eq(n + neg(SIX[w_.reg.getProp(ns, "facing")]), b)) best = 15;
+        if (ni == comparatorIdx_ && eq(n + FOUR[w_.reg.getProp(ns, "facing")], b)) best = std::max(best, w_.reg.getProp(ns, "power"));
     }
     return best;
 }
@@ -65,6 +66,7 @@ int BlockBehaviors::emitInto(const BlockPos& src, const BlockPos& dst, bool forW
     }
     if (i == relayIdx_) return (w_.reg.getProp(s, "powered") && eq(src + FOUR[w_.reg.getProp(s, "facing")], dst)) ? 15 : 0;
     if (i == watcherIdx_) return (w_.reg.getProp(s, "powered") && eq(src + neg(SIX[w_.reg.getProp(s, "facing")]), dst)) ? 15 : 0;
+    if (i == comparatorIdx_) return eq(src + FOUR[w_.reg.getProp(s, "facing")], dst) ? w_.reg.getProp(s, "power") : 0;
     if (d.solid && d.has(BF_CIRCUIT) == false) {
         int sp = strongPower(src);
         if (sp) return sp;
@@ -138,7 +140,19 @@ bool BlockBehaviors::circuitUpdate(const BlockPos& p, BlockState s, const BlockP
         if (eq(p, from)) notifyAround(p);
         return true;
     }
-    if (i == pistonIdx_) {
+    if (i == comparatorIdx_) {
+        if (comparatorTarget(p, s) != w_.reg.getProp(s, "power")) w_.scheduleTick(p, s, 2);
+        if (eq(p, from)) notifyAround(p);
+        return true;
+    }
+    if (i == dropperIdx_ || i == dispenserIdx_) {
+        bool on = inputPower(p) > 0, trig = w_.reg.getProp(s, "triggered") != 0;
+        if (on && !trig) { BlockState t = w_.reg.withProp(s, "triggered", 1); w_.setBlock(p, t, SET_NOTIFY); w_.scheduleTick(p, t, 4); }   // rising edge
+        else if (!on && trig) w_.setBlock(p, w_.reg.withProp(s, "triggered", 0), SET_NOTIFY);
+        return true;
+    }
+    if (i == hopperIdx_) return true;   // locking is evaluated when the hopper transfers
+    if (isPiston(i)) {
         bool on = false;
         BlockPos front = p + SIX[w_.reg.getProp(s, "facing")];
         for (auto& d : DIRS) { BlockPos n = p + d; if (!eq(n, front)) on = on || emitInto(n, p, false) > 0; }
@@ -150,7 +164,7 @@ bool BlockBehaviors::circuitUpdate(const BlockPos& p, BlockState s, const BlockP
     if (i == headIdx_) {
         BlockPos back = p + neg(SIX[w_.reg.getProp(s, "facing")]);
         BlockState b = w_.getBlock(back);
-        if (w_.reg.def(b).index != pistonIdx_ || !w_.reg.getProp(b, "extended")) w_.setBlock(p, AIR);   // orphaned head
+        if (!isPiston(w_.reg.def(b).index) || !w_.reg.getProp(b, "extended")) w_.setBlock(p, AIR);   // orphaned head
         return true;
     }
     return false;
@@ -172,6 +186,11 @@ bool BlockBehaviors::circuitTick(const BlockPos& p, BlockState s) {
     } else if (i == watcherIdx_) {
         if (!w_.reg.getProp(s, "powered")) { BlockState on = w_.reg.withProp(s, "powered", 1); w_.setBlock(p, on); notifyAround(p); w_.scheduleTick(p, on, 2); }
         else { w_.setBlock(p, w_.reg.withProp(s, "powered", 0)); notifyAround(p); }
+    } else if (i == comparatorIdx_) {
+        int t = comparatorTarget(p, s);
+        if (t != w_.reg.getProp(s, "power")) { w_.setBlock(p, w_.reg.withProp(s, "power", t), SET_NOTIFY); notifyAround(p); }
+    } else if (i == dropperIdx_ || i == dispenserIdx_) {
+        if (w_.reg.getProp(s, "triggered") && onDispense) onDispense(p, i == dispenserIdx_, SIX[w_.reg.getProp(s, "facing")]);
     } else if (i == buttonIdx_) {
         if (w_.reg.getProp(s, "on")) w_.setBlock(p, w_.reg.withProp(s, "on", 0));
     } else if (i == plateIdx_) {
@@ -179,7 +198,7 @@ bool BlockBehaviors::circuitTick(const BlockPos& p, BlockState s) {
             if (entityOnPlate && entityOnPlate(p)) w_.scheduleTick(p, s, 10);
             else w_.setBlock(p, w_.reg.withProp(s, "on", 0));
         }
-    } else if (i == pistonIdx_) {
+    } else if (isPiston(i)) {
         bool on = false;
         BlockPos front = p + SIX[w_.reg.getProp(s, "facing")];
         for (auto& d : DIRS) { BlockPos n = p + d; if (!eq(n, front)) on = on || emitInto(n, p, false) > 0; }
@@ -194,6 +213,13 @@ void BlockBehaviors::pistonSet(const BlockPos& p, BlockState s, bool extend) {
     if (!extend) {
         if (w_.reg.def(w_.getBlock(front)).index == headIdx_) w_.setBlock(front, AIR, SET_NOTIFY);
         w_.setBlock(p, w_.reg.withProp(s, "extended", 0));
+        if (w_.reg.def(s).index == stickyIdx_) {   // pull the block in front of the head back
+            BlockPos far = front + dir; BlockState b = w_.getBlock(far); const BlockDef& d = w_.reg.def(b);
+            if (b != AIR && !d.has(BF_REPLACEABLE) && !d.has(BF_FLUID) && d.hardness >= 0 && !d.has(BF_BLOCK_ENTITY) && !isPiston(d.index) && d.index != headIdx_) {
+                w_.setBlock(front, b, SET_NOTIFY); w_.setBlock(far, AIR, SET_NOTIFY);
+                notifyAround(front); notifyAround(far);
+            }
+        }
         return;
     }
     // collect the pushed line
@@ -203,7 +229,7 @@ void BlockBehaviors::pistonSet(const BlockPos& p, BlockState s, bool extend) {
         BlockState b = w_.getBlock(q);
         const BlockDef& d = w_.reg.def(b);
         if (b == AIR || d.has(BF_REPLACEABLE) || d.has(BF_FLUID)) break;
-        if (n == 12 || d.hardness < 0 || d.has(BF_BLOCK_ENTITY) || d.index == pistonIdx_ || d.index == headIdx_ || q.y + dir.y < 0 || q.y + dir.y >= WORLD_H) return;   // blocked
+        if (n == 12 || d.hardness < 0 || d.has(BF_BLOCK_ENTITY) || isPiston(d.index) || d.index == headIdx_ || q.y + dir.y < 0 || q.y + dir.y >= WORLD_H) return;   // blocked
         line.push_back(q);
     }
     for (auto it = line.rbegin(); it != line.rend(); ++it) {
@@ -217,6 +243,24 @@ void BlockBehaviors::pistonSet(const BlockPos& p, BlockState s, bool extend) {
     // let everything around the moved line react once the move is complete
     for (auto& b : line) notifyAround(b + dir);
     notifyAround(p);
+}
+
+int BlockBehaviors::comparatorTarget(const BlockPos& p, BlockState s) const {
+    int f = w_.reg.getProp(s, "facing");
+    BlockPos back = p + neg(FOUR[f]);
+    int b = containerSignal ? containerSignal(back) : -1;
+    if (b < 0) b = emitInto(back, p, false);
+    const BlockPos& d = FOUR[f];
+    BlockPos left{p.x - d.z, p.y, p.z + d.x}, right{p.x + d.z, p.y, p.z - d.x};
+    int side = std::max(emitInto(left, p, false), emitInto(right, p, false));
+    return w_.reg.getProp(s, "mode") == 0 ? (b >= side ? b : 0) : std::max(0, b - side);
+}
+
+void BlockBehaviors::toggleComparator(const BlockPos& p) {
+    BlockState s = w_.getBlock(p);
+    if (w_.reg.def(s).index != comparatorIdx_) return;
+    BlockState n = w_.reg.withProp(s, "mode", w_.reg.getProp(s, "mode") ? 0 : 1);
+    w_.setBlock(p, n); w_.scheduleTick(p, n, 2);
 }
 
 void BlockBehaviors::toggleLever(const BlockPos& p) {

@@ -19,7 +19,7 @@ static u32 parseFlag(const std::string& s) {
         {"replaceable", BF_REPLACEABLE}, {"gravity", BF_GRAVITY}, {"fluid", BF_FLUID}, {"leaves", BF_LEAVES}, {"flammable", BF_FLAMMABLE},
         {"needs_soil", BF_NEEDS_SOIL}, {"block_entity", BF_BLOCK_ENTITY}, {"climbable", BF_CLIMBABLE}, {"attached", BF_ATTACHED},
         {"attached_floor", BF_ATTACHED_FLOOR}, {"circuit", BF_CIRCUIT}, {"spreads", BF_SPREADS}, {"slippery", BF_SLIPPERY}, {"hot", BF_HOT},
-        {"prickly", BF_PRICKLY}, {"interact_craft", BF_INTERACT_CRAFT}, {"interact_chest", BF_INTERACT_CHEST}, {"interact_kiln", BF_INTERACT_KILN}};
+        {"prickly", BF_PRICKLY}, {"interact_craft", BF_INTERACT_CRAFT}, {"interact_chest", BF_INTERACT_CHEST}, {"interact_kiln", BF_INTERACT_KILN}, {"interact_container", BF_INTERACT_CONTAINER}};
     for (auto& p : t) if (s == p.first) return p.second;
     return 0;
 }

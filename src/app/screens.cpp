@@ -92,10 +92,13 @@ void buildSlots() {
         addSlot(px + 124, py + 35, &G->craftResult, UiSlot::CraftResult, 2);
         addPlayerInventory(px, py);
         break;
-    case Screen::Chest:
+    case Screen::Chest:   // chests, hoppers, droppers, dispensers
         if (BlockEntity* be = G->world->blockEntity(G->openBlock)) {
-            be->items.resize(CHEST_SLOTS);
-            for (int i = 0; i < CHEST_SLOTS; i++) addSlot(px + 8 + (i % 9) * 18, py + 18 + (i / 9) * 18, &be->items[i], UiSlot::Normal, 3);
+            int n = std::max(1, containerSlots(G->reg, G->world->getBlock(G->openBlock)));
+            be->items.resize(n);
+            int cols = n == 9 ? 3 : 9;
+            float x0 = n == 9 ? px + 62 : n == HOPPER_SLOTS ? px + 44 : px + 8;
+            for (int i = 0; i < n; i++) addSlot(x0 + (i % cols) * 18, py + 18 + (i / cols) * 18, &be->items[i], UiSlot::Normal, 3);
         }
         addPlayerInventory(px, py);
         break;
@@ -115,6 +118,7 @@ void buildSlots() {
 void markContainerDirty() {
     if (G->screen == Screen::Chest || G->screen == Screen::Kiln) {
         if (ChunkPtr c = G->world->chunk(G->openBlock.chunk())) c->unsaved = true;
+        if (G->behaviors) G->behaviors->containerChanged(G->openBlock);   // comparators reading this container
     }
 }
 
@@ -368,7 +372,10 @@ void drawFrameUi(int w, int h) {
     }
     case Screen::Inventory: case Screen::Workbench: case Screen::Chest: case Screen::Kiln: {
         buildSlots();
-        const char* title = G->screen == Screen::Workbench ? "Workbench" : G->screen == Screen::Chest ? "Chest" : G->screen == Screen::Kiln ? "Kiln" : creative ? "Creative" : "Crafting";
+        std::string cname = G->screen == Screen::Chest ? G->reg.def(G->world->getBlock(G->openBlock)).name : "";
+        if (!cname.empty()) cname[0] = (char)std::toupper((unsigned char)cname[0]);
+        std::string titleS = G->screen == Screen::Workbench ? "Workbench" : G->screen == Screen::Chest ? cname : G->screen == Screen::Kiln ? "Kiln" : creative ? "Creative" : "Crafting";
+        const char* title = titleS.c_str();
         drawPanel(title);
         float px = panelX(), py = panelY();
         if (G->screen == Screen::Kiln) {

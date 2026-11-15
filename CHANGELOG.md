@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Circuits: automation
+- Sticky pistons, comparators, hoppers, droppers and dispensers, plus recipes for every circuit
+  block. New container screen layouts.
+- Containers module (headless, tested). Kilns now tick through it.
+
 ### Dimensions
 - The Hollow: a cavern dimension with a lava sea, new blocks (hollowrock, ember ore, ash soil,
   glowcaps) and items (ember shard, ember striker).

@@ -28,7 +28,7 @@ enum : u32 {
     BF_REPLACEABLE = 1 << 0, BF_GRAVITY = 1 << 1, BF_FLUID = 1 << 2, BF_LEAVES = 1 << 3, BF_FLAMMABLE = 1 << 4,
     BF_NEEDS_SOIL = 1 << 5, BF_BLOCK_ENTITY = 1 << 6, BF_CLIMBABLE = 1 << 7, BF_ATTACHED = 1 << 8, BF_ATTACHED_FLOOR = 1 << 9,
     BF_CIRCUIT = 1 << 10, BF_SPREADS = 1 << 11, BF_SLIPPERY = 1 << 12, BF_HOT = 1 << 13, BF_PRICKLY = 1 << 14,
-    BF_INTERACT_CRAFT = 1 << 15, BF_INTERACT_CHEST = 1 << 16, BF_INTERACT_KILN = 1 << 17,
+    BF_INTERACT_CRAFT = 1 << 15, BF_INTERACT_CHEST = 1 << 16, BF_INTERACT_KILN = 1 << 17, BF_INTERACT_CONTAINER = 1 << 18,
 };
 
 struct BlockProp { std::string name; u8 count; u16 stride; };

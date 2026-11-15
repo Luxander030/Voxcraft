@@ -59,7 +59,7 @@ struct BlockEntity {
     std::vector<ItemStack> items;
     i32 data[4] = {0, 0, 0, 0};    // kiln: burn left, burn total, cook progress, unused
 };
-enum : u8 { BE_NONE = 0, BE_CHEST = 1, BE_KILN = 2 };
+enum : u8 { BE_NONE = 0, BE_CHEST = 1, BE_KILN = 2, BE_HOPPER = 3, BE_DROPPER = 4 };   // dispensers use BE_DROPPER
 
 struct ScheduledTick {
     u16 index;          // column index

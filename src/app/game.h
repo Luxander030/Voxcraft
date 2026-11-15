@@ -6,6 +6,7 @@
 #include "game/behaviors.h"
 #include "game/entities.h"
 #include "game/items.h"
+#include "game/containers.h"
 #include "game/kiln.h"
 #include "game/mobs.h"
 #include "game/particles.h"

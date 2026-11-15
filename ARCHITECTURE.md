@@ -126,6 +126,14 @@ strong and weak powering of solid blocks. The file header documents the full rul
   scheduled ticks.
 - All updates go through a FIFO work queue rather than recursion.
 
+## Containers and automation
+
+`game/containers.cpp` holds the item-moving logic: kilns, hoppers and dispensing. It reaches
+the world only through `World` and the `BlockBehaviors` hooks (`containerSignal`,
+`onDispense`, `containerChanged`), so it runs headless in tests.
+- Hoppers are processed in position order, so automation is deterministic.
+- Any first access to a generated chest rolls its loot, whether the player or a hopper opens it.
+
 ## Memory management
 
 - Uniform sections (all air, all stone) cost nothing. Mixed sections are 8 KiB plus light

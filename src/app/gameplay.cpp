@@ -138,6 +138,8 @@ bool placeHeld() {
         } else if (d.shape == BlockShape::FlatWall) {
             if (n.y != 0) return false;
             place = G->reg.withProp(place, "facing", n.z < 0 ? 0 : n.z > 0 ? 1 : n.x < 0 ? 2 : 3);
+        } else if (cnt == 5) {   // hoppers point into the block that was clicked
+            place = G->reg.withProp(place, "facing", n.y != 0 ? 0 : n.z > 0 ? 1 : n.z < 0 ? 2 : n.x > 0 ? 3 : 4);
         } else if (cnt == 4) {
             place = G->reg.withProp(place, "facing", horizontalFacingToward(G->player));
         } else if (cnt == 6) {
@@ -148,29 +150,34 @@ bool placeHeld() {
     }
     if (!G->world->setBlock(at, place)) return false;
     sfx3d("place_" + d.sound, {at.x + 0.5f, at.y + 0.5f, at.z + 0.5f}, SoundCat::Blocks);
-    if (d.has(BF_INTERACT_CHEST)) G->world->ensureBlockEntity(at, BE_CHEST)->items.resize(CHEST_SLOTS);
-    if (d.has(BF_INTERACT_KILN)) G->world->ensureBlockEntity(at, BE_KILN)->items.resize(KILN_SLOTS);
+    if (int n = containerSlots(G->reg, place)) {   // every container gets its block entity when placed
+        u8 kind = d.has(BF_INTERACT_KILN) ? BE_KILN : d.has(BF_INTERACT_CHEST) ? BE_CHEST : d.name == "hopper" ? BE_HOPPER : BE_DROPPER;
+        G->world->ensureBlockEntity(at, kind)->items.resize(n);
+    }
     if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
     return true;
 }
 
-void tickKilns() {
-    // Only kilns in loaded chunks near the player run (simulation distance).
-    int r = G->world->simulationRadius;
-    ChunkPos pc{(int)std::floor(G->player.pos.x) >> 4, (int)std::floor(G->player.pos.z) >> 4};
-    std::vector<std::pair<BlockPos, bool>> litChanges;
-    G->world->forEachChunk([&](ChunkPos p, Chunk& c, ChunkState) {
-        if (std::abs(p.x - pc.x) > r || std::abs(p.z - pc.z) > r) return;
-        for (auto& be : c.blockEntities) {
-            if (be.kind != BE_KILN) continue;
-            bool lit = false;
-            if (tickKiln(be, G->items, G->recipes, lit)) c.unsaved = true;
-            int lx, y, lz; columnIndexDecode(be.index, lx, y, lz);
-            BlockState s = c.get(lx, y, lz);
-            if (G->reg.def(s).propIndex("lit") >= 0 && (G->reg.getProp(s, "lit") != 0) != lit) litChanges.push_back({{p.x * 16 + lx, y, p.z * 16 + lz}, lit});
-        }
-    });
-    for (auto& [bp, lit] : litChanges) G->world->setBlock(bp, G->reg.withProp(G->world->getBlock(bp), "lit", lit ? 1 : 0));
+ContainerContext containerCtx() {
+    ContainerContext c{*G->world, G->items, G->recipes};
+    c.behaviors = G->behaviors.get(); c.entities = G->entities.get(); c.rng = &G->rng;
+    return c;
+}
+
+void setupBehaviors() {
+    G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
+    G->behaviors->entityOnPlate = [](const BlockPos& b) {
+        AABB plate{{(float)b.x, (float)b.y, (float)b.z}, {(float)b.x + 1, (float)b.y + 0.25f, (float)b.z + 1}};
+        if (plate.intersects(G->player.box())) return true;
+        for (auto& e : G->entities->items) if (plate.intersects({e.pos - Vec3(0.125f, 0, 0.125f), e.pos + Vec3(0.125f, 0.25f, 0.125f)})) return true;
+        return false;
+    };
+    G->behaviors->containerSignal = [](const BlockPos& p) { ContainerContext c = containerCtx(); return containerSignal(c, p); };
+    G->behaviors->onDispense = [](const BlockPos& p, bool d, const BlockPos& dir) {
+        ContainerContext c = containerCtx();
+        dispense(c, p, d, dir);
+        sfx3d("click_circuit", {p.x + 0.5f, p.y + 0.5f, p.z + 0.5f}, SoundCat::Blocks, 0.7f);
+    };
 }
 } // namespace
 
@@ -249,14 +256,8 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
         G->player.pos = surfaceSpawn();
         VX_INFO("created world %s (seed %llu)", G->saveDir.string().c_str(), (unsigned long long)m.gen.seed);
     }
-    G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
+    setupBehaviors();
     G->particles.parts.clear();
-    G->behaviors->entityOnPlate = [](const BlockPos& b) {
-        AABB plate{{(float)b.x, (float)b.y, (float)b.z}, {(float)b.x + 1, (float)b.y + 0.25f, (float)b.z + 1}};
-        if (plate.intersects(G->player.box())) return true;
-        for (auto& e : G->entities->items) if (plate.intersects({e.pos - Vec3(0.125f, 0, 0.125f), e.pos + Vec3(0.125f, 0.25f, 0.125f)})) return true;
-        return false;
-    };
     if (G->creative()) giveCreativeHotbar();
     G->player.canFly = G->creative();
     if (!G->creative()) G->player.flying = false;
@@ -308,11 +309,7 @@ bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* 
     }
     G->world->meta.gameMode = mode;
     G->dimension = dim;
-    G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
-    G->behaviors->entityOnPlate = [](const BlockPos& b) {
-        AABB plate{{(float)b.x, (float)b.y, (float)b.z}, {(float)b.x + 1, (float)b.y + 0.25f, (float)b.z + 1}};
-        return plate.intersects(G->player.box());
-    };
+    setupBehaviors();
     G->player.pos = pos; G->player.vel = {};
     if (arrive) {
         // find an existing rift near the target, or build a gate there
@@ -490,7 +487,7 @@ void simulateTick() {
     }
     if (G->world->meta.tick % 20 == 0) G->mobs->spawnTick(*G->world, p, ctx.daylight, G->rng);
     if (G->attackCooldown > 0) G->attackCooldown--;
-    tickKilns();
+    { ContainerContext cc = containerCtx(); tickContainers(cc, {(int)std::floor(p.pos.x) >> 4, (int)std::floor(p.pos.z) >> 4}, G->world->simulationRadius); }
     G->world->tick();
 }
 
@@ -567,14 +564,17 @@ void clickUse() {
             bool fresh = G->world->blockEntity(G->openBlock) == nullptr;
             BlockEntity* be = G->world->ensureBlockEntity(G->openBlock, BE_CHEST);
             be->items.resize(CHEST_SLOTS);
-            // a chest that is part of the generated terrain (not placed by a player) gets its loot now
-            ChunkPtr ch = G->world->chunk(G->openBlock.chunk());
-            if (fresh && ch && !ch->delta.count(columnIndex(G->openBlock.x & 15, G->openBlock.y, G->openBlock.z & 15)))
-                G->recipes.rollStructureLoot(G->world->meta.gen.seed, G->openBlock, be->items);
+            if (fresh) rollGeneratedChestLoot(*G->world, G->recipes, G->openBlock, *be);   // part of the generated terrain
+            openScreen(Screen::Chest); return;
+        }
+        if (d.has(BF_INTERACT_CONTAINER)) {
+            G->openBlock = G->target.block;
+            if (!G->world->blockEntity(G->openBlock)) G->world->ensureBlockEntity(G->openBlock, d.name == "hopper" ? BE_HOPPER : BE_DROPPER)->items.resize(containerSlots(G->reg, s));
             openScreen(Screen::Chest); return;
         }
         if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
         Vec3 tc{G->target.block.x + 0.5f, G->target.block.y + 0.5f, G->target.block.z + 0.5f};
+        if (d.name == "comparator") { G->behaviors->toggleComparator(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.name == "relay") { G->world->setBlock(G->target.block, G->reg.withProp(s, "delay", (G->reg.getProp(s, "delay") + 1) % 4)); return; }
