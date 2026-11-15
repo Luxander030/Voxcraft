@@ -77,6 +77,7 @@ def main():
                    [os.path.join(ITEMS_TEX, f) for f in os.listdir(ITEMS_TEX) if f.endswith(".png")] +
                    [os.path.join(ENT_TEX, f) for f in os.listdir(ENT_TEX) if f.endswith(".png")])
     h = hashlib.sha256(b"pak-v1")
+    h.update(open(os.path.abspath(__file__), "rb").read())   # packer rule changes also trigger a rebuild
     for f in files: h.update(os.path.basename(f).encode()); h.update(open(f, "rb").read())
     h.update(open(BLOCKS, "rb").read()); h.update(open(ITEMS, "rb").read())
     model_files = sorted(f for f in os.listdir(MODELS) if f.endswith(".json"))
@@ -110,6 +111,8 @@ def main():
         warnings.append("built models are stale relative to assets/models/src (run tools/scad_export.py)")
     for m in sorted(refs - have): errors.append(f"missing texture '{m}' referenced by blocks.json")
     refs |= {f"crack_{i}" for i in range(8)} | {"sun", "moon", "cloud"}   # used directly by the renderer
+    # growth-stage variants: "<x>_<n>" is used when "<x>_0" is referenced
+    refs |= {n for n in have if "_" in n and n.rsplit("_", 1)[1].isdigit() and n.rsplit("_", 1)[0] + "_0" in refs}
     # implicit "lit" variants: "<x>_on" is used by blocks referencing "<x>_off" or "<x>"
     refs |= {n for n in have if n.endswith("_on") and (n[:-3] + "_off" in refs or n[:-3] in refs)}
     for u in sorted(have - refs): warnings.append(f"unused texture '{u}'")

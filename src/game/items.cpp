@@ -32,6 +32,11 @@ bool ItemRegistry::load(const Json& root, const BlockRegistry& blocks, const Tex
         d->damage = (float)j["damage"].asNumber(d->damage);
         d->fuel = j["fuel"].asInt(d->fuel);
         if (const Json* t = j.find("tool")) { d->tool = parseTool((*t)["type"].asString()); d->tier = (*t)["tier"].asInt(0); d->speed = (float)(*t)["speed"].asNumber(1); }
+        if (const Json* a = j.find("armor")) {
+            std::string sl = (*a)["slot"].asString();
+            d->armorSlot = sl == "head" ? 0 : sl == "chest" ? 1 : sl == "legs" ? 2 : sl == "feet" ? 3 : -1;
+            d->armorPoints = (*a)["points"].asInt(0);
+        }
         if (const Json* f = j.find("food")) { d->hunger = (*f)["hunger"].asInt(0); d->saturation = (float)(*f)["saturation"].asNumber(0); }
         if (const Json* p = j.find("places")) {
             const BlockDef* b = blocks.byName(p->asString());

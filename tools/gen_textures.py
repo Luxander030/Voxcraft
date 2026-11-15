@@ -293,6 +293,9 @@ RECIPES = {
     "dropper_front": overlay(bricks(hexc("3a3230"), pal("8a5040", "7a4436", "9a5a48"), 4, 8), lambda px, r: [put(px, x, y, hexc("141010")) for x in range(5, 11) for y in range(6, 11) if (x - 7.5) ** 2 + (y - 8) ** 2 < 8]),
     "dispenser_front": overlay(bricks(hexc("3a3230"), pal("8a5040", "7a4436", "9a5a48"), 4, 8), lambda px, r: [put(px, x, y, hexc("141010") if abs(x - 7.5) < 2 else hexc("c8c8c8")) for x in range(4, 12) for y in range(6, 11)]),
     "comparator_top": overlay("slate", lambda px, r: [put(px, x, y, hexc("8a2a3a")) for x, y in ((3, 3), (12, 3), (7, 12), (8, 12), (7, 11), (8, 11))]),
+    "farmland_top": lambda r: [hexc(["4a3020", "5a3a26", "3e281a"][r.int(3)]) if (i // N) % 4 != 0 else hexc("2e1e12") for i in range(N * N)],
+    "bedroll_top": lambda r: [hexc("b84040") if (i % N) > 3 else hexc("e8e8e0") for i in range(N * N)],
+    "bedroll_side": lambda r: [hexc("8a2a2a") if (i // N) > 12 else CLEAR for i in range(N * N)],
     "relay_top": overlay("slate", lambda px, r: [put(px, x, y, hexc("8a2a3a")) for x in (4, 11) for y in (3, 4, 11, 12)]),
     "watcher_face": overlay("cobblestone", lambda px, r: [put(px, x, y, hexc("1a1a1a")) for x in range(3, 13) for y in (4, 5, 6)] +
                             [put(px, x, y, hexc("e83070")) for x in (5, 10) for y in (5,)]),
@@ -301,6 +304,17 @@ RECIPES = {
     "piston_front": framed(planks(OAK), hexc("4e381f")),
     "piston_back": framed(stone_f, hexc("4e5054")),
 }
+
+def grain_stage(k):
+    def d(px, rng):
+        h = 3 + k * 1.6
+        for x in range(2, 15, 3):
+            top = 15 - int(h)
+            for y in range(top, 16): put(px, x, y, hexc("6a9a3a") if k < 6 else hexc("b8a040"))
+            if k >= 5: [put(px, x + dx, top + dy, hexc("e0c860") if k == 7 else hexc("9ab84a")) for dx in (-1, 0, 1) for dy in (0, 1)]
+    return plant(d)
+
+for _k in range(8): RECIPES[f"grain_{_k}"] = grain_stage(_k)
 
 # ------------------------------------------------------------------ items
 def item(draw):
@@ -354,6 +368,9 @@ def tool(kind, tier):
             for y in range(2, 7):
                 for x in range(9, 14):
                     if abs(x - 11) + abs(y - 4) < 4: put(px, x, y, c[0] if y < 4 else c[1])
+        elif kind == "hoe":
+            for x in range(8, 13): put(px, x, 3, c[0]); put(px, x, 4, c[1])
+            put(px, 12, 5, c[2])
         elif kind == "sword":
             for k in range(9):
                 put(px, 6 + k, 9 - k, c[0]); put(px, 7 + k, 9 - k, c[1]); put(px, 6 + k, 10 - k, c[2])
@@ -451,7 +468,25 @@ def crack(stage):
 
 for _s in range(8): ENTITY_RECIPES[f"crack_{_s}"] = crack(_s)
 
+def armor(slot, colors):
+    def d(px, rng):
+        shapes = {"head": [(x, y) for x in range(3, 13) for y in range(3, 10) if not (5 <= x <= 10 and y >= 7)],
+                  "chest": [(x, y) for x in range(2, 14) for y in range(2, 14) if not (5 <= x <= 10 and y <= 3) and not ((x < 4 or x > 11) and y > 7)],
+                  "legs": [(x, y) for x in range(3, 13) for y in range(2, 14) if not (7 <= x <= 8 and y >= 5)],
+                  "feet": [(x, y) for x in range(2, 14) for y in range(8, 13) if not (6 <= x <= 9)]}
+        for (x, y) in shapes[slot]: put(px, x, y, colors[(x + y) % len(colors)] if y > 2 else colors[0])
+    return item(d)
+
+ARMOR_MATS = {"hide": pal("9a6a3a", "8a5e32", "a87844"), "iron": pal("e8e8e8", "c8c8c8", "a8a8a8"), "azurite": pal("8ae0f8", "38b8e0", "2a90c8")}
+ARMOR_NAMES = {"hide": ("hide_cap", "hide_tunic", "hide_leggings", "hide_boots"), "iron": ("iron_helm", "iron_chestplate", "iron_greaves", "iron_boots"),
+               "azurite": ("azurite_helm", "azurite_chestplate", "azurite_greaves", "azurite_boots")}
+for _m, _names in ARMOR_NAMES.items():
+    for _slot, _n in zip(("head", "chest", "legs", "feet"), _names): ITEM_RECIPES[_n] = armor(_slot, ARMOR_MATS[_m])
+
 ITEM_RECIPES.update({
+    "grain_seeds": item(lambda px, r: [put(px, 4 + r.int(8), 5 + r.int(7), hexc(["c8b060", "a89040"][r.int(2)])) for _ in range(9)]),
+    "grain_item": item(lambda px, r: ([put(px, 4 + k // 2, 13 - k, hexc("b8a040")) for k in range(10)], [put(px, 6 + dx, 3 + dy, hexc("e0c860")) for dx in (-1, 0, 1) for dy in range(4)])),
+    "bread": blob(pal("c88a4a", "a86e34", "e0a868"), r=5.5, squash=0.55),
     "raw_venison": blob(pal("c84a4a", "b03a3a", "e07070"), r=4.6, squash=0.7),
     "cooked_venison": blob(pal("8a4a2a", "6e3a20", "a86040"), r=4.6, squash=0.7),
     "raw_fowl": blob(pal("f0c0b0", "e0a898", "f8d8c8"), r=4.0, squash=0.8),
@@ -470,7 +505,7 @@ ITEM_RECIPES.update({
 })
 
 for t in TIER:
-    for k in ("pickaxe", "axe", "shovel", "sword"):
+    for k in ("pickaxe", "axe", "shovel", "sword", "hoe"):
         ITEM_RECIPES[f"{t}_{k}"] = tool(k, t)
 
 def main():

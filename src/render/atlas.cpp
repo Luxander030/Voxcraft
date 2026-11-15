@@ -100,6 +100,13 @@ bool BlockTextures::build(const BlockRegistry& reg, const TexturePack& pack, std
                     if (l >= 0) t[f] = (u16)l;
                 }
             }
+            if (int pAge = d.propIndex("age"); pAge >= 0) {   // growth stages: "<name>_0" -> "<name>_<age>"
+                const std::string& n = d.tex[FACE_NX];
+                if (n.size() > 2 && n.compare(n.size() - 2, 2, "_0") == 0) {
+                    int l = pack.layer(n.substr(0, n.size() - 1) + std::to_string(reg.getProp(s, pAge)));
+                    if (l >= 0) for (int f = 0; f < 6; f++) t[f] = (u16)l;
+                }
+            }
             if (pLit >= 0 && d.shape == BlockShape::Torch) {   // torch-shaped: "top" = lit look, "side" = unlit
                 u16 l = reg.getProp(s, pLit) ? base[FACE_PY] : base[FACE_NX];
                 for (int f = 0; f < 6; f++) t[f] = l;

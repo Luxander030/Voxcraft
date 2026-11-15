@@ -11,6 +11,7 @@ constexpr float PW = 176, PH = 166;   // container panel size
 // 7x7 HUD icons (original), MSB = left pixel; drawn with a 1px dark outline at 8-unit pitch
 const u16 HEART[7]  = {0x6C00, 0xFE00, 0xFE00, 0x7C00, 0x3800, 0x1000, 0x0000};
 const u16 FOOD[7]   = {0x1000, 0x6C00, 0xFE00, 0xFE00, 0xFE00, 0x7C00, 0x2800};
+const u16 SHIELD[7] = {0xFE00, 0xFE00, 0xFE00, 0x7C00, 0x7C00, 0x3800, 0x1000};
 const u16 BUBBLE[7] = {0x3800, 0x4400, 0x9200, 0xA200, 0x8200, 0x4400, 0x3800};
 const u16 HALF_MASK = 0xF000;   // left 4 columns
 
@@ -82,6 +83,7 @@ void buildSlots() {
                 addSlot(px + 8 + (i % 9) * 18, py + 18 + (i / 9) * 18, &palette[i], UiSlot::TakeOnly, 9);
             }
         } else {
+            for (int i = 0; i < 4; i++) addSlot(px + 8, py + 8 + i * 18, &G->armor[i], UiSlot::Normal, 4 + i);   // armor: groups 4..7
             for (int i = 0; i < 4; i++) addSlot(px + 98 + (i % 2) * 18, py + 18 + (i / 2) * 18, &G->craft[i], UiSlot::Normal, 1);
             addSlot(px + 154, py + 28, &G->craftResult, UiSlot::CraftResult, 2);
         }
@@ -297,6 +299,16 @@ void screenMouseDown(bool right, bool shift) {
         updateCraft();
         return;
     }
+    if (s->group >= 4 && s->group <= 7) {   // armor slots only accept matching armor
+        if (!G->cursor.empty() && G->items.def(G->cursor.item).armorSlot != s->group - 4) return;
+        if (shift && !slot.empty()) { giveOrDropInv(slot); slot = {}; return; }
+        clickSlot(slot, G->cursor, false, G->items);
+        return;
+    }
+    if (shift && !slot.empty() && s->group == 0) {   // shift-click armor from the inventory: equip
+        int as = G->items.def(slot.item).armorSlot;
+        if (as >= 0 && G->armor[as].empty() && G->screen == Screen::Inventory && !G->creative()) { G->armor[as] = slot; slot = {}; return; }
+    }
     if (shift) { quickMove(*s); }
     else if (s->kind == UiSlot::TakeOnly) {
         if (slot.empty()) return;
@@ -345,6 +357,7 @@ void drawFrameUi(int w, int h) {
         drawItemIcon(ui, x + 1, by + 2, G->inv.slots[i]);
     }
     ui.frame(bx + G->hotbarSel * 18, by, 20, 20, 1.5f, C(250, 250, 250));
+    if (!creative && armorPoints() > 0) iconRow(bx + 1, by - 19, SHIELD, (float)armorPoints(), C(200, 205, 215), C(60, 60, 70, 255), false);
     if (!creative) {
         iconRow(bx + 1, by - 10, HEART, G->stats.health, C(220, 30, 40), C(70, 30, 30, 255), false);
         iconRow(bx + bw - 80, by - 10, FOOD, G->stats.food, C(205, 135, 60), C(70, 50, 30, 255), true);

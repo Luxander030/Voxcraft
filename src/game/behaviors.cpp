@@ -220,6 +220,19 @@ void BlockBehaviors::randomTick(const BlockPos& p, BlockState s) {
         BlockPos q{p.x + (int)(r >> 8) % 3 - 1, p.y + (int)(r >> 12) % 3 - 1, p.z + (int)(r >> 16) % 3 - 1};
         if (w_.getBlock(q) == cb.dirt && !w_.reg.opaque(w_.getBlock({q.x, q.y + 1, q.z})) && w_.skyLight({q.x, q.y + 1, q.z}) >= 4)
             w_.setBlock(q, cb.turf);
+    } else if (w_.reg.def(s).name == "farmland") {
+        bool wet = false;   // moist if water within 4 blocks on the same level or one below
+        for (int dz = -4; dz <= 4 && !wet; dz++) for (int dx = -4; dx <= 4 && !wet; dx++) for (int dy = -1; dy <= 0 && !wet; dy++)
+            wet = w_.reg.def(w_.getBlock({p.x + dx, p.y + dy, p.z + dz})).name == "water";
+        if (wet != (w_.reg.getProp(s, "moist") != 0)) w_.setBlock(p, w_.reg.withProp(s, "moist", wet ? 1 : 0), SET_NOTIFY);
+        if (w_.reg.opaque(w_.getBlock({p.x, p.y + 1, p.z}))) w_.setBlock(p, cb.dirt);   // covered: back to dirt
+    } else if (w_.reg.def(s).name == "grain") {
+        int age = w_.reg.getProp(s, "age");
+        BlockState soil = w_.getBlock({p.x, p.y - 1, p.z});
+        bool moist = w_.reg.def(soil).name == "farmland" && w_.reg.getProp(soil, "moist");
+        static u32 r = 99991; r = r * 1103515245u + 12345u;
+        if (age < 7 && (r >> 16) % (moist ? 3u : 7u) == 0 && std::max(w_.skyLight(p), w_.blockLight(p)) >= 9)
+            w_.setBlock(p, w_.reg.withProp(s, "age", age + 1), SET_NOTIFY);
     } else if (w_.reg.def(s).name == "sapling") {
         if (w_.skyLight(p) >= 9) { static u32 r = 777; r = r * 1103515245u + 12345u; if ((r >> 16) % 7 == 0) growTree(p); }
     }

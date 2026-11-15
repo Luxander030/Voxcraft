@@ -184,3 +184,30 @@ TEST(structure_loot_is_deterministic_per_seed_and_position) {
     CHECK(n > 0);
     CHECK(!(a == c));   // different chest, different contents
 }
+
+#include "game/behaviors.h"
+TEST(farming_grain_grows_on_moist_farmland_and_drops_by_age) {
+    static JobSystem jobs(2);
+    World w(blocks(), jobs, items().names());
+    WorldMeta m; m.gen.preset = "flat"; std::string err; REQUIRE(w.create(vxtest::tempDir("farm"), m, &err));
+    for (int z = -1; z <= 1; z++) for (int x = -1; x <= 1; x++) w.loadChunkSync({x, z});
+    BlockBehaviors b(w);
+    w.setBlock({2, 4, 2}, blocks().stateOf("farmland"));
+    w.setBlock({2, 5, 2}, blocks().stateOf("grain"));
+    w.setBlock({4, 4, 2}, blocks().stateOf("water"));
+    for (int i = 0; i < 3000 && blocks().getProp(w.getBlock({2, 5, 2}), "age") < 7; i++) {
+        w.onRandomTick({2, 4, 2}, w.getBlock({2, 4, 2}));
+        w.onRandomTick({2, 5, 2}, w.getBlock({2, 5, 2}));
+    }
+    CHECK_EQ(blocks().getProp(w.getBlock({2, 4, 2}), "moist"), 1);
+    CHECK_EQ(blocks().getProp(w.getBlock({2, 5, 2}), "age"), 7);
+    Rng rng(1);
+    auto ripe = blockDrops(w.getBlock({2, 5, 2}), blocks(), items(), recipes(), nullptr, rng);
+    REQUIRE(ripe.size() == 2); CHECK(ripe[0].item == items().id("grain"));
+    auto young = blockDrops(blocks().stateOf("grain"), blocks(), items(), recipes(), nullptr, rng);
+    REQUIRE(young.size() == 1); CHECK(young[0].item == items().id("grain_seeds"));
+    CHECK_EQ(items().def(items().id("iron_chestplate")).armorSlot, 1);
+    CHECK_EQ(items().def(items().id("iron_chestplate")).armorPoints, 6);
+    ItemStack g[9] = {}; g[3] = st("grain"); g[4] = st("grain"); g[5] = st("grain");
+    auto bread = recipes().match(g, 3, 3); REQUIRE(bread); CHECK(bread->item == items().id("bread"));
+}

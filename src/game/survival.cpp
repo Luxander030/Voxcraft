@@ -24,6 +24,12 @@ std::vector<ItemStack> blockDrops(BlockState s, const BlockRegistry& blocks, con
     std::vector<ItemStack> out;
     const BlockDef& b = blocks.def(s);
     if (!canHarvest(b, held)) return out;
+    if (b.name == "grain") {   // crops: ripe grain drops grain + seeds, unripe just a seed
+        u16 seeds = items.id("grain_seeds"), grain = items.id("grain");
+        if (blocks.getProp(s, "age") >= 7) { out.push_back({grain, 1, 0}); out.push_back({seeds, (u8)(1 + rng.range(3)), 0}); }
+        else out.push_back({seeds, 1, 0});
+        return out;
+    }
     const auto* loot = rb.loot(b.name);
     if (loot) {
         for (auto& l : *loot) if (rng.chance(l.chance)) out.push_back({l.item, (u8)(1 + (l.extra ? rng.range(l.extra + 1) : 0)), 0});

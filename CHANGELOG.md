@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Farming, armor and bedrolls
+- Hoes, farmland with moisture, grain growth stages, seeds and bread.
+- Twelve armor pieces with inventory slots, damage reduction, durability and an armor bar.
+- Bedrolls skip the night and set the spawn point.
+- Growth-stage texture variants (`<name>_0` → `<name>_<age>`). The asset packer now rebuilds
+  when its own rules change.
+
 ### Generator v3: villages
 - Villages with a plaza, well, lamp posts, furnished cottages and paths. New worlds only; v1 and
   v2 worlds are unchanged.

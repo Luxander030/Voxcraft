@@ -42,6 +42,21 @@
     {"pattern": ["CCC", "C C", "CGC"], "key": {"C": "cobblestone", "G": "glimmer_dust"}, "result": "dropper"},
     {"pattern": ["CCC", "CFC", "CGC"], "key": {"C": "cobblestone", "F": "flint", "G": "glimmer_dust"}, "result": "dispenser"},
     {"pattern": ["I ", " E"], "key": {"I": "iron_ingot", "E": "ember_shard"}, "result": "ember_striker"},
+    {"pattern": ["GGG"], "key": {"G": "grain"}, "result": "bread"},
+    {"pattern": ["FF", "FF"], "key": {"F": "feather"}, "result": "wool"},
+    {"pattern": ["WWW", "PPP"], "key": {"W": "wool", "P": "#planks"}, "result": "bedroll"},
+    {"pattern": ["HHH", "H H"], "key": {"H": "hide"}, "result": "hide_cap"},
+    {"pattern": ["H H", "HHH", "HHH"], "key": {"H": "hide"}, "result": "hide_tunic"},
+    {"pattern": ["HHH", "H H", "H H"], "key": {"H": "hide"}, "result": "hide_leggings"},
+    {"pattern": ["H H", "H H"], "key": {"H": "hide"}, "result": "hide_boots"},
+    {"pattern": ["III", "I I"], "key": {"I": "iron_ingot"}, "result": "iron_helm"},
+    {"pattern": ["I I", "III", "III"], "key": {"I": "iron_ingot"}, "result": "iron_chestplate"},
+    {"pattern": ["III", "I I", "I I"], "key": {"I": "iron_ingot"}, "result": "iron_greaves"},
+    {"pattern": ["I I", "I I"], "key": {"I": "iron_ingot"}, "result": "iron_boots"},
+    {"pattern": ["AAA", "A A"], "key": {"A": "azurite"}, "result": "azurite_helm"},
+    {"pattern": ["A A", "AAA", "AAA"], "key": {"A": "azurite"}, "result": "azurite_chestplate"},
+    {"pattern": ["AAA", "A A", "A A"], "key": {"A": "azurite"}, "result": "azurite_greaves"},
+    {"pattern": ["A A", "A A"], "key": {"A": "azurite"}, "result": "azurite_boots"},
     {"pattern": [" ST", "S T", " ST"], "key": {"S": "stick", "T": "shadow_thread"}, "result": "bow"},
     {"pattern": ["F", "S", "E"], "key": {"F": "flint", "S": "stick", "E": "feather"}, "result": "arrow", "count": 4},
     {"pattern": ["E", "F"], "key": {"E": "ember_shard", "F": "flint"}, "result": "ember_striker"},
@@ -53,7 +68,8 @@
       "pickaxe": ["MMM", " S ", " S "],
       "axe": ["MM", "MS", " S"],
       "shovel": ["M", "S", "S"],
-      "sword": ["M", "M", "S"]
+      "sword": ["M", "M", "S"],
+      "hoe": ["MM", " S", " S"]
     }
   },
   "kiln": [
@@ -88,7 +104,7 @@
     "oak_leaves": [{"item": "sapling", "chance": 0.05}, {"item": "apple", "chance": 0.01}],
     "birch_leaves": [{"item": "sapling", "chance": 0.05}],
     "pine_leaves": [{"item": "sapling", "chance": 0.05}],
-    "tall_grass": [{"item": "wild_root", "chance": 0.08}],
+    "tall_grass": [{"item": "wild_root", "chance": 0.08}, {"item": "grain_seeds", "chance": 0.12}],
     "glimmer_ore": [{"item": "glimmer_dust", "chance": 1.0, "extra": 3}],
     "glowcrystal": [{"item": "glimmer_dust", "chance": 1.0, "extra": 2}]
   }

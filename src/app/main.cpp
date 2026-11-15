@@ -120,6 +120,11 @@ void frame() {
             G->world->meta.dayTime = G->opt.menuState == 7 ? 18000 : G->opt.menuState == 8 ? 4500 : 6000;
         }
         if (G->opt.menuState >= 6 && (int)G->frame >= last - 20) { G->player.pitch = G->opt.menuState == 7 ? 0.9f : G->opt.menuState == 8 ? 1.2f : 0.3f; if (G->opt.menuState == 8) G->player.yaw = PI * 0.5f; }
+        if (G->opt.menuState == 10 && G->frame == 10) {   // armor + farming kit, then the inventory
+            G->armor[1] = {G->items.id("iron_chestplate"), 1, 40}; G->armor[3] = {G->items.id("hide_boots"), 1, 0}; G->armor[0] = {G->items.id("azurite_helm"), 1, 0};
+            for (const char* n : {"iron_hoe", "grain_seeds", "bread", "bow", "arrow", "bedroll", "hopper", "comparator", "ember_striker"}) giveOrDropInv({G->items.id(n), (u8)(G->items.maxStack(G->items.id(n)) > 1 ? 12 : 1), 0});
+        }
+        if (G->opt.menuState == 10 && (int)G->frame == last - 30) openScreen(Screen::Inventory);
         if (G->opt.menuState == 9 && G->frame == 20) {   // visit the nearest village
             int vx, vy, vz;
             if (G->world->generator().nearestVillage((int)G->player.pos.x, (int)G->player.pos.z, 8, vx, vy, vz)) {
@@ -333,7 +338,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
-        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : 0; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : m == "armor" ? 10 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));

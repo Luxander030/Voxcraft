@@ -34,6 +34,7 @@ struct ItemDef {
     BlockState places = AIR;       // block placed on use
     int fuel = 0;                  // kiln burn ticks
     int texture = -1;              // texture layer for flat icons (-1: draw `places` as a block icon)
+    int armorSlot = -1, armorPoints = 0;   // 0 head, 1 chest, 2 legs, 3 feet
     bool isFood() const { return hunger > 0; }
 };
 

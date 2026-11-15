@@ -46,6 +46,11 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Melee combat with weapon damage, knockback, invulnerability window, loot; creatures damage the player.
 - ✅ Dropped items rendered as spinning blocks/cards.
 
+## Survival depth ✅
+- ✅ Farming: hoes (4 tiers) till soil, farmland moisture from nearby water, grain with 8 growth stages on random ticks (faster when moist), seeds from tall grass, bread.
+- ✅ Armor: 12 pieces (hide/iron/azurite × head/chest/legs/feet), inventory armor slots, up to 80% attack damage reduction, durability, HUD armor bar, saved in player.dat v4.
+- ✅ Bedrolls: sleep through the night when no hostile creature is near; sets the spawn point.
+
 ## Phase 7 — World generation & block updates 🔶
 - ✅ Generator v1: biomes, terrain, caves, ores, trees (Phase 3).
 - ✅ Event-driven fluids: water/lava flow with levels, falling columns, renewable water, lava hardening, drain-on-lost-support; deterministic and resumable across save/reload.

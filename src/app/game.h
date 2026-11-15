@@ -82,6 +82,7 @@ struct Game {
     Player player;
     PlayerStats stats;
     Inventory inv{36};               // 0..8 hotbar, 9..35 main
+    ItemStack armor[4];              // head, chest, legs, feet
     int hotbarSel = 0;
     bool creative() const { return world && world->meta.gameMode == "creative"; }
     const ItemDef* held() const { const ItemStack& s = inv.slots[hotbarSel]; return s.empty() ? nullptr : &items.def(s.item); }
@@ -136,6 +137,8 @@ void pickBlock();
 void dropSelected(bool wholeStack);
 void showStatus(const std::string& s);
 void giveOrDropInv(ItemStack s);
+float applyArmor(float dmg);   // reduces incoming attack damage by worn armor, wears it down
+int armorPoints();
 void respawn();
 bool enterDimension(const std::string& dim, Vec3 pos, bool arriveThroughRift, std::string* err);
 

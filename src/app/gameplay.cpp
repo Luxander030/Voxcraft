@@ -22,19 +22,20 @@ fs::path dataFile(const char* name) {
 }
 
 std::vector<u8> encodePlayer() {
-    ByteWriter w; w.u8_(3);
+    ByteWriter w; w.u8_(4);
     const Player& p = G->player;
     w.f64_(p.pos.x); w.f64_(p.pos.y); w.f64_(p.pos.z); w.f32_(p.yaw); w.f32_(p.pitch); w.u8_(p.flying ? 1 : 0); w.u8_((u8)G->hotbarSel);
     auto st = G->stats.encode(); w.var(st.size()); w.bytes(st.data(), st.size());
     w.var(G->inv.slots.size());
     for (auto& s : G->inv.slots) { w.str(s.empty() ? "" : G->items.def(s.item).name); w.u8_(s.empty() ? 0 : s.count); w.var(s.damage); }
     w.str(G->dimension);
+    for (auto& s : G->armor) { w.str(s.empty() ? "" : G->items.def(s.item).name); w.var(s.damage); }
     return std::move(w.buf);
 }
 
 bool decodePlayer(const std::vector<u8>& b) {
     ByteReader r(b); u8 ver = r.u8_();
-    if (ver < 1 || ver > 3) return false;
+    if (ver < 1 || ver > 4) return false;
     Player& p = G->player;
     p.pos.x = (float)r.f64_(); p.pos.y = (float)r.f64_(); p.pos.z = (float)r.f64_(); p.yaw = r.f32_(); p.pitch = r.f32_();
     p.flying = r.u8_() != 0; G->hotbarSel = clamp((int)r.u8_(), 0, 8);
@@ -53,6 +54,7 @@ bool decodePlayer(const std::vector<u8>& b) {
     }
     G->pendingDimension = "overworld";
     if (ver >= 3) { std::string d = r.str(); if (r.ok() && !d.empty()) G->pendingDimension = d; }
+    if (ver >= 4) for (auto& s : G->armor) { std::string n = r.str(); u16 dmg = (u16)r.var(); u16 id = G->items.id(n); s = id ? ItemStack{id, 1, dmg} : ItemStack{}; }
     return r.ok();
 }
 
@@ -123,7 +125,8 @@ bool placeHeld() {
     }
     const BlockPos& n = G->target.normal;
     BlockState below = G->world->getBlock({at.x, at.y - 1, at.z});
-    if (d.has(BF_NEEDS_SOIL)) {
+    if (d.name == "grain" && G->reg.def(below).name != "farmland") return false;   // crops need tilled soil
+    if (d.has(BF_NEEDS_SOIL) && d.name != "grain") {
         const std::string& bn = G->reg.def(below).name;
         if (bn != "turf" && bn != "dirt" && bn != "podzol" && !(d.name == "cactus" && (bn == "sand" || bn == "cactus")) && !(d.name == "dead_bush" && bn == "sand")) return false;
     }
@@ -185,6 +188,19 @@ void setupBehaviors() {
 void giveOrDropInv(ItemStack s) {
     int left = G->inv.add(s, G->items);
     if (left) { s.count = (u8)left; G->entities->spawnItem(G->player.eye(), s, G->rng, G->player.look() * 0.3f); }
+}
+
+int armorPoints() { int p = 0; for (auto& a : G->armor) if (!a.empty()) p += G->items.def(a.item).armorPoints; return std::min(p, 20); }
+
+float applyArmor(float dmg) {
+    int pts = armorPoints();
+    if (pts == 0 || dmg <= 0) return dmg;
+    for (auto& a : G->armor) {   // every piece wears a little per hit
+        if (a.empty()) continue;
+        const ItemDef& d = G->items.def(a.item);
+        if (++a.damage >= d.durability) { showStatus(d.name + " broke"); a = {}; }
+    }
+    return dmg * (1.0f - pts * 0.04f);   // up to 80% reduction at 20 points
 }
 
 void showStatus(const std::string& s) { G->status = s; G->statusUntil = G->now + 3; }
@@ -349,6 +365,7 @@ bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* 
 
 void resetPlayerState() {
     G->player = Player{}; G->stats = PlayerStats{}; G->inv.clear(); G->hotbarSel = 0;
+    for (auto& a : G->armor) a = {};
     G->cursor = {}; for (auto& c : G->craft) c = {}; G->craftResult = {};
     G->playerReady = false; G->target = {}; G->breakProgress = 0; G->accumulator = 0;
 }
@@ -404,7 +421,7 @@ void simulateTick() {
     for (float yy : {0.1f, 1.0f}) { BlockState s = G->world->getBlock((int)std::floor(p.pos.x), (int)std::floor(p.pos.y + yy), (int)std::floor(p.pos.z)); if (G->reg.def(s).name == "lava") inLava = true; }
     G->stats.tick(headWater, inLava, creative);
     if (G->stats.dead && G->screen != Screen::Dead) {
-        if (!creative) { std::vector<ItemStack> all = G->inv.slots; spill({(int)std::floor(p.pos.x), (int)std::floor(p.pos.y), (int)std::floor(p.pos.z)}, all); G->inv.clear(); }
+        if (!creative) { std::vector<ItemStack> all = G->inv.slots; for (auto& a : G->armor) { all.push_back(a); a = {}; } spill({(int)std::floor(p.pos.x), (int)std::floor(p.pos.y), (int)std::floor(p.pos.z)}, all); G->inv.clear(); }
         closeScreen(); G->screen = Screen::Dead; G->mouseLocked = false; sapp_lock_mouse(false);
     }
 
@@ -515,7 +532,7 @@ void simulateTick() {
         };
         h.hitPlayer = [](float dmg, Vec3 dir) {
             if (G->creative()) return;
-            if (G->stats.damage(dmg, DamageSource::Attack) > 0) { G->player.vel.x += dir.x * 0.4f; G->player.vel.z += dir.z * 0.4f; G->player.vel.y = std::max(G->player.vel.y, 0.25f); }
+            if (G->stats.damage(applyArmor(dmg), DamageSource::Attack) > 0) { G->player.vel.x += dir.x * 0.4f; G->player.vel.z += dir.z * 0.4f; G->player.vel.y = std::max(G->player.vel.y, 0.25f); }
         };
         h.pickupArrow = [] { if (G->creative()) return true; return G->inv.add({G->items.id("arrow"), 1, 0}, G->items) == 0; };
         h.impact = [](const Projectile& pr) {
@@ -553,7 +570,7 @@ MobContext mobContext() {
     if (G->dimension == "hollow") daylight = 0;
     MobContext c{*G->world, G->player, !G->creative() && !G->stats.dead, daylight, nullptr, nullptr};
     c.attackPlayer = [](Mob& m, float dmg) {
-        if (G->stats.damage(dmg, DamageSource::Attack) > 0) {
+        if (G->stats.damage(applyArmor(dmg), DamageSource::Attack) > 0) {
             Vec3 k = normalize(Vec3(G->player.pos.x - m.pos.x, 0, G->player.pos.z - m.pos.z));
             G->player.vel.x += k.x * 0.5f; G->player.vel.z += k.z * 0.5f; G->player.vel.y = std::max(G->player.vel.y, 0.3f);
         }
@@ -635,10 +652,31 @@ void clickUse() {
         }
         if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
         Vec3 tc{G->target.block.x + 0.5f, G->target.block.y + 0.5f, G->target.block.z + 0.5f};
+        if (d.name == "bedroll") {
+            i64 t = G->world->meta.dayTime;
+            if (G->dimension != "overworld") { showStatus("You cannot sleep here"); return; }
+            if (t < 12500 || t > 23500) { showStatus("You can only sleep at night"); return; }
+            for (auto& m : G->mobs->mobs) { Vec3 dd = m.pos - G->player.pos; if (G->mobReg.def(m.type).behavior == MobBehavior::Hostile && dot(dd, dd) < 10 * 10) { showStatus("Creatures are nearby"); return; } }
+            G->world->meta.spawn = {G->target.block.x, G->target.block.y + 1, G->target.block.z};
+            G->world->meta.dayTime = 1000; G->world->meta.raining = false;
+            showStatus("You slept until morning. Spawn point set");
+            return;
+        }
         if (d.name == "comparator") { G->behaviors->toggleComparator(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.name == "relay") { G->world->setBlock(G->target.block, G->reg.withProp(s, "delay", (G->reg.getProp(s, "delay") + 1) % 4)); return; }
+    }
+    // hoe: till turf/dirt with air above into farmland
+    if (const ItemDef* h = G->held(); h && h->tool == ToolType::Hoe && G->target.hit) {
+        BlockPos t = G->target.block;
+        const std::string& n = G->reg.def(G->world->getBlock(t)).name;
+        if ((n == "turf" || n == "dirt") && G->world->getBlock({t.x, t.y + 1, t.z}) == AIR) {
+            G->world->setBlock(t, G->reg.stateOf("farmland"));
+            sfx3d("dig_gravel", {t.x + 0.5f, t.y + 1.0f, t.z + 0.5f}, SoundCat::Blocks);
+            damageHeldTool();
+            return;
+        }
     }
     // ember striker: light a rift inside a slate frame
     if (const ItemDef* h = G->held(); h && h->name == "ember_striker" && G->target.hit) {
