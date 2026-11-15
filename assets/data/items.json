@@ -1,0 +1,40 @@
+// Item definitions. Every block (except air, fluids and technical blocks) also gets a block item
+// with the same name automatically; entries here may override block items (e.g. "places").
+// Fields: tex (item texture), stack (max stack, default 64), durability, tool {type, tier, speed},
+// damage (attack damage), food {hunger, saturation}, places (block placed on use), fuel (burn ticks)
+// Tool tiers: 0 wood, 1 stone, 2 iron, 3 azurite.
+{
+  "stick":          {"tex": "stick", "fuel": 100},
+  "coal":           {"tex": "coal", "fuel": 1600},
+  "raw_iron":       {"tex": "raw_iron"},
+  "raw_gold":       {"tex": "raw_gold"},
+  "raw_copper":     {"tex": "raw_copper"},
+  "iron_ingot":     {"tex": "iron_ingot"},
+  "gold_ingot":     {"tex": "gold_ingot"},
+  "copper_ingot":   {"tex": "copper_ingot"},
+  "azurite":        {"tex": "azurite"},
+  "glimmer_dust":   {"tex": "glimmer_dust", "places": "glimmer_wire"},
+  "clay_lump":      {"tex": "clay_lump"},
+  "brick":          {"tex": "brick"},
+  "apple":          {"tex": "apple", "food": {"hunger": 4, "saturation": 2.4}},
+  "wild_root":      {"tex": "wild_root", "food": {"hunger": 1, "saturation": 0.6}},
+  "baked_root":     {"tex": "baked_root", "food": {"hunger": 6, "saturation": 6.0}},
+  "wooden_pickaxe": {"tex": "wooden_pickaxe", "stack": 1, "durability": 64,   "tool": {"type": "pickaxe", "tier": 0, "speed": 2.0}, "damage": 2, "fuel": 200},
+  "wooden_axe":     {"tex": "wooden_axe",     "stack": 1, "durability": 64,   "tool": {"type": "axe", "tier": 0, "speed": 2.0}, "damage": 4, "fuel": 200},
+  "wooden_shovel":  {"tex": "wooden_shovel",  "stack": 1, "durability": 64,   "tool": {"type": "shovel", "tier": 0, "speed": 2.0}, "damage": 2, "fuel": 200},
+  "wooden_sword":   {"tex": "wooden_sword",   "stack": 1, "durability": 64,   "tool": {"type": "sword", "tier": 0, "speed": 1.5}, "damage": 4, "fuel": 200},
+  "stone_pickaxe":  {"tex": "stone_pickaxe",  "stack": 1, "durability": 140,  "tool": {"type": "pickaxe", "tier": 1, "speed": 4.0}, "damage": 3},
+  "stone_axe":      {"tex": "stone_axe",      "stack": 1, "durability": 140,  "tool": {"type": "axe", "tier": 1, "speed": 4.0}, "damage": 5},
+  "stone_shovel":   {"tex": "stone_shovel",   "stack": 1, "durability": 140,  "tool": {"type": "shovel", "tier": 1, "speed": 4.0}, "damage": 3},
+  "stone_sword":    {"tex": "stone_sword",    "stack": 1, "durability": 140,  "tool": {"type": "sword", "tier": 1, "speed": 1.5}, "damage": 5},
+  "iron_pickaxe":   {"tex": "iron_pickaxe",   "stack": 1, "durability": 260,  "tool": {"type": "pickaxe", "tier": 2, "speed": 6.0}, "damage": 4},
+  "iron_axe":       {"tex": "iron_axe",       "stack": 1, "durability": 260,  "tool": {"type": "axe", "tier": 2, "speed": 6.0}, "damage": 6},
+  "iron_shovel":    {"tex": "iron_shovel",    "stack": 1, "durability": 260,  "tool": {"type": "shovel", "tier": 2, "speed": 6.0}, "damage": 4},
+  "iron_sword":     {"tex": "iron_sword",     "stack": 1, "durability": 260,  "tool": {"type": "sword", "tier": 2, "speed": 1.5}, "damage": 6},
+  "azurite_pickaxe":{"tex": "azurite_pickaxe","stack": 1, "durability": 1600, "tool": {"type": "pickaxe", "tier": 3, "speed": 8.5}, "damage": 5},
+  "azurite_axe":    {"tex": "azurite_axe",    "stack": 1, "durability": 1600, "tool": {"type": "axe", "tier": 3, "speed": 8.5}, "damage": 8},
+  "azurite_shovel": {"tex": "azurite_shovel", "stack": 1, "durability": 1600, "tool": {"type": "shovel", "tier": 3, "speed": 8.5}, "damage": 5},
+  "azurite_sword":  {"tex": "azurite_sword",  "stack": 1, "durability": 1600, "tool": {"type": "sword", "tier": 3, "speed": 1.5}, "damage": 7},
+  "oak_planks":     {"fuel": 300}, "birch_planks": {"fuel": 300}, "pine_planks": {"fuel": 300},
+  "oak_log":        {"fuel": 300}, "birch_log": {"fuel": 300}, "pine_log": {"fuel": 300}
+}

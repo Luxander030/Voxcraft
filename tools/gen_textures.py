@@ -285,6 +285,94 @@ RECIPES = {
     "piston_back": framed(stone_f, hexc("4e5054")),
 }
 
+# ------------------------------------------------------------------ items
+def item(draw):
+    def f(rng):
+        px = [CLEAR] * (N * N); draw(px, rng)
+        # 1px dark outline around opaque pixels for readability on any background
+        out = list(px)
+        for y in range(N):
+            for x in range(N):
+                if px[y * N + x][3] == 0 and any(0 <= x + dx < N and 0 <= y + dy < N and px[(y + dy) * N + x + dx][3] > 0
+                                                  for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    out[y * N + x] = (24, 20, 18, 255)
+        return out
+    return f
+
+def blob(cols, cx=8, cy=8, r=4.2, squash=0.85):
+    def d(px, rng):
+        for y in range(N):
+            for x in range(N):
+                dd = ((x - cx) / r) ** 2 + ((y - cy) / (r * squash)) ** 2 + (rng.next() - 0.5) * 0.35
+                if dd < 1: put(px, x, y, cols[min(len(cols) - 1, int((dd + (x - cx) * 0.05) * len(cols)) % len(cols))])
+    return item(d)
+
+def ingot(cols):
+    def d(px, rng):
+        for y in range(6, 11):
+            for x in range(3 + (10 - y) // 2, 13 - (10 - y) // 2):
+                put(px, x, y, cols[0] if y == 6 else cols[1] if y < 9 else cols[2])
+    return item(d)
+
+TIER = {"wooden": pal("b48f58", "9c7a47", "6e5131"), "stone": pal("8a8c90", "74767b", "55575b"),
+        "iron": pal("e8e8e8", "c8c8c8", "8a8a8a"), "azurite": pal("8ae0f8", "38b8e0", "1a6a98")}
+HANDLE = pal("8a6a3c", "5c4326")
+
+def tool(kind, tier):
+    c = TIER[tier]
+    def d(px, rng):
+        reach = 7 if kind == "sword" else 9
+        for k in range(reach):   # handle: bottom-left to centre
+            put(px, 2 + k, 13 - k, HANDLE[k % 2] if kind != "sword" or k < 3 else c[1])
+        if kind == "pickaxe":
+            for k in range(-5, 6):
+                x, y = 9 + k // 2 + (k > 0) * 0, 5 - abs(k) // 2
+                put(px, 8 + k, 3 + abs(k) // 2 + (1 if abs(k) > 3 else 0), c[0 if k < 0 else 1])
+                put(px, 8 + k, 4 + abs(k) // 2 + (1 if abs(k) > 3 else 0), c[2])
+        elif kind == "axe":
+            for y in range(2, 9):
+                for x in range(9, 9 + max(1, 4 - abs(y - 5) // 2)):
+                    put(px, x, y, c[0] if x == 9 else c[1] if y < 6 else c[2])
+        elif kind == "shovel":
+            for y in range(2, 7):
+                for x in range(9, 14):
+                    if abs(x - 11) + abs(y - 4) < 4: put(px, x, y, c[0] if y < 4 else c[1])
+        elif kind == "sword":
+            for k in range(9):
+                put(px, 6 + k, 9 - k, c[0]); put(px, 7 + k, 9 - k, c[1]); put(px, 6 + k, 10 - k, c[2])
+            for k in range(-2, 3): put(px, 5 + k, 9 + k, HANDLE[1])   # crossguard
+    return item(d)
+
+def gem(cols):
+    def d(px, rng):
+        for y in range(3, 13):
+            w = (y - 2) if y < 7 else (13 - y) * 0.9
+            for x in range(N):
+                if abs(x - 7.5) < w: put(px, x, y, cols[0] if y < 6 else cols[1] if x < 8 else cols[2])
+    return item(d)
+
+ITEM_RECIPES = {
+    "stick": item(lambda px, r: [put(px, 3 + k, 12 - k, HANDLE[k % 2]) for k in range(10)]),
+    "coal": blob(pal("2e2e30", "1e1e20", "3c3c40")),
+    "raw_iron": blob(pal("d8b494", "b89474", "e4c4a8")),
+    "raw_gold": blob(pal("f0d040", "d0a820", "fae878")),
+    "raw_copper": blob(pal("c87a4a", "a85e34", "4a9a7a")),
+    "iron_ingot": ingot(pal("f0f0f0", "c8c8c8", "9a9a9a")),
+    "gold_ingot": ingot(pal("fff090", "f0c838", "b08a18")),
+    "copper_ingot": ingot(pal("f0a070", "c87a4a", "8a4a2a")),
+    "brick": ingot(pal("c06a50", "9a4a36", "7c3626")),
+    "azurite": gem(pal("bff0fc", "38b8e0", "1a6a98")),
+    "glimmer_dust": item(lambda px, r: [put(px, 4 + r.int(9), 6 + r.int(7), hexc(["e83070", "ff6a9a", "c8205a"][r.int(3)])) for _ in range(30)]),
+    "clay_lump": blob(pal("a3a8b8", "8a90a0", "b8bdcc")),
+    "apple": item(lambda px, r: ([put(px, x, y, hexc("c8202a") if (x - 7) ** 2 + (y - 9) ** 2 < 14 else CLEAR) for y in range(4, 14) for x in range(3, 13)
+                                  if (x - 7.5) ** 2 + (y - 9) ** 2 < 18], put(px, 8, 3, hexc("5c4326")), put(px, 8, 4, hexc("5c4326")), put(px, 9, 3, hexc("4f8a3a")), put(px, 6, 7, hexc("ff8080")))),
+    "wild_root": blob(pal("d8c8a0", "b8a478", "e8dcbc"), r=4.6, squash=0.6),
+    "baked_root": blob(pal("c87a3a", "a85e24", "e09858"), r=4.6, squash=0.6),
+}
+for t in TIER:
+    for k in ("pickaxe", "axe", "shovel", "sword"):
+        ITEM_RECIPES[f"{t}_{k}"] = tool(k, t)
+
 def main():
     force = "--force" in sys.argv
     os.makedirs(OUT, exist_ok=True)
@@ -295,7 +383,12 @@ def main():
         px = recipe(Rng(name))
         assert len(px) == N * N, name
         write_png(path, [tuple(int(c) for c in p) for p in px]); made += 1
-    print(f"gen_textures: {made} written, {len(RECIPES) - made} kept ({OUT})")
+    items_dir = os.path.join(ROOT, "assets", "textures", "items"); os.makedirs(items_dir, exist_ok=True)
+    for name, recipe in sorted(ITEM_RECIPES.items()):
+        path = os.path.join(items_dir, name + ".png")
+        if os.path.exists(path) and not force: continue
+        px = recipe(Rng(name)); write_png(path, [tuple(int(c) for c in p) for p in px]); made += 1
+    print(f"gen_textures: {made} written ({OUT}, {items_dir})")
 
 if __name__ == "__main__":
     main()

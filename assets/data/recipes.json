@@ -1,0 +1,66 @@
+// Crafting and kiln recipes. Shaped patterns may be mirrored horizontally and placed anywhere in
+// the grid; "#tag" keys match any item in the tag. 2x2 recipes work in the inventory grid,
+// larger ones need a workbench.
+{
+  "tags": {
+    "planks": ["oak_planks", "birch_planks", "pine_planks"],
+    "logs": ["oak_log", "birch_log", "pine_log"],
+    "stone_material": ["cobblestone", "slate_cobble"]
+  },
+  "shaped": [
+    {"pattern": ["#"], "key": {"#": "oak_log"}, "result": "oak_planks", "count": 4},
+    {"pattern": ["#"], "key": {"#": "birch_log"}, "result": "birch_planks", "count": 4},
+    {"pattern": ["#"], "key": {"#": "pine_log"}, "result": "pine_planks", "count": 4},
+    {"pattern": ["#", "#"], "key": {"#": "#planks"}, "result": "stick", "count": 4},
+    {"pattern": ["##", "##"], "key": {"#": "#planks"}, "result": "workbench"},
+    {"pattern": ["C", "S"], "key": {"C": "coal", "S": "stick"}, "result": "torch", "count": 4},
+    {"pattern": ["G", "S"], "key": {"G": "glimmer_dust", "S": "stick"}, "result": "spark_torch"},
+    {"pattern": ["###", "# #", "###"], "key": {"#": "#planks"}, "result": "chest"},
+    {"pattern": ["###", "# #", "###"], "key": {"#": "#stone_material"}, "result": "kiln"},
+    {"pattern": ["##", "##"], "key": {"#": "stone"}, "result": "stone_bricks", "count": 4},
+    {"pattern": ["##", "##"], "key": {"#": "brick"}, "result": "bricks"},
+    {"pattern": ["##", "##"], "key": {"#": "sand"}, "result": "sandstone"},
+    {"pattern": ["##", "##"], "key": {"#": "glimmer_dust"}, "result": "glowcrystal"},
+    {"pattern": [" G ", "GCG", " G "], "key": {"G": "glimmer_dust", "C": "glowcrystal"}, "result": "lamp"},
+    {"pattern": ["S S", "SSS", "S S"], "key": {"S": "stick"}, "result": "ladder", "count": 3},
+    {"pattern": ["S", "C"], "key": {"S": "stick", "C": "#stone_material"}, "result": "lever"},
+    {"pattern": ["#"], "key": {"#": "stone"}, "result": "push_button"},
+    {"pattern": ["##"], "key": {"#": "stone"}, "result": "pressure_plate"},
+    {"pattern": ["###", "###", "###"], "key": {"#": "iron_ingot"}, "result": "iron_block"},
+    {"pattern": ["###", "###", "###"], "key": {"#": "gold_ingot"}, "result": "gold_block"},
+    {"pattern": ["###", "###", "###"], "key": {"#": "azurite"}, "result": "azurite_block"},
+    {"pattern": ["#"], "key": {"#": "iron_block"}, "result": "iron_ingot", "count": 9},
+    {"pattern": ["#"], "key": {"#": "gold_block"}, "result": "gold_ingot", "count": 9},
+    {"pattern": ["#"], "key": {"#": "azurite_block"}, "result": "azurite", "count": 9},
+    {"pattern": ["PPP", "BBB", "PPP"], "key": {"P": "#planks", "B": "clay_lump"}, "result": "bookshelf"}
+  ],
+  "tools": {
+    "materials": {"wooden": "#planks", "stone": "#stone_material", "iron": "iron_ingot", "azurite": "azurite"},
+    "patterns": {
+      "pickaxe": ["MMM", " S ", " S "],
+      "axe": ["MM", "MS", " S"],
+      "shovel": ["M", "S", "S"],
+      "sword": ["M", "M", "S"]
+    }
+  },
+  "kiln": [
+    {"input": "raw_iron", "result": "iron_ingot"},
+    {"input": "raw_gold", "result": "gold_ingot"},
+    {"input": "raw_copper", "result": "copper_ingot"},
+    {"input": "sand", "result": "glass"},
+    {"input": "red_sand", "result": "glass"},
+    {"input": "cobblestone", "result": "stone"},
+    {"input": "slate_cobble", "result": "slate"},
+    {"input": "clay_lump", "result": "brick"},
+    {"input": "#logs", "result": "coal"},
+    {"input": "wild_root", "result": "baked_root"}
+  ],
+  "loot": {
+    "oak_leaves": [{"item": "sapling", "chance": 0.05}, {"item": "apple", "chance": 0.01}],
+    "birch_leaves": [{"item": "sapling", "chance": 0.05}],
+    "pine_leaves": [{"item": "sapling", "chance": 0.05}],
+    "tall_grass": [{"item": "wild_root", "chance": 0.08}],
+    "glimmer_ore": [{"item": "glimmer_dust", "chance": 1.0, "extra": 3}],
+    "glowcrystal": [{"item": "glimmer_dust", "chance": 1.0, "extra": 2}]
+  }
+}

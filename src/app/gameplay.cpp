@@ -1,0 +1,340 @@
+// Session lifecycle, persistence of player state, simulation tick and block interaction.
+#include "app/game.h"
+#include "core/profiler.h"
+#include <ctime>
+
+namespace vx {
+
+Game* G = nullptr;
+
+namespace {
+struct PackNames final : TexturePackNames {
+    const TexturePack& p; explicit PackNames(const TexturePack& pk) : p(pk) {}
+    int layerOf(const std::string& n) const override { return p.layer(n); }
+};
+
+fs::path dataFile(const char* name) {
+    fs::path a = G->assetDir / name;
+    if (fs::exists(a)) return a;
+    return fs::path(VX_SOURCE_DIR) / "assets" / "data" / name;
+}
+
+std::vector<u8> encodePlayer() {
+    ByteWriter w; w.u8_(2);
+    const Player& p = G->player;
+    w.f64_(p.pos.x); w.f64_(p.pos.y); w.f64_(p.pos.z); w.f32_(p.yaw); w.f32_(p.pitch); w.u8_(p.flying ? 1 : 0); w.u8_((u8)G->hotbarSel);
+    auto st = G->stats.encode(); w.var(st.size()); w.bytes(st.data(), st.size());
+    w.var(G->inv.slots.size());
+    for (auto& s : G->inv.slots) { w.str(s.empty() ? "" : G->items.def(s.item).name); w.u8_(s.empty() ? 0 : s.count); w.var(s.damage); }
+    return std::move(w.buf);
+}
+
+bool decodePlayer(const std::vector<u8>& b) {
+    ByteReader r(b); u8 ver = r.u8_();
+    if (ver != 1 && ver != 2) return false;
+    Player& p = G->player;
+    p.pos.x = (float)r.f64_(); p.pos.y = (float)r.f64_(); p.pos.z = (float)r.f64_(); p.yaw = r.f32_(); p.pitch = r.f32_();
+    p.flying = r.u8_() != 0; G->hotbarSel = clamp((int)r.u8_(), 0, 8);
+    if (ver >= 2) {
+        u64 n = r.var(); const u8* sp = r.skip((size_t)n);
+        if (sp) { ByteReader sr(sp, (size_t)n); G->stats.decode(sr); }
+        u64 slots = r.var();
+        for (u64 i = 0; i < slots && r.ok(); i++) {
+            std::string name = r.str(); u8 c = r.u8_(); u16 dmg = (u16)r.var();
+            if (i < G->inv.slots.size()) {
+                u16 id = G->items.id(name);
+                if (!name.empty() && !id) VX_WARN("player inventory: unknown item '%s' dropped", name.c_str());
+                G->inv.slots[i] = id ? ItemStack{id, c, dmg} : ItemStack{};
+            }
+        }
+    }
+    return r.ok();
+}
+
+void giveCreativeHotbar() {
+    const char* names[9] = {"stone", "cobblestone", "oak_planks", "glass", "bricks", "oak_log", "torch", "glowcrystal", "chest"};
+    for (int i = 0; i < 9; i++) if (G->inv.slots[i].empty()) G->inv.slots[i] = {G->items.id(names[i]), 64, 0};
+}
+
+Vec3 surfaceSpawn() {
+    const BlockPos& s = G->world->meta.spawn;
+    return {s.x + 0.5f, (float)s.y, s.z + 0.5f};
+}
+
+void spill(const BlockPos& p, std::vector<ItemStack>& stacks) {
+    for (auto& s : stacks) if (!s.empty()) { G->entities->spawnItem({p.x + 0.5f, p.y + 0.5f, p.z + 0.5f}, s, G->rng); s = {}; }
+}
+
+void breakAt(const BlockPos& pos, bool withDrops) {
+    BlockState s = G->world->getBlock(pos);
+    if (s == AIR) return;
+    const BlockDef& d = G->reg.def(s);
+    if (BlockEntity* be = G->world->blockEntity(pos)) spill(pos, be->items);
+    G->world->setBlock(pos, AIR);
+    if (withDrops) {
+        auto drops = blockDrops(s, G->reg, G->items, G->recipes, G->held(), G->rng);
+        for (auto& it : drops) G->entities->spawnItem({pos.x + 0.5f, pos.y + 0.3f, pos.z + 0.5f}, it, G->rng);
+    }
+    // things that cannot stand on their own fall with their support
+    BlockPos up{pos.x, pos.y + 1, pos.z};
+    BlockState a = G->world->getBlock(up);
+    const BlockDef& ad = G->reg.def(a);
+    if (a != AIR && (ad.has(BF_NEEDS_SOIL) || (ad.has(BF_ATTACHED) && ad.propIndex("facing") >= 0 && G->reg.getProp(a, "facing") == 4) || ad.has(BF_ATTACHED_FLOOR)))
+        breakAt(up, withDrops && !G->creative());
+    (void)d;
+}
+
+void damageHeldTool() {
+    if (G->creative()) return;
+    ItemStack& s = G->inv.slots[G->hotbarSel];
+    if (s.empty()) return;
+    const ItemDef& d = G->items.def(s.item);
+    if (d.durability <= 0) return;
+    if (++s.damage >= d.durability) { s = {}; showStatus(d.name + " broke"); }
+}
+
+int horizontalFacingToward(const Player& p) {   // front of the block faces the player
+    Vec3 l = p.look();
+    if (std::fabs(l.x) > std::fabs(l.z)) return l.x > 0 ? 2 : 3;
+    return l.z > 0 ? 0 : 1;
+}
+
+bool placeHeld() {
+    if (!G->target.hit) return false;
+    ItemStack& hs = G->inv.slots[G->hotbarSel];
+    if (hs.empty()) return false;
+    BlockState place = G->items.def(hs.item).places;
+    if (place == AIR) return false;
+    BlockPos at = G->target.block;
+    if (!G->reg.def(G->world->getBlock(at)).has(BF_REPLACEABLE)) at = at + G->target.normal;
+    if (!G->reg.def(G->world->getBlock(at)).has(BF_REPLACEABLE)) return false;
+    const BlockDef& d = G->reg.def(place);
+    if (d.solid) {
+        AABB bb{{(float)at.x, (float)at.y, (float)at.z}, {(float)at.x + 1, (float)at.y + 1, (float)at.z + 1}};
+        if (bb.intersects(G->player.box())) return false;
+    }
+    const BlockPos& n = G->target.normal;
+    BlockState below = G->world->getBlock({at.x, at.y - 1, at.z});
+    if (d.has(BF_NEEDS_SOIL)) {
+        const std::string& bn = G->reg.def(below).name;
+        if (bn != "turf" && bn != "dirt" && bn != "podzol" && !(d.name == "cactus" && (bn == "sand" || bn == "cactus")) && !(d.name == "dead_bush" && bn == "sand")) return false;
+    }
+    if (d.has(BF_ATTACHED_FLOOR) && !G->reg.solid(below)) return false;
+    if (d.propIndex("facing") >= 0) {
+        int cnt = d.props[d.propIndex("facing")].count;
+        if (d.shape == BlockShape::Torch) {
+            if (n.y < 0) return false;
+            int f = n.y > 0 ? 4 : n.z < 0 ? 0 : n.z > 0 ? 1 : n.x < 0 ? 2 : 3;
+            if (f == 4 && !G->reg.solid(below)) return false;
+            place = G->reg.withProp(place, "facing", f);
+        } else if (d.shape == BlockShape::FlatWall) {
+            if (n.y != 0) return false;
+            place = G->reg.withProp(place, "facing", n.z < 0 ? 0 : n.z > 0 ? 1 : n.x < 0 ? 2 : 3);
+        } else if (cnt == 4) {
+            place = G->reg.withProp(place, "facing", horizontalFacingToward(G->player));
+        } else if (cnt == 6) {
+            Vec3 l = G->player.look(); int f;
+            if (std::fabs(l.y) > 0.7f) f = l.y > 0 ? 0 : 1; else f = horizontalFacingToward(G->player) + 2;
+            place = G->reg.withProp(place, "facing", f);
+        }
+    }
+    if (!G->world->setBlock(at, place)) return false;
+    if (d.has(BF_INTERACT_CHEST)) G->world->ensureBlockEntity(at, BE_CHEST)->items.resize(CHEST_SLOTS);
+    if (d.has(BF_INTERACT_KILN)) G->world->ensureBlockEntity(at, BE_KILN)->items.resize(KILN_SLOTS);
+    if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
+    return true;
+}
+
+void tickKilns() {
+    // Only kilns in loaded chunks near the player run (simulation distance).
+    int r = G->world->simulationRadius;
+    ChunkPos pc{(int)std::floor(G->player.pos.x) >> 4, (int)std::floor(G->player.pos.z) >> 4};
+    std::vector<std::pair<BlockPos, bool>> litChanges;
+    G->world->forEachChunk([&](ChunkPos p, Chunk& c, ChunkState) {
+        if (std::abs(p.x - pc.x) > r || std::abs(p.z - pc.z) > r) return;
+        for (auto& be : c.blockEntities) {
+            if (be.kind != BE_KILN) continue;
+            bool lit = false;
+            if (tickKiln(be, G->items, G->recipes, lit)) c.unsaved = true;
+            int lx, y, lz; columnIndexDecode(be.index, lx, y, lz);
+            BlockState s = c.get(lx, y, lz);
+            if (G->reg.def(s).propIndex("lit") >= 0 && (G->reg.getProp(s, "lit") != 0) != lit) litChanges.push_back({{p.x * 16 + lx, y, p.z * 16 + lz}, lit});
+        }
+    });
+    for (auto& [bp, lit] : litChanges) G->world->setBlock(bp, G->reg.withProp(G->world->getBlock(bp), "lit", lit ? 1 : 0));
+}
+} // namespace
+
+void showStatus(const std::string& s) { G->status = s; G->statusUntil = G->now + 3; }
+
+bool startSession(std::string* err) {
+    if (!G->reg.loadFile(dataFile("blocks.json").string(), err)) return false;
+    if (!G->pack.load((G->assetDir / "voxcraft.pak").string(), err)) return false;
+    PackNames pn(G->pack);
+    if (!G->items.loadFile(dataFile("items.json").string(), G->reg, &pn, err)) return false;
+    if (!G->recipes.loadFile(dataFile("recipes.json").string(), G->items, err)) return false;
+    G->jobs = std::make_unique<JobSystem>(0);
+    if (!G->renderer.init(G->reg, G->pack, *G->jobs, err)) return false;
+    G->entities = std::make_unique<EntityManager>(G->items);
+    G->entities->onPickup = [](const ItemStack&) {};
+    G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
+    G->world->setEntityHost(G->entities.get());
+    G->saveDir = userDataDir("Voxcraft") / "saves" / G->opt.world;
+    if (fs::exists(G->saveDir / "world.json")) {
+        if (!G->world->open(G->saveDir, err)) return false;
+        auto pd = G->world->storage().readExtra("player.dat");
+        if (!pd || !decodePlayer(*pd)) G->player.pos = surfaceSpawn();
+        VX_INFO("opened world %s", G->saveDir.string().c_str());
+    } else {
+        WorldMeta m; m.name = G->opt.world;
+        m.gen.seed = G->opt.seedSet ? G->opt.seed : (u64)time(nullptr) * 0x9E3779B97F4A7C15ull;
+        if (G->opt.flat) m.gen.preset = "flat";
+        m.gameMode = G->opt.creative ? "creative" : "survival";
+        m.createdUnix = (u64)time(nullptr);
+        auto gen = createGenerator(m.gen, G->reg);
+        ColumnInfo c = gen->column(8, 8);
+        m.spawn = {8, std::max(c.height, SEA_LEVEL) + 1, 8};
+        if (!G->world->create(G->saveDir, m, err)) return false;
+        G->player.pos = surfaceSpawn();
+        VX_INFO("created world %s (seed %llu)", G->saveDir.string().c_str(), (unsigned long long)m.gen.seed);
+    }
+    if (G->creative()) giveCreativeHotbar();
+    G->player.canFly = G->creative();
+    if (!G->creative()) G->player.flying = false;
+    G->player.prevPos = G->player.pos;
+    G->renderer.attach(G->world.get());
+    return true;
+}
+
+bool saveWorld(bool sync) {
+    if (!G->world) return false;
+    std::string err;
+    if (!G->world->save(sync, {{"player.dat", encodePlayer()}}, &err)) { VX_ERROR("save failed: %s", err.c_str()); return false; }
+    return true;
+}
+
+void endSession() {
+    if (!G->world) return;
+    closeScreen();
+    G->renderer.shutdown();
+    saveWorld(true);
+    G->world->close();
+    G->world.reset();
+    G->entities.reset();
+}
+
+void respawn() {
+    G->stats.respawn();
+    G->player.pos = surfaceSpawn(); G->player.vel = {}; G->player.prevPos = G->player.pos; G->player.fallDistance = 0;
+    G->playerReady = false;   // re-run the "find surface" step once the spawn chunk is loaded
+    G->screen = Screen::None;
+}
+
+void simulateTick() {
+    Player& p = G->player;
+    bool inScreen = G->screen != Screen::None;
+    PlayerInput in = G->input;
+    if (!inScreen) {
+        in.forward += (G->keys[SAPP_KEYCODE_W] ? 1.f : 0.f) - (G->keys[SAPP_KEYCODE_S] ? 1.f : 0.f);
+        in.strafe = (G->keys[SAPP_KEYCODE_D] ? 1.f : 0.f) - (G->keys[SAPP_KEYCODE_A] ? 1.f : 0.f);
+        in.jump = G->keys[SAPP_KEYCODE_SPACE]; in.sneak = G->keys[SAPP_KEYCODE_LEFT_SHIFT];
+        in.sprint = (G->keys[SAPP_KEYCODE_LEFT_CONTROL] || G->keys[SAPP_KEYCODE_R]) && (G->creative() || G->stats.food > 6);
+    }
+    bool wasGround = p.onGround;
+    Vec3 before = p.pos;
+    if (!G->stats.dead) p.tick(*G->world, in);
+    G->input.toggleFly = false;
+
+    // survival bookkeeping
+    bool creative = G->creative();
+    if (!creative && !G->stats.dead) {
+        float dx = p.pos.x - before.x, dz = p.pos.z - before.z, dist = std::sqrt(dx * dx + dz * dz);
+        if (p.sprinting) G->stats.exhaust(0.1f * dist);
+        if (in.jump && wasGround && p.vel.y > 0) G->stats.exhaust(p.sprinting ? 0.2f : 0.05f);
+        if (p.landedFall >= 0 && !p.inFluid) G->stats.damage(fallDamage(p.landedFall), DamageSource::Fall);
+        if (p.pos.y < -32) G->stats.damage(4, DamageSource::Void);
+    }
+    BlockState headB = G->world->getBlock((int)std::floor(p.eye().x), (int)std::floor(p.eye().y), (int)std::floor(p.eye().z));
+    bool headWater = G->reg.fluid(headB) && G->reg.def(headB).name == "water";
+    bool inLava = false;
+    for (float yy : {0.1f, 1.0f}) { BlockState s = G->world->getBlock((int)std::floor(p.pos.x), (int)std::floor(p.pos.y + yy), (int)std::floor(p.pos.z)); if (G->reg.def(s).name == "lava") inLava = true; }
+    G->stats.tick(headWater, inLava, creative);
+    if (G->stats.dead && G->screen != Screen::Dead) {
+        if (!creative) { std::vector<ItemStack> all = G->inv.slots; spill({(int)std::floor(p.pos.x), (int)std::floor(p.pos.y), (int)std::floor(p.pos.z)}, all); G->inv.clear(); }
+        closeScreen(); G->screen = Screen::Dead; G->mouseLocked = false; sapp_lock_mouse(false);
+    }
+
+    // eating: hold use with food selected
+    const ItemDef* h = G->held();
+    if (!inScreen && G->mouseDown[1] && h && h->isFood() && !creative && G->stats.food < 20) {
+        if (++G->eatTicks >= 32) {
+            G->eatTicks = 0; G->stats.eat(*h);
+            ItemStack& s = G->inv.slots[G->hotbarSel]; s.count--; if (!s.count) s = {};
+        }
+    } else G->eatTicks = 0;
+    if (G->useCooldown > 0) G->useCooldown--;
+    if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && h->isFood())) { clickUse(); }
+
+    G->entities->tick(*G->world, p, G->stats.dead ? nullptr : &G->inv);
+    tickKilns();
+    G->world->tick();
+}
+
+void updateInteraction(float dt) {
+    if (G->screen != Screen::None || !G->mouseLocked || !G->mouseDown[0] || !G->target.hit) { G->breakProgress = 0; G->breaking = {0, -1, 0}; return; }
+    BlockPos t = G->target.block;
+    BlockState s = G->world->getBlock(t);
+    const BlockDef& d = G->reg.def(s);
+    if (!(G->breaking == t)) { G->breaking = t; G->breakProgress = 0; }
+    if (G->creative()) {
+        if (G->breakProgress == 0) { breakAt(t, false); G->breakProgress = -0.25f; }   // repeat every 0.25 s while held
+        else if ((G->breakProgress += dt) >= 0) G->breakProgress = 0;
+        return;
+    }
+    float secs = breakSeconds(d, G->held(), G->player.onGround || G->player.flying, G->player.headInFluid);
+    if (secs < 0) return;
+    G->breakProgress += secs == 0 ? 1.0f : dt / secs;
+    if (G->breakProgress >= 1.0f) {
+        breakAt(t, true);
+        if (d.hardness > 0) damageHeldTool();
+        G->stats.exhaust(0.005f);
+        G->breakProgress = 0; G->breaking = {0, -1, 0};
+        G->useCooldown = std::max(G->useCooldown, 0);
+    }
+}
+
+void clickUse() {
+    G->useCooldown = 4;
+    if (G->target.hit && !G->keys[SAPP_KEYCODE_LEFT_SHIFT]) {
+        BlockState s = G->world->getBlock(G->target.block);
+        const BlockDef& d = G->reg.def(s);
+        if (d.has(BF_INTERACT_CRAFT)) { openScreen(Screen::Workbench); return; }
+        if (d.has(BF_INTERACT_CHEST)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_CHEST)->items.resize(CHEST_SLOTS); openScreen(Screen::Chest); return; }
+        if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
+        if (d.shape == BlockShape::Lever || d.shape == BlockShape::Button) {
+            G->world->setBlock(G->target.block, G->reg.withProp(s, "on", G->reg.getProp(s, "on") ? 0 : 1));
+            return;
+        }
+    }
+    placeHeld();
+}
+
+void pickBlock() {
+    if (!G->target.hit) return;
+    u16 it = G->items.forBlockType(G->reg.def(G->world->getBlock(G->target.block)).index);
+    if (!it) return;
+    for (int i = 0; i < 9; i++) if (G->inv.slots[i].item == it) { G->hotbarSel = i; return; }
+    if (G->creative()) G->inv.slots[G->hotbarSel] = {it, (u8)G->items.maxStack(it), 0};
+}
+
+void dropSelected(bool whole) {
+    ItemStack& s = G->inv.slots[G->hotbarSel];
+    if (s.empty()) return;
+    ItemStack d = s; d.count = whole ? s.count : 1;
+    s.count = (u8)(s.count - d.count); if (!s.count) s = {};
+    Vec3 l = G->player.look();
+    G->entities->spawnItem(G->player.eye() + l * 0.3f - Vec3(0, 0.3f, 0), d, G->rng, l * 0.3f + Vec3(0, 0.1f, 0));
+    G->entities->items.back().pickupDelay = 40;
+}
+
+} // namespace vx

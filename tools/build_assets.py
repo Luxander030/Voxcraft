@@ -20,6 +20,8 @@ import hashlib, json, os, re, struct, sys, zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEX = os.path.join(ROOT, "assets", "textures", "blocks")
+ITEMS_TEX = os.path.join(ROOT, "assets", "textures", "items")
+ITEMS = os.path.join(ROOT, "assets", "data", "items.json")
 GEN = os.path.join(ROOT, "assets", "generated")
 BLOCKS = os.path.join(ROOT, "assets", "data", "blocks.json")
 TILE = 16
@@ -69,10 +71,11 @@ def main():
     force = "--force" in sys.argv
     preview = sys.argv[sys.argv.index("--preview") + 1] if "--preview" in sys.argv else None
     os.makedirs(GEN, exist_ok=True)
-    files = sorted(f for f in os.listdir(TEX) if f.endswith(".png"))
+    files = sorted([os.path.join(TEX, f) for f in os.listdir(TEX) if f.endswith(".png")] +
+                   [os.path.join(ITEMS_TEX, f) for f in os.listdir(ITEMS_TEX) if f.endswith(".png")])
     h = hashlib.sha256(b"pak-v1")
-    for f in files: h.update(f.encode()); h.update(open(os.path.join(TEX, f), "rb").read())
-    h.update(open(BLOCKS, "rb").read())
+    for f in files: h.update(os.path.basename(f).encode()); h.update(open(f, "rb").read())
+    h.update(open(BLOCKS, "rb").read()); h.update(open(ITEMS, "rb").read())
     digest = h.hexdigest()
     pak = os.path.join(GEN, "voxcraft.pak"); hfile = os.path.join(GEN, "pak.hash")
     if not force and not preview and os.path.exists(pak) and os.path.exists(hfile) and open(hfile).read() == digest:
@@ -80,9 +83,12 @@ def main():
 
     errors, warnings = [], []
     tiles, tile_index, names = [], {}, []
-    for f in files:
-        name = f[:-4]
-        try: w, hh, px = read_png(os.path.join(TEX, f))
+    seen = set()
+    for path in files:
+        f = os.path.basename(path); name = f[:-4]
+        if name in seen: errors.append(f"duplicate texture name '{name}' (blocks and items share one namespace)"); continue
+        seen.add(name)
+        try: w, hh, px = read_png(path)
         except Exception as e: errors.append(f"{f}: {e}"); continue
         if (w, hh) != (TILE, TILE) and name not in EXCEPTIONS: errors.append(f"{f}: {w}x{hh}, block textures must be {TILE}x{TILE}"); continue
         key = hashlib.sha256(px).digest()
@@ -90,6 +96,8 @@ def main():
         names.append((name, tile_index[key]))
     have = {n for n, _ in names}
     refs = referenced_textures()
+    itxt = re.sub(r"^\s*//.*$", "", open(ITEMS).read(), flags=re.M)
+    refs |= {v["tex"] for v in json.loads(itxt).values() if "tex" in v}
     for m in sorted(refs - have): errors.append(f"missing texture '{m}' referenced by blocks.json")
     for u in sorted(have - refs): warnings.append(f"unused texture '{u}'")
     for wmsg in warnings: print("warning:", wmsg)

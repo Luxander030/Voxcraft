@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Phase 5–6: survival gameplay
+- Item registry with block items, materials, tiered tools, food and fuel, plus original item textures.
+- Inventory with stacking and container click semantics, crafting (2×2, 3×3, tags, mirroring),
+  kiln smelting, chests.
+- Survival rules: break time by hardness and tool, harvest tiers, durability, health, hunger,
+  regeneration, fall damage, drowning, lava, death, respawn.
+- Dropped item entities with physics, merging, pickup and per-chunk persistence.
+- Screens: inventory, workbench, chest, kiln, creative palette, death; HUD hearts, hunger and air.
+
 ### Phases 1–2: playable renderer
 - Window, input and GPU through sokol (Metal / D3D11), with hand-written MSL and HLSL shaders.
 - Original procedural block textures, plus an asset packer with validation, deduplication and

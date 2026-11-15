@@ -52,6 +52,9 @@ private:
     void moveAxis(const World& w, int axis, float d, bool& hit);
 };
 
+// Exact axis sweep of an AABB against solid blocks: returns the allowed displacement (<= |d|).
+float sweepAxis(const World& w, const AABB& box, int axis, float d, bool& hit);
+
 // Voxel ray traversal (Amanatides-Woo). Returns the first targetable block within `reach`.
 struct RayHit { BlockPos block; BlockPos normal; float distance = 0; bool hit = false; };
 RayHit raycastBlocks(const World& w, Vec3 origin, Vec3 dir, float reach);

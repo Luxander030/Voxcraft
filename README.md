@@ -4,8 +4,8 @@ An original block-building sandbox game with its own engine, written in C++20. I
 and macOS from one codebase.
 
 **Status:** early development. You can explore an endless generated world, fly, walk, swim, and
-break and place blocks. Saves are sparse and crash-safe. Survival, items, crafting and creatures
-are next. See [ROADMAP.md](ROADMAP.md).
+break and place blocks. Survival mode adds tools, crafting, smelting, chests, health, hunger and
+item drops. Saves are sparse and crash-safe. Creatures are next. See [ROADMAP.md](ROADMAP.md).
 
 ## Run
 
@@ -21,7 +21,10 @@ build\Release\voxcraft.exe                    # Windows
 | Space / Left Shift | jump (fly up) / sneak (fly down) |
 | Left Ctrl or R | sprint |
 | F | toggle flying |
-| Left / Right / Middle click | break / place / pick block |
+| Left (hold) / Right / Middle click | break / place or use (workbench, chest, kiln, lever) or eat / pick block |
+| E | inventory and crafting |
+| Q (Ctrl+Q) | drop one (the whole stack) |
+| F4 | switch survival / creative |
 | 1–9, wheel | hotbar |
 | F3 | debug overlay |
 | F5 | save now |

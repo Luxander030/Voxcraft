@@ -37,7 +37,8 @@ All assets are original. Nothing is extracted from or traced over any other game
   entities update at reduced rates.
 
 ## Status
-- **Done:** the texture generator and packer, and 78 original block textures. The packer also
+- **Done:** the texture generator and packer, 78 original block textures and 31 item textures
+  (tools are generated per type × tier from shared shapes and palettes). The packer also
   writes a preview sheet with `--preview`.
 - **Done:** the original 5×7 UI font. It is compiled into `src/app/ui.cpp` and rendered into a
   texture at startup.

@@ -75,6 +75,22 @@ float Ui::text(float x, float y, std::string_view str, u32 color, bool shadow) {
     return cx - x;
 }
 
+void Ui::sprite(float x, float y, float w, float h, int layer, u32 tint) {
+    float s = scale;
+    const float p[4][2] = {{x * s, y * s}, {(x + w) * s, y * s}, {(x + w) * s, (y + h) * s}, {x * s, (y + h) * s}};
+    const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+    quad(p, uv, (float)layer, 2, tint);
+}
+
+void Ui::bitmap(float x, float y, const u16* rows, int w, int h, u32 color) {
+    for (int r = 0; r < h; r++)
+        for (int c = 0; c < w; ) {
+            if (!(rows[r] & (0x8000 >> c))) { c++; continue; }
+            int run = 1; while (c + run < w && (rows[r] & (0x8000 >> (c + run)))) run++;   // merge horizontal runs
+            rect(x + c, y + r, (float)run, 1, color); c += run;
+        }
+}
+
 void Ui::blockIcon(float cx, float cy, float size, BlockState b, const BlockRegistry& reg, const BlockTextures& tex) {
     const BlockDef& d = reg.def(b);
     float s = scale, r = size * 0.5f * s, X = cx * s, Y = cy * s;

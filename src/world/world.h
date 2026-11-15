@@ -63,6 +63,7 @@ public:
     ItemNames items;
 
     void setListener(WorldListener* l) { listener_ = l; }
+    // The host must outlive the World (or be detached after close()): saves collect entities from it.
     void setEntityHost(EntityHost* h) { entities_ = h; }
     MemoryBudget budget;
 

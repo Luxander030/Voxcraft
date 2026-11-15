@@ -24,11 +24,10 @@ bool Player::collides(const World& w, const AABB& b) const {
     return false;
 }
 
-void Player::moveAxis(const World& w, int axis, float d, bool& hit) {
+float sweepAxis(const World& w, const AABB& b, int axis, float d, bool& hit) {
     // Exact sweep: find the nearest solid block face in the swept slab along `axis`.
     hit = false;
-    if (d == 0) return;
-    AABB b = box();
+    if (d == 0) return 0;
     const float eps = 1e-4f;
     int o1 = (axis + 1) % 3, o2 = (axis + 2) % 3;
     int a0 = (int)std::floor(b.min[o1] + eps), a1 = (int)std::floor(b.max[o1] - eps);
@@ -45,9 +44,10 @@ void Player::moveAxis(const World& w, int axis, float d, bool& hit) {
         }
         if (solid) { allowed = d > 0 ? (float)k - b.max[axis] : (float)(k + 1) - b.min[axis]; hit = true; break; }
     }
-    if (d > 0) allowed = std::max(0.0f, std::min(allowed, d)); else allowed = std::min(0.0f, std::max(allowed, d));
-    pos[axis] += allowed;
+    return d > 0 ? std::max(0.0f, std::min(allowed, d)) : std::min(0.0f, std::max(allowed, d));
 }
+
+void Player::moveAxis(const World& w, int axis, float d, bool& hit) { pos[axis] += sweepAxis(w, box(), axis, d, hit); }
 
 void Player::tick(const World& w, const PlayerInput& in) {
     prevPos = pos;

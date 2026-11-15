@@ -29,14 +29,25 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 
 ## Phase 5 — Player gameplay 🔶
 - ✅ Movement (walk, sprint, sneak with edge guard, jump, fly, swim, climb), exact swept AABB collision, raycast targeting, break/place/pick, player save.
-- ⬜ Survival block breaking (hardness × tool), third-person camera.
+- ✅ Survival breaking: hardness × tool type/tier, harvest rules, break progress, tool durability.
+- ⬜ Third-person camera, crack overlay on the block being broken.
 
-## Phases 6–11 ⬜
-Inventory/items/crafting, health/hunger, mobs and AI, fluids flow, circuits, dimensions, audio,
-menus, particles, animation, packaging, stabilization (CLAUDE.md §25).
+## Phase 6 — Core gameplay 🔶
+- ✅ Data-driven item registry (`items.json`): block items, materials, 16 tiered tools, food, fuel. 31 original item textures.
+- ✅ 36-slot inventory, stacking, click/right-click/shift-click semantics, drop (Q), creative palette.
+- ✅ Crafting (`recipes.json`): shaped recipes with tags and mirroring, 2×2 inventory grid, 3×3 workbench, generated tool recipes.
+- ✅ Kiln smelting block entity (fuel, progress, lit state); chests (27 slots, persisted).
+- ✅ Health, hunger, saturation, exhaustion, regeneration, starvation, fall damage, drowning, lava, void; death drops items; respawn.
+- ✅ Dropped item entities: physics, merging, pickup, despawn, persisted with their chunk.
+- ✅ Game modes: survival / creative (F4 toggles; `--creative` for new worlds).
+- ⬜ Mobs (passive/hostile), AI, pathfinding, combat.
+
+## Phases 7–11 ⬜
+Fluid flow, structures, circuits, dimensions, audio, menus, particles, animation, packaging,
+stabilization (CLAUDE.md §25).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.
 - Generator golden hash pinned on arm64; CI checks x64.
-- Creative-style instant breaking only; no items yet (hotbar holds blocks).
+- Block outline is always a full cube (plants, torches show the unit box).
 - Font has no descenders (g, p, q, y sit on the baseline).

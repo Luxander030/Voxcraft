@@ -60,10 +60,11 @@ endif()
 # ---- runtime assets (validated + packed by tools/build_assets.py; incremental) ----
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 file(GLOB VX_TEXTURES CONFIGURE_DEPENDS assets/textures/blocks/*.png)
+file(GLOB VX_ITEM_TEXTURES CONFIGURE_DEPENDS assets/textures/items/*.png)
 add_custom_command(
   OUTPUT ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/build_assets.py
-  DEPENDS ${VX_TEXTURES} ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${CMAKE_SOURCE_DIR}/tools/build_assets.py
+  DEPENDS ${VX_TEXTURES} ${VX_ITEM_TEXTURES} ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${CMAKE_SOURCE_DIR}/assets/data/items.json ${CMAKE_SOURCE_DIR}/tools/build_assets.py
   COMMENT "Packing assets")
 add_custom_target(assets ALL DEPENDS ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak)
 
@@ -126,5 +127,5 @@ if(VX_BUILD_GAME AND EXISTS ${CMAKE_SOURCE_DIR}/src/app/main.cpp)
   add_custom_command(TARGET voxcraft POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${VX_DATA_DEST}
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak ${VX_DATA_DEST}/voxcraft.pak
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${VX_DATA_DEST}/blocks.json)
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${CMAKE_SOURCE_DIR}/assets/data/items.json ${CMAKE_SOURCE_DIR}/assets/data/recipes.json ${VX_DATA_DEST})
 endif()

@@ -28,6 +28,10 @@ public:
     // Text in UI units (one glyph cell = 6x8 units * scale pixels). Returns advance width.
     float text(float x, float y, std::string_view s, u32 color, bool shadow = true);
     static float textWidth(std::string_view s) { return (float)s.size() * FONT_CELL_W; }
+    // Flat texture-array tile (item icons, GUI icons)
+    void sprite(float x, float y, float w, float h, int layer, u32 tint = 0xFFFFFFFFu);
+    // 1-bit bitmap (rows of up to 16 bits, MSB = left), one UI unit per pixel
+    void bitmap(float x, float y, const u16* rows, int w, int h, u32 color);
     // Small isometric cube using the block's top and side textures.
     void blockIcon(float cx, float cy, float size, BlockState s, const BlockRegistry& reg, const BlockTextures& tex);
 private:
