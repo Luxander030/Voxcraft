@@ -27,6 +27,7 @@ struct UserOptions {
     int renderDistance = 10, guiScale = 0;           // 0 = automatic
     float fov = 70, sensitivity = 1.0f;
     float volume[6] = {0.8f, 0.5f, 1.0f, 1.0f, 0.7f, 0.8f};   // master, music, blocks, creatures, ambient, ui
+    bool distantTerrain = true;
     bool load();
     void save() const;
 };
@@ -51,6 +52,7 @@ struct Game {
     Options opt;
     UserOptions options;
     BudgetPolicy budget;
+    bool farInFlight = false; int farCX = 1 << 30, farCZ = 0, farRadiusBuilt = 0; u32 farEpoch = 0;
     double nextBudgetCheck = 0;
     AppState app = AppState::Title;
     std::vector<WorldEntry> worldList; int worldSel = -1, worldScroll = 0;

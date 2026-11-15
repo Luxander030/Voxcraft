@@ -19,7 +19,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Hand-written MSL + HLSL shaders; opaque / cutout / translucent passes; reversed-Z infinite projection; frustum culling per section; fog; day/night light.
 - ✅ Original 5×7 bitmap font, HUD, hotbar with isometric icons, block outline, F3 debug overlay.
 - ✅ Cave/occlusion culling via section connectivity graph (−99% draws underground, −26% on hilly surfaces).
-- ⬜ LOD for far terrain.
+- ✅ Distant terrain LOD: coarse heightfield ring beyond the loaded area straight from generator column heights (no chunk loading), ~10k quads built in ~9 ms on a worker, own MSL/HLSL shader (in the Windows shader check), horizon fog extended; settings toggle.
 
 ## Phase 3 — World and chunk foundation ✅
 - ✅ Block registry, chunk data, modification tracking, deterministic generator v1, lighting, sparse journaled storage (Tests A–F), streaming.

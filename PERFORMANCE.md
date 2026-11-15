@@ -65,6 +65,12 @@ about 0.2 ms per chunk, plus a BFS over the visible sections on the main thread.
 on this Mac is vsync-bound (16.7 ms) with or without culling, so the gain is GPU headroom. It
 matters most on integrated GPUs and at long render distances. F6 toggles culling for comparison.
 
+### Distant terrain (LOD)
+- About 10,180 quads for a 160–480 block ring, built in 8.5 ms on a worker thread from generator
+  column heights. No chunk generation or loading is needed, and it costs one draw call.
+- It is rebuilt only after 64 blocks of movement or a change in render distance. Each job uses
+  its own generator instance, so a closing world can never be referenced.
+
 ### Region cache bound
 `WorldStorage` keeps at most 64 parsed region files (LRU; `maxCachedRegions`). Evicting is
 always safe, because the cache only ever mirrors committed data and the World reads its pending

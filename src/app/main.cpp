@@ -132,6 +132,10 @@ void frame() {
             for (const char* n : {"iron_hoe", "grain_seeds", "bread", "bow", "arrow", "bedroll", "hopper", "comparator", "ember_striker"}) giveOrDropInv({G->items.id(n), (u8)(G->items.maxStack(G->items.id(n)) > 1 ? 12 : 1), 0});
         }
         if (G->opt.menuState == 10 && (int)G->frame == last - 30) openScreen(Screen::Inventory);
+        if (G->opt.menuState == 11 && G->frame >= 20) {   // vista: high viewpoint over the landscape
+            if (G->frame == 20) { G->player.pos.y = 140; G->player.prevPos = G->player.pos; }
+            G->player.flying = true; G->player.vel = {}; G->player.pitch = -0.18f; G->input.forward = 0;
+        }
         if (G->opt.menuState == 9 && G->frame == 20) {   // visit the nearest village
             int vx, vy, vz;
             if (G->world->generator().nearestVillage((int)G->player.pos.x, (int)G->player.pos.z, 8, vx, vy, vz)) {
@@ -147,7 +151,7 @@ void frame() {
             if (!enterDimension(G->dimension == "hollow" ? "overworld" : "hollow", t, true, &err)) fprintf(stderr, "travel failed: %s\n", err.c_str());
         }
         bool posing = (int)G->frame > last - 90;
-        if (G->opt.menuState == 9) posing = true;
+        if (G->opt.menuState == 9 || G->opt.menuState == 11) posing = true;
         if (!posing) { G->player.yaw += 0.01f; G->input.forward = G->frame > 120 && G->frame < 400 ? 1.0f : 0.0f; }
         else G->input.forward = 0;
         G->player.flying = G->creative() && !posing;
@@ -209,6 +213,26 @@ void frame() {
         G->world->budget.chunkCacheBytes = G->budget.chunkCacheBytes;
     }
     int radius = std::min(G->opt.radius, G->budget.effectiveRadius);
+    // distant terrain LOD: rebuilt on a worker (with its own generator instance) after 64 blocks of movement
+    G->renderer.farTerrainEnabled = G->options.distantTerrain && G->dimension == "overworld";
+    if (G->renderer.farTerrainEnabled && !G->farInFlight) {
+        int cx = (int)std::floor(renderPos.x / 8) * 8, cz = (int)std::floor(renderPos.z / 8) * 8;
+        if (std::abs(cx - G->farCX) > 64 || std::abs(cz - G->farCZ) > 64 || G->farRadiusBuilt != radius) {
+            G->farInFlight = true; G->farCX = cx; G->farCZ = cz; G->farRadiusBuilt = radius;
+            GenSettings gs = G->world->meta.gen; u32 epoch = G->farEpoch;
+            int inner = radius * 16, outer = std::min(radius * 16 * 3, 512);
+            G->jobs->submit([gs, cx, cz, inner, outer, epoch] {
+                auto gen = createGenerator(gs, G->reg);
+                auto mesh = std::make_shared<FarTerrainMesh>();
+                if (gen) buildFarTerrain(*gen, cx, cz, inner, outer, 8, *mesh);
+                G->jobs->postMain([mesh, epoch, outer] {
+                    G->farInFlight = false;
+                    if (epoch != G->farEpoch || !G->world) return;   // a different world/dimension by now
+                    G->renderer.setFarTerrain(*mesh); G->renderer.farRadius = (float)outer;
+                });
+            });
+        }
+    }
     G->world->setFocus(renderPos, radius + 2);
     G->world->update(4.0);
     G->renderer.updateMeshes(eye, radius);
@@ -218,6 +242,9 @@ void frame() {
     env.fovY = G->options.fov * PI / 180.0f;
     env.fogEnd = std::min(env.fogEnd, (float)(std::min(G->opt.radius, G->budget.effectiveRadius) * 16));
     env.fogStart = std::min(env.fogStart, env.fogEnd * 0.6f);
+    if (G->renderer.farTerrainEnabled && G->renderer.farRadius > 0 && G->dimension == "overworld" && G->reg.fluid(G->world->getBlock((int)std::floor(eye.x), (int)std::floor(eye.y), (int)std::floor(eye.z))) == false) {
+        env.fogStart = env.fogEnd * 0.9f; env.fogEnd = G->renderer.farRadius * 0.97f;   // the horizon moves out to the LOD ring
+    }
     drawFrameUi(sapp_width(), sapp_height());
     buildEntityMesh(G->entityVerts, eye, alpha, (float)dt);
     if (G->target.hit) G->renderer.outlineBox = blockShapeBounds(G->reg, G->world->getBlock(G->target.block));
@@ -362,7 +389,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--no-occlusion") G->noOcclusion = true;
         else if (a == "--underground") G->smokeUnderground = true;
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
-        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : m == "armor" ? 10 : 0; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : m == "armor" ? 10 : m == "vista" ? 11 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));

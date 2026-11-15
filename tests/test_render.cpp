@@ -154,3 +154,26 @@ TEST(render_fluid_surfaces_slope_between_levels) {
     CHECK(minTop == 8);           // outer corners of the flowing cell
     for (int q = 0; q < m.quads(ML_TRANSLUCENT); q++) CHECK(windingOk(&m.data[ML_TRANSLUCENT][q * 12]));
 }
+
+#include "render/farterrain.h"
+TEST(render_far_terrain_ring_is_bounded_and_matches_generator) {
+    GenSettings gs; gs.seed = 7; gs.version = 3;
+    auto gen = createGenerator(gs, blocks());
+    FarTerrainMesh m;
+    Stopwatch sw;
+    buildFarTerrain(*gen, 0, 0, 160, 480, 8, m);
+    double ms = sw.ms();
+    printf("    far terrain: %d quads in %.1f ms\n", m.quads(), ms);
+    CHECK(m.quads() > 1000 && m.quads() <= 16000);
+    bool inner = false;
+    for (size_t i = 0; i < m.verts.size(); i += 4) {
+        float cx = (m.verts[i].x + m.verts[i + 2].x) / 2, cz = (m.verts[i].z + m.verts[i + 2].z) / 2;
+        if (cx * cx + cz * cz < 140.0f * 140.0f) inner = true;
+    }
+    CHECK(!inner);   // nothing inside the loaded area (minus one cell of overlap)
+    // heights follow the generator (just under the surface, never below sea level)
+    const FarVertex& v = m.verts[0];
+    ColumnInfo c = gen->column((int)v.x, (int)v.z);
+    float expect = (float)std::max(c.height, SEA_LEVEL);
+    CHECK(v.y <= expect - 1.5f + 1e-3f && v.y >= expect - 8.0f - 1e-3f);   // just under the surface (deeper near the loaded area)
+}

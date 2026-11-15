@@ -43,6 +43,9 @@ sg_shader makeShader(const char* vs, const char* fs, const char* fsEntry, int ki
         d.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
         d.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT; d.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
         d.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT; d.texture_sampler_pairs[0].view_slot = 0; d.texture_sampler_pairs[0].sampler_slot = 0;
+    } else if (kind == 4) {   // far terrain
+        for (int i = 0; i < 2; i++) { d.attrs[i].base_type = SG_SHADERATTRBASETYPE_FLOAT; d.attrs[i].hlsl_sem_name = "TEXCOORD"; d.attrs[i].hlsl_sem_index = (u8)i; }
+        ub(0, SG_SHADERSTAGE_VERTEX, 80, 0); ub(1, SG_SHADERSTAGE_VERTEX, 16, 1); ub(2, SG_SHADERSTAGE_FRAGMENT, 32, 0);
     } else if (kind == 1) {   // lines
         d.attrs[0].base_type = SG_SHADERATTRBASETYPE_FLOAT; d.attrs[0].hlsl_sem_name = "TEXCOORD";
         ub(0, SG_SHADERSTAGE_VERTEX, 80, 0); ub(1, SG_SHADERSTAGE_VERTEX, 32, 1); ub(2, SG_SHADERSTAGE_FRAGMENT, 16, 0);
@@ -105,6 +108,7 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
     sg_buffer_desc eb = {}; eb.usage.vertex_buffer = true; eb.usage.write_transient = true; eb.size = entityCapacity_ * sizeof(EntityVertex); eb.label = "entities";
     entityBuf_ = sg_make_buffer(&eb);
     entitySh_ = makeShader(shaders::entityVS, shaders::terrainFS, "fs_cutout", 3, "entity");
+    farSh_ = makeShader(shaders::farVS, shaders::farFS, "fs_main", 4, "far-terrain");
     terrainOpaqueSh_ = makeShader(shaders::terrainVS, shaders::terrainFS, "fs_opaque", 0, "terrain-opaque");
     terrainCutoutSh_ = makeShader(shaders::terrainVS, shaders::terrainFS, "fs_cutout", 0, "terrain-cutout");
     linesSh_ = makeShader(shaders::linesVS, shaders::linesFS, "fs_main", 1, "lines");
@@ -135,6 +139,13 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
     ep.depth.compare = SG_COMPAREFUNC_GREATER_EQUAL; ep.depth.write_enabled = true; ep.label = "entities";
     entityPip_ = sg_make_pipeline(&ep);
 
+    sg_pipeline_desc fp = {};
+    fp.shader = farSh_;
+    fp.layout.attrs[0].format = SG_VERTEXFORMAT_FLOAT3; fp.layout.attrs[1].format = SG_VERTEXFORMAT_UBYTE4N;
+    fp.index_type = SG_INDEXTYPE_UINT16; fp.cull_mode = SG_CULLMODE_BACK; fp.face_winding = SG_FACEWINDING_CCW;
+    fp.depth.compare = SG_COMPAREFUNC_GREATER_EQUAL; fp.depth.write_enabled = true; fp.label = "far-terrain";
+    farPip_ = sg_make_pipeline(&fp);
+
     sg_pipeline_desc lp = {};
     lp.shader = linesSh_; lp.layout.attrs[0].format = SG_VERTEXFORMAT_FLOAT3; lp.primitive_type = SG_PRIMITIVETYPE_LINES;
     lp.depth.compare = SG_COMPAREFUNC_GREATER_EQUAL; lp.depth.write_enabled = false;
@@ -151,12 +162,13 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
     up.label = "ui";
     uiPip_ = sg_make_pipeline(&up);
 
-    for (sg_pipeline pp : {opaquePip_, cutoutPip_, translucentPip_, linesPip_, uiPip_, entityPip_})
+    for (sg_pipeline pp : {opaquePip_, cutoutPip_, translucentPip_, linesPip_, uiPip_, entityPip_, farPip_})
         if (sg_query_pipeline_state(pp) != SG_RESOURCESTATE_VALID) { if (err) *err = "pipeline/shader creation failed (see log)"; return false; }
     return true;
 }
 
 void Renderer::detach() {
+    clearFarTerrain();
     // New epoch: mesh jobs still in flight for the old world are dropped when they complete.
     alive_->store(false);
     alive_ = std::make_shared<std::atomic<bool>>(true);
@@ -169,6 +181,20 @@ void Renderer::detach() {
 void Renderer::shutdown() {
     alive_->store(false);
     detach();
+}
+
+void Renderer::setFarTerrain(const FarTerrainMesh& m) {
+    clearFarTerrain();
+    if (m.verts.empty()) return;
+    int q = std::min(m.quads(), MAX_QUADS);
+    sg_buffer_desc d = {}; d.usage.vertex_buffer = true; d.data = {m.verts.data(), (size_t)q * 4 * sizeof(FarVertex)}; d.label = "far-terrain";
+    farBuf_ = sg_make_buffer(&d);
+    farQuads_ = q; farCX_ = m.centerX; farCZ_ = m.centerZ;
+}
+
+void Renderer::clearFarTerrain() {
+    if (farBuf_.id) sg_destroy_buffer(farBuf_);
+    farBuf_ = {}; farQuads_ = 0; farRadius = 0;
 }
 
 void Renderer::freeSection(SectionGpu& s) {
@@ -344,6 +370,17 @@ void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, c
         if (backToFront) for (auto i = items.rbegin(); i != items.rend(); ++i) one(*i);
         else for (auto& i : items) one(i);
     };
+    if (farTerrainEnabled && farBuf_.id && farQuads_) {   // distant LOD first: near terrain overwrites it via depth
+        sg_apply_pipeline(farPip_);
+        sg_apply_uniforms(0, SG_RANGE_REF(frameU));
+        sg_apply_uniforms(2, SG_RANGE_REF(fogU));
+        float o[4] = {(float)farCX_ - eye.x, -eye.y, (float)farCZ_ - eye.z, 0};
+        sg_apply_uniforms(1, SG_RANGE_REF(o));
+        sg_bindings b = {}; b.vertex_buffers[0] = farBuf_; b.index_buffer = quadIdx_;
+        sg_apply_bindings(&b);
+        sg_draw(0, farQuads_ * 6, 1);
+        stats_.drawCalls++; stats_.quads += (u64)farQuads_;
+    }
     drawLayer(opaquePip_, ML_OPAQUE, false);
     drawLayer(cutoutPip_, ML_CUTOUT, false);
     if (entities && !entities->empty()) {

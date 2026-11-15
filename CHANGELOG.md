@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Distant terrain
+- A level-of-detail horizon beyond the render distance (settings toggle) and a `--menu vista`
+  smoke view.
+
 ### Smooth fluids
 - Water and lava surfaces slope between levels (per-corner heights).
 

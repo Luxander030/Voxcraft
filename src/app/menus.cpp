@@ -90,7 +90,8 @@ void settingsPanel(float W, float H, bool inGame) {
         snprintf(b, sizeof b, "%s: %d%%", VOLUME_NAMES[i], (int)(o.volume[i] * 100));
         slider(x + (i % 2) * 160, y + 56 + (i / 2) * 24, 150, b, o.volume[i], 0, 1, 0.05f);
     }
-    if (button(x + 80, y + 140, 150, "Done")) {
+    if (button(x + 80, y + 128, 150, o.distantTerrain ? "Distant terrain: On" : "Distant terrain: Off")) o.distantTerrain = !o.distantTerrain;
+    if (button(x + 80, y + 152, 150, "Done")) {
         o.save(); applyOptions();
         if (inGame) G->screen = Screen::Pause; else G->app = G->settingsReturn;
     }
@@ -109,6 +110,7 @@ bool UserOptions::load() {
     fov = clamp((float)j["fov"].asNumber(fov), 50.0f, 110.0f);
     sensitivity = clamp((float)j["sensitivity"].asNumber(sensitivity), 0.2f, 3.0f);
     for (int i = 0; i < 6; i++) volume[i] = clamp((float)j["volume"][i].asNumber(volume[i]), 0.0f, 1.0f);
+    distantTerrain = j["distant_terrain"].asBool(true);
     return true;
 }
 void UserOptions::save() const {
@@ -116,6 +118,7 @@ void UserOptions::save() const {
     j.set("render_distance", Json::of((double)renderDistance)); j.set("gui_scale", Json::of((double)guiScale));
     j.set("fov", Json::of((double)fov)); j.set("sensitivity", Json::of((double)sensitivity));
     Json v = Json::makeArray(); for (float f : volume) v.push(Json::of((double)f)); j.set("volume", v);
+    j.set("distant_terrain", Json::of(distantTerrain));
     std::string s = j.dump(2);
     if (!writeFileAtomic(userDataDir("Voxcraft") / "options.json", s.data(), s.size())) VX_WARN("could not save options");
 }

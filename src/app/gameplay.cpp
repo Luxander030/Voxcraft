@@ -301,6 +301,7 @@ bool saveWorld(bool sync) {
 }
 
 bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* err) {
+    G->farEpoch++; G->farCX = 1 << 30;   // distant terrain belongs to the old world
     std::string mode = G->world ? G->world->meta.gameMode : "survival";
     GenSettings baseGen = G->world ? G->world->meta.gen : GenSettings{};
     if (G->world) {
@@ -372,6 +373,7 @@ void resetPlayerState() {
 
 void endSession() {
     if (!G->world) return;
+    G->farEpoch++; G->farCX = 1 << 30;
     if (G->mixer) G->mixer->stopAll();
     closeScreen();
     G->renderer.detach();

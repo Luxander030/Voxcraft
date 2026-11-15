@@ -97,6 +97,30 @@ fragment float4 fs_main(VOut in [[stage_in]], texture2d<float> font [[texture(0)
     return float4(c.rgb * in.c.rgb, in.c.a);
 }
 )";
+// Far terrain (LOD): float3 position relative to the mesh centre, ubyte4n colour; Draw.origin =
+// centre - eye. Lit by daylight with a simple slope term, fogged like terrain.
+inline const char* farVS = R"(
+#include <metal_stdlib>
+using namespace metal;
+struct Frame { float4x4 vp; float4 cam; };
+struct Draw { float4 origin; };
+struct VIn { float3 p [[attribute(0)]]; float4 c [[attribute(1)]]; };
+struct VOut { float4 pos [[position]]; float3 col; float dist; };
+vertex VOut vs_main(VIn in [[stage_in]], constant Frame& f [[buffer(0)]], constant Draw& d [[buffer(1)]]) {
+    VOut o; float3 p = in.p + d.origin.xyz; o.pos = f.vp * float4(p, 1.0); o.col = in.c.rgb; o.dist = length(p.xz); return o;
+}
+)";
+inline const char* farFS = R"(
+#include <metal_stdlib>
+using namespace metal;
+struct Fog { float4 fogColor; float4 params; };
+struct VOut { float4 pos [[position]]; float3 col; float dist; };
+fragment float4 fs_main(VOut in [[stage_in]], constant Fog& fg [[buffer(0)]]) {
+    float light = max(fg.params.x * 0.92 + 0.04, fg.params.w);
+    float fog = clamp((in.dist - fg.params.y) / max(1.0, fg.params.z - fg.params.y), 0.0, 1.0);
+    return float4(mix(in.col * light, fg.fogColor.rgb, fog * fog), 1.0);
+}
+)";
 // Entities: float3 camera-relative position, float4 (u, v, layer, face shade), float2 (sky, block)
 // light 0..1, ubyte4n tint. Same lighting/fog maths as terrain.
 inline const char* entityVS = R"(
@@ -179,6 +203,23 @@ float4 fs_main(VOut i) : SV_Target0 {
     float4 c = blocks.Sample(smp, i.t.xyz);
     if (c.a < 0.5) discard;
     return float4(c.rgb * i.c.rgb, i.c.a);
+}
+)";
+inline const char* farVS = R"(
+cbuffer Frame : register(b0) { float4x4 vp; float4 cam; };
+cbuffer Draw : register(b1) { float4 origin; };
+struct VOut { float3 col : TEXCOORD0; float dist : TEXCOORD1; float4 pos : SV_Position; };
+VOut vs_main(float3 p : TEXCOORD0, float4 c : TEXCOORD1) {
+    VOut o; float3 q = p + origin.xyz; o.pos = mul(vp, float4(q, 1.0)); o.col = c.rgb; o.dist = length(q.xz); return o;
+}
+)";
+inline const char* farFS = R"(
+cbuffer Fog : register(b0) { float4 fogColor; float4 params; };
+struct VOut { float3 col : TEXCOORD0; float dist : TEXCOORD1; float4 pos : SV_Position; };
+float4 fs_main(VOut i) : SV_Target0 {
+    float light = max(params.x * 0.92 + 0.04, params.w);
+    float fog = saturate((i.dist - params.y) / max(1.0, params.z - params.y));
+    return float4(lerp(i.col * light, fogColor.rgb, fog * fog), 1.0);
 }
 )";
 inline const char* entityVS = R"(

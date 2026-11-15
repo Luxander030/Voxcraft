@@ -23,6 +23,8 @@ int main() {
     f += compile("entity", entityVS, "vs_main", "vs_5_0");
     f += compile("lines", linesVS, "vs_main", "vs_5_0");
     f += compile("lines", linesFS, "fs_main", "ps_5_0");
+    f += compile("far", farVS, "vs_main", "vs_5_0");
+    f += compile("far", farFS, "fs_main", "ps_5_0");
     f += compile("ui", uiVS, "vs_main", "vs_5_0");
     f += compile("ui", uiFS, "fs_main", "ps_5_0");
     printf("%d shader(s) failed\n", f);

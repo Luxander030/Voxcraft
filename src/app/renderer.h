@@ -12,6 +12,7 @@
 #include "app/ui.h"
 #include "core/jobs.h"
 #include "game/player.h"
+#include "render/farterrain.h"
 #include "render/mesher.h"
 #include "world/world.h"
 #include "sokol/sokol_gfx.h"
@@ -49,6 +50,11 @@ public:
     const BlockTextures& textures() const { return tex_; }
     int renderRadius = 10;
     bool occlusionCulling = true;   // cave culling via the section connectivity graph
+    // Distant terrain (LOD): replaces the far mesh (main thread, takes ownership of the data).
+    void setFarTerrain(const FarTerrainMesh& m);
+    void clearFarTerrain();
+    bool farTerrainEnabled = true;
+    float farRadius = 0;   // blocks covered by the far mesh (0 = none)
 
     // WorldListener
     void onChunkReady(ChunkPos p) override;
@@ -73,8 +79,9 @@ private:
     sg_image blockImg_{}, fontImg_{};
     sg_view blockView_{}, fontView_{};
     sg_sampler blockSmp_{}, uiSmp_{};
-    sg_shader terrainOpaqueSh_{}, terrainCutoutSh_{}, linesSh_{}, uiSh_{}, entitySh_{};
-    sg_pipeline opaquePip_{}, cutoutPip_{}, translucentPip_{}, linesPip_{}, uiPip_{}, entityPip_{};
+    sg_shader terrainOpaqueSh_{}, terrainCutoutSh_{}, linesSh_{}, uiSh_{}, entitySh_{}, farSh_{};
+    sg_pipeline opaquePip_{}, cutoutPip_{}, translucentPip_{}, linesPip_{}, uiPip_{}, entityPip_{}, farPip_{};
+    sg_buffer farBuf_{}; int farQuads_ = 0; int farCX_ = 0, farCZ_ = 0;
     sg_buffer quadIdx_{}, outlineBuf_{}, uiBuf_{}, entityBuf_{};
     size_t uiCapacity_ = 0, entityCapacity_ = 0;
     Stats stats_;
