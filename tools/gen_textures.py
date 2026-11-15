@@ -448,39 +448,48 @@ def wanderer_tunic_front(rng):
     for x in (3, 4): put(px, x, 0, hexc("d8a47c"))             # neckline
     return px
 
-def face(base, eye, extra=None):
+def face(base, eye, w, h, mouth=None, mouth_w=2):
+    """A creature face for a w x h box face. Boxes sample the tile's top-left w x h pixels, so the
+    eyes and mouth are placed symmetrically inside that area (eye = [pupil, highlight])."""
     def f(rng):
         px = noisy(rng, base, 0.5, 4)
-        for (x, y) in ((4, 6), (5, 6), (10, 6), (11, 6)): put(px, x, y, eye[0])
-        for (x, y) in ((4, 5), (11, 5)): put(px, x, y, eye[1])
-        if extra: extra(px, rng)
+        ey = (h - 1) // 2
+        if w >= 7:   # two-pixel eyes: highlight on the outside, pupil inside
+            for (x, c) in ((1, eye[1]), (2, eye[0]), (w - 3, eye[0]), (w - 2, eye[1])): put(px, x, ey, c)
+        else:
+            l, r = (0, w - 1) if w <= 4 else (1, w - 2)
+            put(px, l, ey, eye[0]); put(px, r, ey, eye[0])
+        if mouth is not None and h >= 3:
+            my = min(h - 1, ey + 2)
+            x0 = (w - mouth_w) // 2
+            for x in range(x0, x0 + mouth_w): put(px, x, my, mouth)
         return px
     return f
 
 ENTITY_RECIPES = {
     "grazer_hide": lambda r: [p if r.next() > 0.06 else hexc("e8dcc0") for p in noisy(r, pal("9a6a3a", "8a5e32", "a87844", "7c5430"), 0.6, 4)],
-    "grazer_face": face(pal("9a6a3a", "8a5e32", "a87844"), pal("1a1210", "f0e8d8"), lambda px, r: [put(px, x, y, hexc("3a2418")) for x in (7, 8) for y in (11, 12)]),
+    "grazer_face": face(pal("9a6a3a", "8a5e32", "a87844"), pal("1a1210", "f0e8d8"), 6, 6, hexc("3a2418")),
     "grazer_horn": lambda r: noisy(r, pal("e8dcc0", "d0c4a4", "f4ecd8"), 0.4, 4),
     "grazer_leg": lambda r: [hexc("3a2418") if (i // N) > 12 else p for i, p in enumerate(noisy(r, pal("8a5e32", "7c5430", "9a6a3a"), 0.6, 4))],
     "puffbird_feathers": lambda r: noisy(r, pal("b8d8f0", "a8c8e8", "c8e4f8", "98bce0"), 0.5, 3),
-    "puffbird_face": face(pal("b8d8f0", "a8c8e8", "c8e4f8"), pal("101820", "ffffff")),
+    "puffbird_face": face(pal("b8d8f0", "a8c8e8", "c8e4f8"), pal("101820", "ffffff"), 4, 4),
     "puffbird_beak": lambda r: noisy(r, pal("f0a830", "e09020", "f8c050"), 0.5, 4),
     "puffbird_wing": lambda r: [hexc("6890c0") if (i % N) % 4 == 0 else p for i, p in enumerate(noisy(r, pal("88b0d8", "78a0c8"), 0.5, 4))],
     "gloomling_skin": lambda r: noisy(r, pal("3a2a48", "322440", "443254", "2a1e36"), 0.5, 4),
-    "gloomling_face": face(pal("3a2a48", "322440", "443254"), pal("ffd040", "fff4a0"), lambda px, r: [put(px, x, 11, hexc("1a1020")) for x in range(5, 11)]),
+    "gloomling_face": face(pal("3a2a48", "322440", "443254"), pal("ffd040", "fff4a0"), 7, 7, hexc("1a1020"), 3),
     "gloomling_leg": lambda r: noisy(r, pal("2a1e36", "241a30", "322440"), 0.5, 4),
     "cinderwisp_core": lambda r: noisy(r, pal("ff8a20", "ffb040", "e86010", "ffd070"), 0.6, 3),
-    "cinderwisp_face": face(pal("ff8a20", "ffb040", "e86010"), pal("3a0a00", "fff4c0"), lambda px, r: [put(px, x, 11, hexc("6a1a00")) for x in range(6, 10)]),
+    "cinderwisp_face": face(pal("ff8a20", "ffb040", "e86010"), pal("3a0a00", "fff4c0"), 6, 6, hexc("6a1a00")),
     "cinderwisp_shard": lambda r: noisy(r, pal("5a2a2a", "ff6a10", "442020"), 0.4, 2),
     "sun": lambda r: [hexc("fff8d0") if max(abs(x - 7.5), abs(y - 7.5)) < 5 else (hexc("ffe890") if max(abs(x - 7.5), abs(y - 7.5)) < 7 else CLEAR) for y in range(N) for x in range(N)],
     "moon": lambda r: [(hexc(["d8dce8", "c0c4d0", "e8ecf4"][r.int(3)]) if (max(abs(x - 7.5), abs(y - 7.5)) < 6 and not (x > 9 and y < 6)) else CLEAR) for y in range(N) for x in range(N)],
     "cloud": lambda r: [hexc(["ffffff", "f4f6fa", "eef0f6"][r.int(3)]) for _ in range(N * N)],
     "settler_robe": lambda r: [hexc("4a5a3a") if (i // N) % 6 == 5 else p for i, p in enumerate(noisy(r, pal("6a7a4a", "5e6e42", "768654"), 0.5, 4))],
     "settler_hood": lambda r: noisy(r, pal("5e6e42", "52623a", "6a7a4a"), 0.5, 4),
-    "settler_face": face(pal("d8a880", "c89870", "e0b890"), pal("2a1a10", "f8f0e8"), lambda px, r: [put(px, x, 11, hexc("8a5040")) for x in range(6, 10)]),
+    "settler_face": face(pal("d8a880", "c89870", "e0b890"), pal("2a1a10", "f8f0e8"), 8, 8, hexc("8a5040")),
     "settler_hands": lambda r: noisy(r, pal("d8a880", "c89870"), 0.5, 4),
     "rockmite_shell": lambda r: [hexc("4a4844") if (i % N) % 5 == 0 or (i // N) % 6 == 0 else p for i, p in enumerate(noisy(r, pal("7a766e", "6c6862", "88847a"), 0.5, 4))],
-    "rockmite_face": face(pal("7a766e", "6c6862"), pal("c82020", "ff6060")),
+    "rockmite_face": face(pal("7a766e", "6c6862"), pal("c82020", "ff6060"), 5, 3),
     "rockmite_leg": lambda r: noisy(r, pal("4a4844", "3c3a36"), 0.5, 4),
     # wanderer (player). Boxes sample the top-left of the tile: an 8x8 head uses x,y 0..7 and a
     # 4-wide, 12-tall limb uses rows 0..11, so the art is laid out in rows from the top.

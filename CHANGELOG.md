@@ -13,6 +13,9 @@
 - **Fix:** creature animation signs were inverted. Arm attacks swung backwards, grazers raised
   their heads to graze, puffbirds pecked upward, and head-look tilted the wrong way. A sign convention
   is now documented in `animations.json`, and `anim_directions_attack_forward_head_look_up` pins it.
+- **Fix:** creature faces were drawn for a 16-pixel-wide face, but head boxes only sample their
+  top-left w×h pixels. Settlers and gloomlings showed one off-centre eye, and most mouths were cut
+  off. `face()` now takes the head size and places the eyes and mouth symmetrically inside it.
 
 ### Fixed: a failed final save no longer discards the session (data integrity)
 - **Bug:** quitting to the title screen, closing the window or travelling through a rift closed the
