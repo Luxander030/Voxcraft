@@ -3,6 +3,7 @@
 #include "app/renderer.h"
 #include "app/ui.h"
 #include "audio/audio.h"
+#include "core/budget.h"
 #include "game/behaviors.h"
 #include "game/entities.h"
 #include "game/items.h"
@@ -49,6 +50,8 @@ struct UiSlot { float x, y; ItemStack* ptr; enum Kind : u8 { Normal, CraftResult
 struct Game {
     Options opt;
     UserOptions options;
+    BudgetPolicy budget;
+    double nextBudgetCheck = 0;
     AppState app = AppState::Title;
     std::vector<WorldEntry> worldList; int worldSel = -1, worldScroll = 0;
     std::string fieldName = "New World", fieldSeed; int focusField = 0; bool newCreative = false, newFlat = false;

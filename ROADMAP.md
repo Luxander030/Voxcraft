@@ -27,7 +27,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 ## Phase 4 — Optimization foundation 🔶
 - ✅ Background generation/lighting/meshing, chunk cache budget, storage cleanup, save validation, `vxworld`, `voxbench`, profiling overlay.
 - ✅ Region-file cache bounded (LRU, lossless eviction).
-- ⬜ Mesh/texture VRAM budget enforcement, memory-pressure response.
+- ✅ Memory budgets with pressure response: mesh VRAM (192 MiB) and process memory (half of physical RAM, max 4 GiB) are checked every second; over budget the effective render distance steps down (min 4) and the clean-chunk cache shrinks; it recovers with hysteresis. Unsaved edits are never dropped (only clean data is evicted).
 
 ## Phase 5 — Player gameplay 🔶
 - ✅ Movement (walk, sprint, sneak with edge guard, jump, fly, swim, climb), exact swept AABB collision, raycast targeting, break/place/pick, player save.

@@ -121,6 +121,7 @@ void UserOptions::save() const {
 }
 void applyOptions() {
     G->opt.radius = G->options.renderDistance;
+    G->budget.effectiveRadius = std::max(G->budget.effectiveRadius, G->opt.radius);   // a new setting is honoured until pressure says otherwise
     if (G->mixer) for (int i = 0; i < (int)SoundCat::Count; i++) G->mixer->setVolume((SoundCat)i, G->options.volume[i]);
 }
 

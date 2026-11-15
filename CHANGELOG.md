@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Memory pressure
+- An adaptive budget policy lowers the render distance and chunk cache under memory pressure,
+  then recovers. The debug overlay shows the budget state. Physical memory is queried on every
+  platform.
+
 ### Settlers and trading
 - Settlers populate villages the first time a player comes near, and stay near home.
 - A trade screen with deterministic offers that use copper ingots. Mob records (v2) store each

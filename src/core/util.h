@@ -98,5 +98,7 @@ fs::path userDataDir(const char* appName);
 fs::path executableDir();
 // Resident memory of this process in bytes (0 if unavailable).
 u64 processMemoryBytes();
+// Installed physical memory in bytes (0 if unavailable).
+u64 physicalMemoryBytes();
 
 } // namespace vx

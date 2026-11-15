@@ -397,3 +397,23 @@ TEST(storage_region_cache_is_bounded_and_eviction_is_lossless) {
     for (auto& [p, s] : edits) { r.loadChunkSync(p.chunk()); CHECK_EQ(r.getBlock(p), s); }
     CHECK(r.storage().cachedRegionCount() <= 4);
 }
+
+#include "core/budget.h"
+TEST(memory_budget_policy_degrades_and_recovers_with_hysteresis) {
+    BudgetPolicy p; p.effectiveRadius = 12;
+    BudgetInputs in; in.desiredRadius = 12; in.meshBudget = 100; in.meshBytes = 150;   // over budget
+    for (int i = 0; i < 3; i++) p.update(in);
+    CHECK_EQ(p.effectiveRadius, 9);
+    CHECK(p.chunkCacheBytes < (96u << 20));
+    for (int i = 0; i < 20; i++) p.update(in);
+    CHECK_EQ(p.effectiveRadius, 4);                 // floor
+    in.meshBytes = 80;                              // between 70% and 100%: hold
+    for (int i = 0; i < 30; i++) p.update(in);
+    CHECK_EQ(p.effectiveRadius, 4);
+    in.meshBytes = 10;                              // calm: one step per 10 s
+    for (int i = 0; i < 25; i++) p.update(in);
+    CHECK_EQ(p.effectiveRadius, 6);
+    in.desiredRadius = 5; p.update(in);
+    CHECK_EQ(p.effectiveRadius, 5);                 // never above the user's setting
+    CHECK(physicalMemoryBytes() > (256ull << 20));
+}

@@ -144,6 +144,9 @@ the world only through `World` and the `BlockBehaviors` hooks (`containerSignal`
   (4 KiB, shared when uniform).
 - Copy-on-write `shared_ptr` sections let mesh and light jobs snapshot without locks or copies,
   unless a write actually happens.
+- `core/budget.h` adapts to memory pressure once per second. It lowers the effective render
+  distance and the clean-chunk cache budget when mesh VRAM or process memory exceed their
+  budgets, and raises them again with hysteresis.
 - Budgets are in `MemoryBudget`. Current limit: the clean-chunk LRU (96 MiB default). Mesh and
   texture budgets come with the renderer.
 - Measured resident cost: ~42 KiB per generated chunk (see PERFORMANCE.md).

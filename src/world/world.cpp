@@ -199,6 +199,10 @@ void World::queueLight(ChunkPos p) {
 
 void World::update(double budgetMs) {
     jobs_.pumpMain(budgetMs);
+    // honour a lowered cache budget right away (cached chunks are clean: evicting never loses data)
+    while (lruBytes_ > budget.chunkCacheBytes && !lru_.empty()) {
+        ChunkPtr old = lru_.back(); lru_.pop_back(); lruIndex_.erase(old->pos); lruBytes_ -= old->memoryBytes();
+    }
     if (!gen_ || !focusSet_) return;
     const int r = loadRadius_, r2 = r * r;
     // request missing chunks in the load circle

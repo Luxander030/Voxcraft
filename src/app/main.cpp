@@ -198,13 +198,26 @@ void frame() {
     if (simulate) updateInteraction((float)dt);
 
     if (G->mixer) G->mixer->setListener(eye, p.yaw);
-    G->world->setFocus(renderPos, G->opt.radius + 2);
+    if (G->now >= G->nextBudgetCheck) {   // memory budgets: adapt the render distance under pressure
+        G->nextBudgetCheck = G->now + 1.0;
+        BudgetInputs bi;
+        bi.meshBytes = G->renderer.stats().gpuBytes; bi.processBytes = (size_t)processMemoryBytes();
+        u64 phys = physicalMemoryBytes();
+        bi.processBudget = phys ? (size_t)std::min<u64>(phys / 2, 4096ull << 20) : (2048ull << 20);
+        bi.desiredRadius = G->opt.radius;
+        if (G->budget.update(bi)) VX_INFO("memory budget: render distance now %d (mesh %.0f MiB, rss %.0f MiB)", G->budget.effectiveRadius, bi.meshBytes / 1048576.0, bi.processBytes / 1048576.0);
+        G->world->budget.chunkCacheBytes = G->budget.chunkCacheBytes;
+    }
+    int radius = std::min(G->opt.radius, G->budget.effectiveRadius);
+    G->world->setFocus(renderPos, radius + 2);
     G->world->update(4.0);
-    G->renderer.updateMeshes(eye, G->opt.radius);
+    G->renderer.updateMeshes(eye, radius);
     if (G->now - G->lastSave > 45.0) { saveWorld(false); G->lastSave = G->now; }
 
     FrameEnv env; environment(env, eye);
     env.fovY = G->options.fov * PI / 180.0f;
+    env.fogEnd = std::min(env.fogEnd, (float)(std::min(G->opt.radius, G->budget.effectiveRadius) * 16));
+    env.fogStart = std::min(env.fogStart, env.fogEnd * 0.6f);
     drawFrameUi(sapp_width(), sapp_height());
     buildEntityMesh(G->entityVerts, eye, alpha, (float)dt);
     if (G->target.hit) G->renderer.outlineBox = blockShapeBounds(G->reg, G->world->getBlock(G->target.block));

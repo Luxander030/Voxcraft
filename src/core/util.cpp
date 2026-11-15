@@ -16,6 +16,7 @@
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
+#include <sys/sysctl.h>
 #endif
 #endif
 
@@ -172,6 +173,19 @@ fs::path executableDir() {
     return fs::current_path();
 #else
     std::error_code ec; auto p = fs::read_symlink("/proc/self/exe", ec); return ec ? fs::current_path() : p.parent_path();
+#endif
+}
+
+u64 physicalMemoryBytes() {
+#if defined(_WIN32)
+    MEMORYSTATUSEX ms; ms.dwLength = sizeof ms;
+    return GlobalMemoryStatusEx(&ms) ? (u64)ms.ullTotalPhys : 0;
+#elif defined(__APPLE__)
+    u64 v = 0; size_t n = sizeof v;
+    return sysctlbyname("hw.memsize", &v, &n, nullptr, 0) == 0 ? v : 0;
+#else
+    long pages = sysconf(_SC_PHYS_PAGES), sz = sysconf(_SC_PAGESIZE);
+    return pages > 0 && sz > 0 ? (u64)pages * (u64)sz : 0;
 #endif
 }
 

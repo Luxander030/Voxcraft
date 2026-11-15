@@ -213,7 +213,8 @@ void drawDebug() {
     auto avg = [](Stat t, Stat n) { u64 c = Profiler::get(n); return c ? Profiler::get(t) / 1000.0 / (double)c : 0.0; };
     line("avg ms: gen %.2f  light %.2f  mesh/section %.3f   save %.1f total", avg(Stat::GenTimeUs, Stat::ChunksGenerated), avg(Stat::LightTimeUs, Stat::ChunksLit),
          avg(Stat::MeshTimeUs, Stat::ChunksMeshed), Profiler::get(Stat::SaveTimeUs) / 1000.0);
-    line("memory rss %.0f MiB  chunks %.1f MiB  cache %.1f MiB", processMemoryBytes() / 1048576.0, ws.chunkBytes / 1048576.0, ws.cacheBytes / 1048576.0);
+    line("memory rss %.0f MiB  chunks %.1f MiB  cache %.1f/%.0f MiB  radius %d/%d", processMemoryBytes() / 1048576.0, ws.chunkBytes / 1048576.0, ws.cacheBytes / 1048576.0,
+         G->budget.chunkCacheBytes / 1048576.0, std::min(G->opt.radius, G->budget.effectiveRadius), G->opt.radius);
     if (G->target.hit) {
         BlockState s = G->world->getBlock(G->target.block);
         line("target %s at %d %d %d", G->reg.stateString(s).c_str(), G->target.block.x, G->target.block.y, G->target.block.z);
