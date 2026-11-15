@@ -11,18 +11,47 @@ bool replaceable(const World& w, const BlockPos& p) { return w.reg.def(w.getBloc
 }
 
 bool isDoor(const BlockRegistry& reg, BlockState s) { return s != AIR && reg.def(s).shape == BlockShape::Door; }
-bool isOpenable(const BlockRegistry& reg, BlockState s) { return s != AIR && (reg.def(s).shape == BlockShape::Door || reg.def(s).shape == BlockShape::Trapdoor); }
+bool isOpenable(const BlockRegistry& reg, BlockState s) {
+    if (s == AIR) return false;
+    BlockShape sh = reg.def(s).shape;
+    return sh == BlockShape::Door || sh == BlockShape::Trapdoor || sh == BlockShape::FenceGate;
+}
+
+BlockState withStairShape(const World& w, const BlockPos& p, BlockState s) {
+    const BlockRegistry& reg = w.reg;
+    if (reg.def(s).shape != BlockShape::Stairs) return s;
+    int f = reg.getProp(s, "facing"), half = reg.getProp(s, "half");
+    auto stairAt = [&](int dir, int& facing) {
+        int dx, dz; dirOffset(dir, dx, dz);
+        BlockState n = w.getBlock({p.x + dx, p.y, p.z + dz});
+        if (n == AIR || reg.def(n).shape != BlockShape::Stairs || reg.getProp(n, "half") != half) return false;
+        facing = reg.getProp(n, "facing"); return true;
+    };
+    auto sameRun = [&](int dir) { int g; return stairAt(dir, g) && g == f; };   // a straight neighbour continuing this run
+    int shape = 0, g;
+    // a perpendicular stair behind: outer corner, tall quarter toward its back
+    if (stairAt(f, g) && (g == dirCW(f) || g == dirCCW(f)) && !sameRun(dirOpposite(g)))
+        shape = g == dirCW(f) ? 3 : 4;
+    // a perpendicular stair in front: inner corner, extra quarter toward its back
+    else if (stairAt(dirOpposite(f), g) && (g == dirCW(f) || g == dirCCW(f)) && !sameRun(g))
+        shape = g == dirCW(f) ? 1 : 2;
+    return reg.withProp(s, "shape", shape);
+}
 
 BlockState withConnections(const World& w, const BlockPos& p, BlockState s) {
     const BlockDef& d = w.reg.def(s);
-    if (d.shape != BlockShape::Fence && d.shape != BlockShape::Pane) return s;
+    if (d.shape == BlockShape::Stairs) return withStairShape(w, p, s);
+    if (d.shape != BlockShape::Fence && d.shape != BlockShape::Pane && d.shape != BlockShape::Wall) return s;
     static const char* SIDES[4] = {"north", "south", "west", "east"};
     for (int k = 0; k < 4; k++) {
         int dx, dz; dirOffset(k, dx, dz);
         BlockState n = w.getBlock({p.x + dx, p.y, p.z + dz});
         const BlockDef& nd = w.reg.def(n);
-        bool c = n != AIR && (nd.shape == d.shape                                   // same family (any wood fence / any pane)
-                              || (nd.shape == BlockShape::Cube && w.reg.opaque(n))   // solid wall
+        // a gate joins fences/walls that run along its axis (gate facing N/S runs east-west)
+        bool gate = n != AIR && nd.shape == BlockShape::FenceGate && (w.reg.getProp(n, "facing") <= 1) == (k >= 2);
+        bool c = n != AIR && (nd.shape == d.shape                                   // same family (any wood fence / any pane / any wall)
+                              || (nd.shape == BlockShape::Cube && w.reg.opaque(n))   // solid block
+                              || (d.shape != BlockShape::Pane && gate)
                               || (d.shape == BlockShape::Pane && nd.name == "glass"));
         s = w.reg.withProp(s, SIDES[k], c ? 1 : 0);
     }
@@ -55,7 +84,9 @@ PlacePlan planBuildingPlacement(const World& w, BlockState item, const BlockPos&
     BlockState s = item;
     switch (d.shape) {
     case BlockShape::Slab: s = reg.withProp(s, "type", upperHalf ? 1 : 0); break;
-    case BlockShape::Stairs: s = reg.withProp(reg.withProp(s, "facing", dirOpposite(toward)), "half", upperHalf ? 1 : 0); break;
+    case BlockShape::Stairs: s = withStairShape(w, at, reg.withProp(reg.withProp(s, "facing", dirOpposite(toward)), "half", upperHalf ? 1 : 0)); break;
+    case BlockShape::FenceGate: s = reg.withProp(s, "facing", toward); break;
+    case BlockShape::Wall: s = withConnections(w, at, s); break;
     case BlockShape::Trapdoor: {
         // hinged on the block it was placed against when clicked on a side; otherwise on the far edge
         int f = normal.y == 0 ? (normal.z > 0 ? 0 : normal.z < 0 ? 1 : normal.x > 0 ? 2 : 3) : dirOpposite(toward);
@@ -108,7 +139,7 @@ bool buildingNeighborUpdate(World& w, const BlockPos& p, const std::function<int
     BlockState s = w.getBlock(p);
     if (s == AIR || !isBoxedShape(w.reg.def(s).shape)) return false;
     const BlockDef& d = w.reg.def(s);
-    if (d.shape == BlockShape::Fence || d.shape == BlockShape::Pane) {
+    if (d.shape == BlockShape::Fence || d.shape == BlockShape::Pane || d.shape == BlockShape::Wall || d.shape == BlockShape::Stairs) {
         BlockState c = withConnections(w, p, s);
         if (c != s) w.setBlock(p, c);
         return true;
@@ -131,7 +162,7 @@ bool buildingNeighborUpdate(World& w, const BlockPos& p, const std::function<int
         }
         return true;
     }
-    if (d.shape == BlockShape::Trapdoor && power) {
+    if ((d.shape == BlockShape::Trapdoor || d.shape == BlockShape::FenceGate) && power) {
         bool powered = power(p) > 0;
         if (powered != (bool)w.reg.getProp(s, "powered")) w.setBlock(p, w.reg.withProp(w.reg.withProp(s, "powered", powered), "open", powered));
         return true;

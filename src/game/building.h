@@ -26,8 +26,10 @@ PlacePlan planBuildingPlacement(const World& w, BlockState item, const BlockPos&
 // then the lower half normally, so neither half ever sees itself without its partner.
 bool applyPlacement(World& w, const PlacePlan& plan);
 
-// Fence / pane connections recomputed from the neighbours (returns s unchanged for other blocks).
+// Fence / pane / wall connections and stair corner shapes recomputed from the neighbours
+// (returns s unchanged for other blocks).
 BlockState withConnections(const World& w, const BlockPos& p, BlockState s);
+BlockState withStairShape(const World& w, const BlockPos& p, BlockState s);
 
 // Right-click on a door or trapdoor: toggles it (both door halves). Returns false if the block
 // cannot be opened by hand (iron doors open only with a circuit signal) or is not openable.

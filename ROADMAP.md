@@ -95,7 +95,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 ## Phase 11 🔶
 Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, further optimization.
 - ✅ Building shapes: slabs (double stacking), stairs (upright/upside-down), fences and panes with connections, doors (double doors, iron doors on circuits), trapdoors; box collision with 0.6-block step-up; box-accurate picking.
-- ⬜ Stair corner shapes (inner/outer); fence gates; walls.
+- ✅ Stair corner shapes (inner/outer), fence gates, walls.
 - ⬜ Use building shapes in generated structures (needs a new generator version).
 
 ## Known limitations

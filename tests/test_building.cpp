@@ -177,3 +177,51 @@ TEST(building_pathfinding_doorways_and_fences) {
     e.w.setBlock({0, 5, 4}, e.st("oak_fence"));
     CHECK(!walkableCell(e.w, {0, 6, 4}, 2));
 }
+
+TEST(building_stair_corners_inner_and_outer) {
+    Env e("bcorner");
+    const BlockRegistry& r = blocks();
+    auto stairs = [&](BlockPos p, int facing) {
+        PlacePlan pl; pl.ok = true; pl.at = p; pl.state = withStairShape(e.w, p, r.withProp(e.st("oak_stairs"), "facing", facing));
+        REQUIRE(applyPlacement(e.w, pl));
+    };
+    // inner corner: a room's NE corner, stairs along the north wall (facing N) and east wall (facing E)
+    stairs({0, 5, 0}, 0); stairs({-1, 5, 0}, 0); stairs({0, 5, 1}, 3); stairs({0, 5, 2}, 3);
+    CHECK_EQ(e.prop({0, 5, 0}, "shape"), 1);              // inner, extra quarter toward east (cw of north)
+    CHECK_EQ(e.prop({-1, 5, 0}, "shape"), 0);             // the run itself stays straight
+    auto boxes = r.renderBoxes(e.w.getBlock({0, 5, 0}));
+    CHECK_EQ(boxes.n, 3);
+    // outer corner: stairs wrapping the SW corner of a platform to the north-east
+    stairs({10, 5, 10}, 0); stairs({11, 5, 10}, 0); stairs({10, 5, 9}, 3);
+    CHECK_EQ(e.prop({10, 5, 10}, "shape"), 3);            // outer: only the NE quarter is tall
+    auto ob = r.renderBoxes(e.w.getBlock({10, 5, 10}));
+    REQUIRE(ob.n == 2);
+    CHECK((ob.p[1].mn[0] == 8 && ob.p[1].mn[2] == 0 && ob.p[1].mx[0] == 16 && ob.p[1].mx[2] == 8));
+    // removing the neighbour straightens it again
+    e.w.setBlock({10, 5, 9}, AIR);
+    CHECK_EQ(e.prop({10, 5, 10}, "shape"), 0);
+}
+
+TEST(building_gates_and_walls) {
+    Env e("bgate");
+    const BlockRegistry& r = blocks();
+    // fence - gate - fence along X; the gate faces north so it runs east-west
+    REQUIRE(e.place("oak_fence", {0, 4, 0}, {0, 1, 0}, {0.5f, 5, 0.5f}, LOOK_N));
+    REQUIRE(e.place("oak_fence_gate", {1, 4, 0}, {0, 1, 0}, {1.5f, 5, 0.5f}, LOOK_N));
+    REQUIRE(e.place("oak_fence", {2, 4, 0}, {0, 1, 0}, {2.5f, 5, 0.5f}, LOOK_N));
+    CHECK_EQ(e.prop({0, 5, 0}, "east"), 1); CHECK_EQ(e.prop({2, 5, 0}, "west"), 1);
+    CHECK(r.collisionBoxes(e.w.getBlock({1, 5, 0})).n == 1);
+    REQUIRE(toggleOpenable(e.w, {1, 5, 0}));
+    CHECK_EQ(r.collisionBoxes(e.w.getBlock({1, 5, 0})).n, 0);   // open gate: walk through
+    CHECK(walkableCell(e.w, {1, 5, 0}, 2));
+    // a fence approaching the gate from the side (north) does not join it
+    REQUIRE(e.place("oak_fence", {1, 4, -1}, {0, 1, 0}, {1.5f, 5, -0.5f}, LOOK_N));
+    CHECK_EQ(e.prop({1, 5, -1}, "south"), 0);
+    // walls: straight runs drop the post, corners keep it
+    for (int x = 5; x <= 7; x++) REQUIRE(e.place("cobblestone_wall", {x, 4, 0}, {0, 1, 0}, {x + 0.5f, 5, 0.5f}, LOOK_N));
+    auto mid = r.renderBoxes(e.w.getBlock({6, 5, 0}));
+    CHECK_EQ(mid.n, 2);                                    // two arms, no post
+    auto end = r.renderBoxes(e.w.getBlock({5, 5, 0}));
+    CHECK_EQ(end.n, 2);                                    // post + one arm
+    CHECK_EQ((int)r.collisionBoxes(e.w.getBlock({6, 5, 0})).p[0].mx[1], 24);
+}

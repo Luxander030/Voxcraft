@@ -169,7 +169,15 @@ void frame() {
             }
             for (int b = -2; b <= 3; b++) if (b < 0 || b > 1) for (int u = 0; u < 3; u++) G->world->setBlock(at(8, b, u), G->reg.stateOf("oak_planks"));
             for (int b = -2; b <= 3; b++) G->world->setBlock(at(8, b, 2), G->reg.stateOf("oak_planks"));
-            for (int b = 1; b <= 6; b++) put(at(7, b, 0), "oak_fence", {});   // connections after neighbours exist
+            put(at(7, 3, 0), "oak_fence_gate", {{"facing", toward}});
+            for (int b = 1; b <= 6; b++) if (b != 3) put(at(7, b, 0), "oak_fence", {});   // connections after neighbours exist
+            for (int b = 1; b <= 4; b++) put(at(2, b + 1, 0), "cobblestone_wall", {});
+            put(at(2, 5, 1), "cobblestone_wall", {}); put(at(2, 5, 0), "mossy_cobblestone_wall", {});
+            // stairs wrapping a block: an outer corner
+            G->world->setBlock(at(3, -4, 0), G->reg.stateOf("stone_bricks"));
+            put(at(2, -4, 0), "stone_brick_stairs", {{"facing", f}}); put(at(2, -5, 0), "stone_brick_stairs", {{"facing", f}});
+            put(at(3, -5, 0), "stone_brick_stairs", {{"facing", dirCW(f)}});
+            for (BlockPos q : {at(2, -4, 0), at(2, -5, 0), at(3, -5, 0)}) G->world->setBlock(q, withConnections(*G->world, q, G->world->getBlock(q)));
             G->player.pitch = -0.35f;
         }
         if (G->opt.menuState == 12 && G->frame > 30) { G->input.forward = 0; G->player.flying = false; G->player.pitch = -0.35f; }

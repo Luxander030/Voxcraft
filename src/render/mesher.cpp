@@ -263,7 +263,7 @@ void specialShapes(const MeshContext& ctx, const Padded& p, Emitter& em) {
             break;
         }
         case BlockShape::Slab: case BlockShape::Stairs: case BlockShape::Fence: case BlockShape::Pane:
-        case BlockShape::Door: case BlockShape::Trapdoor: {
+        case BlockShape::Door: case BlockShape::Trapdoor: case BlockShape::FenceGate: case BlockShape::Wall: {
             // Building shapes: their precomputed boxes. A face lying on the block boundary is
             // skipped when the neighbour there is opaque (a double slab inside a wall costs nothing).
             SectionMesh tmp; Emitter te{tmp};

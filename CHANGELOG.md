@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Stair corners, fence gates and walls
+- Stairs form inner and outer corners from their neighbours (a `shape` state property refreshed
+  by neighbour updates, like fence connections). Stairs saved before this change load as straight
+  stairs and update when a neighbour changes.
+- Fence gates (oak, birch, pine): join fences along their axis and open with right-click or a
+  signal. An open gate has no collision, and creatures path through it.
+- Walls (cobblestone, mossy cobblestone, stone brick, slate, brick): thick posts, with the post
+  dropped on straight runs. They join walls, gates and solid blocks and are 1.5 blocks tall for
+  collision.
+- Tests: `building_stair_corners_inner_and_outer`, `building_gates_and_walls`.
+
 ### Building shapes
 - 9 slabs, 8 stairs, 3 fences, glass panes, oak and iron doors, and oak trapdoors, with recipes.
   Two slabs of the same kind stack into a double slab. Stairs and trapdoors take the upper half

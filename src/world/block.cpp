@@ -10,6 +10,7 @@ static BlockShape parseShape(const std::string& s) {
     if (s == "slab_thin") return BlockShape::SlabThin; if (s == "piston_head") return BlockShape::PistonHead; if (s == "model") return BlockShape::Model;
     if (s == "slab") return BlockShape::Slab; if (s == "stairs") return BlockShape::Stairs; if (s == "fence") return BlockShape::Fence;
     if (s == "pane") return BlockShape::Pane; if (s == "door") return BlockShape::Door; if (s == "trapdoor") return BlockShape::Trapdoor;
+    if (s == "fence_gate") return BlockShape::FenceGate; if (s == "wall") return BlockShape::Wall;
     return BlockShape::Cube;
 }
 static ToolType parseTool(const std::string& s) {
@@ -115,6 +116,12 @@ ShapeBox panel(int f, int t, int y0 = 0, int y1 = 16) {
     default: return sb(16 - t, y0, 0, 16, y1, 16);
     }
 }
+// The 8x8 quarter column at the corner between horizontal sides a and b (perpendicular).
+ShapeBox quarter(int a, int b, int y0, int y1) {
+    int x0 = 0, z0 = 0;
+    for (int f : {a, b}) { if (f == 1) z0 = 8; if (f == 3) x0 = 8; }
+    return sb(x0, y0, z0, x0 + 8, y1, z0 + 8);
+}
 // An arm from the centre strip [lo,hi) toward side f (from the edge to `reach` pixels in).
 ShapeBox arm(int f, int lo, int hi, int reach, int y0, int y1) {
     switch (f & 3) {
@@ -146,12 +153,47 @@ void BlockRegistry::buildShapes() {
                 if (t == 2) { opaque_[s] = d.layer == RenderLayer::Opaque; opacity_[s] = 15; }
                 break;
             }
-            case BlockShape::Stairs: {   // "facing" = side of the tall back; "half" 1 = upside down
-                int f = prop("facing"), top = prop("half");
+            case BlockShape::Stairs: {
+                // "facing" = side of the tall back; "half" 1 = upside down; "shape": 0 straight,
+                // 1/2 inner corner (extra front quarter on the cw/ccw side), 3/4 outer corner (only
+                // the back quarter on the cw/ccw side is tall).
+                int f = prop("facing"), top = prop("half"), shp = prop("shape");
+                int y0 = top ? 0 : 8, y1 = top ? 8 : 16;
                 r.push_back(top ? sb(0, 8, 0, 16, 16, 16) : sb(0, 0, 0, 16, 8, 16));
-                ShapeBox b = panel(f, 8, top ? 0 : 8, top ? 8 : 16);
-                r.push_back(b);
+                int g = (shp == 1 || shp == 3) ? dirCW(f) : dirCCW(f);
+                if (shp == 0) r.push_back(panel(f, 8, y0, y1));
+                else if (shp <= 2) { r.push_back(panel(f, 8, y0, y1)); r.push_back(quarter(dirOpposite(f), g, y0, y1)); }
+                else r.push_back(quarter(f, g, y0, y1));
                 c = r;
+                break;
+            }
+            case BlockShape::FenceGate: {   // spans the axis across "facing"; open = swung back, no collision
+                int f = prop("facing"), open = prop("open");
+                bool alongX = f <= 1;   // facing N/S: the gate runs east-west
+                auto box = [&](int a0, int y0, int a1, int y1, int c0, int c1) { return alongX ? sb(a0, y0, c0, a1, y1, c1) : sb(c0, y0, a0, c1, y1, a1); };
+                r.push_back(box(0, 5, 2, 16, 7, 9)); r.push_back(box(14, 5, 16, 16, 7, 9));   // posts
+                if (!open) {
+                    r.push_back(box(2, 6, 14, 9, 7, 9)); r.push_back(box(2, 12, 14, 15, 7, 9));
+                    r.push_back(box(6, 9, 10, 12, 7, 9));
+                    c.push_back(box(0, 0, 16, 24, 6, 10));
+                } else {   // leaves folded against the posts, pointing away from "facing"
+                    int back = f == 0 || f == 2 ? 1 : 0;   // which side of the line they swing to
+                    int c0 = back ? 9 : 1, c1 = back ? 15 : 7;
+                    r.push_back(box(0, 6, 2, 9, c0, c1)); r.push_back(box(0, 12, 2, 15, c0, c1));
+                    r.push_back(box(14, 6, 16, 9, c0, c1)); r.push_back(box(14, 12, 16, 15, c0, c1));
+                }
+                break;
+            }
+            case BlockShape::Wall: {   // stone wall: thick post (taller when it carries no straight run), thick arms
+                bool n = sideProp[0] >= 0 && getProp(s, sideProp[0]), so = sideProp[1] >= 0 && getProp(s, sideProp[1]);
+                bool wv = sideProp[2] >= 0 && getProp(s, sideProp[2]), e = sideProp[3] >= 0 && getProp(s, sideProp[3]);
+                bool straight = (n && so && !wv && !e) || (wv && e && !n && !so);
+                if (!straight) r.push_back(sb(4, 0, 4, 12, 16, 12));
+                c.push_back(sb(4, 0, 4, 12, 24, 12));
+                for (int k = 0; k < 4; k++) if (sideProp[k] >= 0 && getProp(s, sideProp[k])) {
+                    r.push_back(arm(k, 5, 11, straight ? 8 : 4, 0, 14));
+                    c.push_back(arm(k, 5, 11, 4, 0, 24));
+                }
                 break;
             }
             case BlockShape::Fence: {

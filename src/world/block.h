@@ -18,7 +18,7 @@ using BlockState = u16;
 constexpr BlockState AIR = 0;
 
 enum class BlockShape : u8 { None, Cube, Cross, Fluid, Torch, FlatWall, Wire, Lever, Button, Plate, SlabThin, PistonHead, Model,
-                             Slab, Stairs, Fence, Pane, Door, Trapdoor };
+                             Slab, Stairs, Fence, Pane, Door, Trapdoor, FenceGate, Wall };
 // Building shapes: geometry, collision, picking and outline all come from per-state box lists.
 inline bool isBoxedShape(BlockShape s) { return s >= BlockShape::Slab; }
 // Horizontal directions used by 4-way "facing": 0 N(-Z) 1 S(+Z) 2 W(-X) 3 E(+X).
