@@ -351,7 +351,19 @@ def gem(cols):
                 if abs(x - 7.5) < w: put(px, x, y, cols[0] if y < 6 else cols[1] if x < 8 else cols[2])
     return item(d)
 
+def bucket(fill):
+    def d(px, rng):
+        for y in range(4, 14):
+            w = 5 - (y - 4) // 4
+            for x in range(8 - w, 8 + w):
+                edge = x in (8 - w, 8 + w - 1) or y == 13
+                put(px, x, y, hexc("c8c8c8") if edge else (fill[(x + y) % len(fill)] if fill and y >= 5 else hexc("5a5a5a") if y >= 5 else hexc("e0e0e0")))
+        for x in range(3, 13): put(px, x, 4, hexc("e8e8e8"))
+        for k in range(3): put(px, 4 + k, 3 - k, hexc("9a9a9a")); put(px, 11 - k, 3 - k, hexc("9a9a9a"))
+    return item(d)
+
 ITEM_RECIPES = {
+    "bucket": bucket(None), "water_bucket": bucket(pal("3a68d8", "4a78e8")), "lava_bucket": bucket(pal("e8691e", "f8b040")),
     "stick": item(lambda px, r: [put(px, 3 + k, 12 - k, HANDLE[k % 2]) for k in range(10)]),
     "coal": blob(pal("2e2e30", "1e1e20", "3c3c40")),
     "raw_iron": blob(pal("d8b494", "b89474", "e4c4a8")),

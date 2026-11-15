@@ -32,6 +32,7 @@
     {"pattern": ["#"], "key": {"#": "iron_block"}, "result": "iron_ingot", "count": 9},
     {"pattern": ["#"], "key": {"#": "gold_block"}, "result": "gold_ingot", "count": 9},
     {"pattern": ["#"], "key": {"#": "azurite_block"}, "result": "azurite", "count": 9},
+    {"pattern": ["# #", " # "], "key": {"#": "iron_ingot"}, "result": "bucket"},
     {"pattern": ["PPP", "BBB", "PPP"], "key": {"P": "#planks", "B": "clay_lump"}, "result": "bookshelf"}
   ],
   "tools": {

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Phase 7: block updates
+- Fluid flow (water and lava) on scheduled ticks: levels, falling columns, renewable water, lava
+  hardening into slate or cobblestone. Deterministic, and resumes identically after a reload.
+- Falling sand and gravel, unsupported plants breaking, turf spreading and decaying, saplings
+  growing.
+- Buckets.
+- Scheduled ticks run in a platform-independent total order.
+
 ### Phase 5–6: survival gameplay
 - Item registry with block items, materials, tiered tools, food and fuel, plus original item textures.
 - Inventory with stacking and container click semantics, crafting (2×2, 3×3, tags, mirroring),

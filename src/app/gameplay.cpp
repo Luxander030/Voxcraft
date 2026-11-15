@@ -165,6 +165,11 @@ void tickKilns() {
 }
 } // namespace
 
+void giveOrDropInv(ItemStack s) {
+    int left = G->inv.add(s, G->items);
+    if (left) { s.count = (u8)left; G->entities->spawnItem(G->player.eye(), s, G->rng, G->player.look() * 0.3f); }
+}
+
 void showStatus(const std::string& s) { G->status = s; G->statusUntil = G->now + 3; }
 
 bool startSession(std::string* err) {
@@ -198,6 +203,7 @@ bool startSession(std::string* err) {
         G->player.pos = surfaceSpawn();
         VX_INFO("created world %s (seed %llu)", G->saveDir.string().c_str(), (unsigned long long)m.gen.seed);
     }
+    G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
     if (G->creative()) giveCreativeHotbar();
     G->player.canFly = G->creative();
     if (!G->creative()) G->player.flying = false;
@@ -218,6 +224,7 @@ void endSession() {
     closeScreen();
     G->renderer.shutdown();
     saveWorld(true);
+    G->behaviors.reset();
     G->world->close();
     G->world.reset();
     G->entities.reset();
@@ -313,6 +320,32 @@ void clickUse() {
         if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
         if (d.shape == BlockShape::Lever || d.shape == BlockShape::Button) {
             G->world->setBlock(G->target.block, G->reg.withProp(s, "on", G->reg.getProp(s, "on") ? 0 : 1));
+            return;
+        }
+    }
+    // buckets: scoop a source or pour one
+    if (const ItemDef* h = G->held()) {
+        ItemStack& hs = G->inv.slots[G->hotbarSel];
+        Vec3 eye = G->player.eye();
+        if (h->name == "bucket") {
+            RayHit f = raycastBlocks(*G->world, eye, G->player.look(), 5.0f, true);
+            BlockState s = f.hit ? G->world->getBlock(f.block) : AIR;
+            if (f.hit && G->reg.fluid(s)) {
+                bool lava = G->reg.def(s).name == "lava";
+                G->world->setBlock(f.block, AIR);
+                ItemStack full{G->items.id(lava ? "lava_bucket" : "water_bucket"), 1, 0};
+                if (G->creative()) return;
+                if (hs.count == 1) hs = full; else { hs.count--; giveOrDropInv(full); }
+            }
+            return;
+        }
+        if (h->name == "water_bucket" || h->name == "lava_bucket") {
+            if (!G->target.hit) return;
+            BlockPos at = G->target.block;
+            if (!G->reg.def(G->world->getBlock(at)).has(BF_REPLACEABLE)) at = at + G->target.normal;
+            if (!G->reg.def(G->world->getBlock(at)).has(BF_REPLACEABLE)) return;
+            G->behaviors->placeFluidSource(at, h->name == "lava_bucket");
+            if (!G->creative()) hs = {G->items.id("bucket"), 1, 0};
             return;
         }
     }

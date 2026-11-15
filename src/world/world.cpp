@@ -368,7 +368,15 @@ void World::runScheduledTicks() {
             } else i++;
         }
     }
-    std::stable_sort(due.begin(), due.end(), [](const Due& a, const Due& b) { return a.due != b.due ? a.due < b.due : a.prio < b.prio; });
+    // Total order (due, priority, position): independent of hash-map iteration order, so tick
+    // processing - and therefore fluid and circuit behaviour - is identical on every platform.
+    std::sort(due.begin(), due.end(), [](const Due& a, const Due& b) {
+        if (a.due != b.due) return a.due < b.due;
+        if (a.prio != b.prio) return a.prio < b.prio;
+        if (a.p.y != b.p.y) return a.p.y < b.p.y;
+        if (a.p.z != b.p.z) return a.p.z < b.p.z;
+        return a.p.x < b.p.x;
+    });
     for (auto& d : due) if (getBlock(d.p) == d.b && onScheduledTick) onScheduledTick(d.p, d.b);
 }
 

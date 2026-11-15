@@ -87,6 +87,18 @@ deleted at the next save. Format details are in [docs/WORLD_FORMAT.md](docs/WORL
   dry run.
 - Undecodable regions or records are left exactly as they are (`.corrupt` copy + log).
 
+## Block updates and fluids
+
+`game/behaviors.cpp` subscribes to World's neighbour-update, scheduled-tick and random-tick hooks.
+Fluids are cellular: each cell re-derives its level from its feeders when it, or a neighbour,
+changes. Nothing scans the world per frame.
+
+- Scheduled ticks are persistent chunk data. They run in a total order (due tick, priority,
+  position), so flows and future circuits behave identically on every platform and continue
+  exactly where they stopped after a reload (`fluids_flow_resumes_identically_after_reload`).
+- A flowing cell whose support weakens drains immediately. This avoids the slow
+  "count-to-infinity" decay of mutually-feeding cells.
+
 ## Memory management
 
 - Uniform sections (all air, all stone) cost nothing. Mixed sections are 8 KiB plus light

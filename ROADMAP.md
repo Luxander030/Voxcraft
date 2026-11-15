@@ -42,9 +42,16 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Game modes: survival / creative (F4 toggles; `--creative` for new worlds).
 - ⬜ Mobs (passive/hostile), AI, pathfinding, combat.
 
-## Phases 7–11 ⬜
-Fluid flow, structures, circuits, dimensions, audio, menus, particles, animation, packaging,
-stabilization (CLAUDE.md §25).
+## Phase 7 — World generation & block updates 🔶
+- ✅ Generator v1: biomes, terrain, caves, ores, trees (Phase 3).
+- ✅ Event-driven fluids: water/lava flow with levels, falling columns, renewable water, lava hardening, drain-on-lost-support; deterministic and resumable across save/reload.
+- ✅ Falling sand/gravel, plants losing support, turf spread/decay, saplings growing into trees.
+- ✅ Buckets (scoop and pour sources).
+- ⬜ Structures (ruins, villages), more biome features, smooth fluid surfaces.
+
+## Phases 8–11 ⬜
+Circuits, mobs and AI, dimensions, audio, menus, particles, animation, packaging, stabilization
+(CLAUDE.md §25).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

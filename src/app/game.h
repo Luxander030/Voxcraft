@@ -2,6 +2,7 @@
 #pragma once
 #include "app/renderer.h"
 #include "app/ui.h"
+#include "game/behaviors.h"
 #include "game/entities.h"
 #include "game/items.h"
 #include "game/kiln.h"
@@ -34,6 +35,7 @@ struct Game {
     std::unique_ptr<JobSystem> jobs;
     std::unique_ptr<EntityManager> entities;   // declared before world: must outlive it
     std::unique_ptr<World> world;
+    std::unique_ptr<BlockBehaviors> behaviors;   // fluids, falling blocks, growth (after world)
     Renderer renderer;
     Ui ui;
     Rng rng{0xC0FFEE};
@@ -88,6 +90,7 @@ void clickUse();                 // right click: interact with block, place, or 
 void pickBlock();
 void dropSelected(bool wholeStack);
 void showStatus(const std::string& s);
+void giveOrDropInv(ItemStack s);
 void respawn();
 
 // screens.cpp

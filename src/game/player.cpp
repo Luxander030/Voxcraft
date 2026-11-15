@@ -122,7 +122,7 @@ void Player::tick(const World& w, const PlayerInput& in) {
     if (onGround && !wasGround) { landedFall = fallDistance; fallDistance = 0; }
 }
 
-RayHit raycastBlocks(const World& w, Vec3 o, Vec3 d, float reach) {
+RayHit raycastBlocks(const World& w, Vec3 o, Vec3 d, float reach, bool hitFluidSources) {
     RayHit r;
     d = normalize(d);
     int x = (int)std::floor(o.x), y = (int)std::floor(o.y), z = (int)std::floor(o.z);
@@ -135,7 +135,8 @@ RayHit raycastBlocks(const World& w, Vec3 o, Vec3 d, float reach) {
     float t = 0;
     while (t <= reach) {
         BlockState s = w.getBlock(x, y, z);
-        if (s != AIR && !w.reg.fluid(s)) { r.block = {x, y, z}; r.normal = n; r.distance = t; r.hit = true; return r; }
+        bool fluidHit = hitFluidSources && w.reg.fluid(s) && w.reg.getProp(s, "level") == 0;
+        if ((s != AIR && !w.reg.fluid(s)) || fluidHit) { r.block = {x, y, z}; r.normal = n; r.distance = t; r.hit = true; return r; }
         if (tmx < tmy && tmx < tmz) { x += stepX; t = tmx; tmx += tdx; n = {-stepX, 0, 0}; }
         else if (tmy < tmz) { y += stepY; t = tmy; tmy += tdy; n = {0, -stepY, 0}; }
         else { z += stepZ; t = tmz; tmz += tdz; n = {0, 0, -stepZ}; }
