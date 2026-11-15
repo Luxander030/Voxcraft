@@ -11,19 +11,34 @@ jobs:
         include:
           - { os: macos-15,       name: macos-arm64 }
           - { os: macos-15-intel, name: macos-x64 }
-          - { os: windows-2022,  name: windows-x64 }
+          - { os: windows-2022,   name: windows-x64 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Validate assets (models up to date, textures 16x16, references resolve)
+        run: |
+          python3 tools/scad_export.py --check
+          python3 tools/build_assets.py --force
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test (includes cross-platform generation/format golden test)
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Shader check (compiles all HLSL with the D3D compiler on Windows)
+        shell: bash
+        run: |
+          if [ -f build/Release/vxshadercheck.exe ]; then build/Release/vxshadercheck.exe; else build/vxshadercheck; fi
       - name: Benchmark
         shell: bash
         run: |
           if [ -f build/Release/voxbench.exe ]; then build/Release/voxbench.exe 128; else build/voxbench 128; fi
+      - name: Package
+        run: python3 tools/package.py build --config Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Voxcraft-${{ matrix.name }}
+          path: dist/*.zip
+          retention-days: 14

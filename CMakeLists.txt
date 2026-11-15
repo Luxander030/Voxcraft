@@ -87,6 +87,13 @@ add_executable(vxworld src/tools/vxworld.cpp)
 target_link_libraries(vxworld PRIVATE voxcore)
 target_compile_definitions(vxworld PRIVATE VX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
+# ---- HLSL shader validation (meaningful on Windows; prints a note elsewhere) ----
+add_executable(vxshadercheck src/tools/shadercheck.cpp)
+target_include_directories(vxshadercheck PRIVATE src third_party)
+if(WIN32)
+  target_link_libraries(vxshadercheck PRIVATE d3dcompiler)
+endif()
+
 # ---- the game ----
 if(VX_BUILD_GAME AND EXISTS ${CMAKE_SOURCE_DIR}/src/app/main.cpp)
   file(GLOB VX_APP_SRC CONFIGURE_DEPENDS src/app/*.cpp)

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Phase 10: packaging and CI
+- `vxshadercheck` compiles every HLSL shader with the D3D compiler in Windows CI.
+- `tools/package.py` builds self-contained zips. CI validates assets, then packages and uploads
+  the builds for all three platforms.
+
 ### Phase 9: particles
 - Particle system: debris, puffs, flames and smoke, splashes. Particles are billboards in the
   entity pass.

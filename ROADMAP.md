@@ -67,8 +67,13 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Particles (pooled, fixed capacity): block debris on dig/break, creature death puffs, torch flames + smoke, water splashes; crack overlay showing break progress; outline fits the block's shape.
 - ⬜ Weather, clouds, sky bodies.
 
-## Phases 10–11 ⬜
-Packaging, stabilization, long-term expansion (CLAUDE.md §25).
+## Phase 10 — Cross-platform stabilization 🔶
+- ✅ CI on macOS arm64, macOS x64 and Windows x64: asset validation (model staleness, texture sizes, references), build, tests incl. cross-platform golden, HLSL shader compilation (`vxshadercheck`), benchmark, packaging, artifact upload.
+- ✅ `tools/package.py`: self-contained zip (macOS `.app` with resources, ad-hoc signed; Windows exe + data). ~0.5 MiB.
+- ⬜ Run the Windows build on real hardware; notarized macOS builds; installer.
+
+## Phase 11 ⬜
+Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, further optimization.
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

@@ -66,6 +66,15 @@ cmake --build build -j
 
 On Windows, use `cmake --build build --config Release` and run `build\Release\voxtests.exe`.
 
+## Packaging
+
+```sh
+python3 tools/package.py build          # -> dist/Voxcraft-<version>-<platform>.zip
+```
+
+CI builds the packages for macOS (Apple Silicon and Intel) and Windows on every push and
+attaches them as workflow artifacts.
+
 ## Documentation
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [PERFORMANCE.md](PERFORMANCE.md)
