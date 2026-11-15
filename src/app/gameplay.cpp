@@ -74,6 +74,8 @@ void breakAt(const BlockPos& pos, bool withDrops) {
     if (BlockEntity* be = G->world->blockEntity(pos)) spill(pos, be->items);
     G->world->setBlock(pos, AIR);
     sfx3d("break_" + d.sound, {pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f}, SoundCat::Blocks);
+    if (d.shape != BlockShape::Fluid && d.shape != BlockShape::None)
+        G->particles.blockDebris(pos, G->renderer.textures().face(s, FACE_NZ), d.tint == Tint::None ? 0xFFFFFFFFu : rgba(120, 175, 80), 24, G->rng);
     if (withDrops) {
         auto drops = blockDrops(s, G->reg, G->items, G->recipes, G->held(), G->rng);
         for (auto& it : drops) G->entities->spawnItem({pos.x + 0.5f, pos.y + 0.3f, pos.z + 0.5f}, it, G->rng);
@@ -192,6 +194,7 @@ bool appInit(std::string* err) {
         if (!readJson(dataFile("mobs.json"), mobsJ) || !readJson(models, modelsJ) || !readJson(dataFile("animations.json"), animJ)) return false;
         if (!G->mobReg.load(mobsJ, modelsJ, animJ, G->items, &pn, err)) return false;
     }
+    G->particles.whiteLayer = (u16)std::max(0, G->pack.layer("snow"));
     G->jobs = std::make_unique<JobSystem>(0);
     if (!G->renderer.init(G->reg, G->pack, *G->jobs, err)) return false;
     {   // audio: synthesize the bank (~0.1 s), then start the output stream
@@ -242,6 +245,7 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
         VX_INFO("created world %s (seed %llu)", G->saveDir.string().c_str(), (unsigned long long)m.gen.seed);
     }
     G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
+    G->particles.parts.clear();
     G->behaviors->entityOnPlate = [](const BlockPos& b) {
         AABB plate{{(float)b.x, (float)b.y, (float)b.z}, {(float)b.x + 1, (float)b.y + 0.25f, (float)b.z + 1}};
         if (plate.intersects(G->player.box())) return true;
@@ -332,7 +336,10 @@ void simulateTick() {
             BlockState below = G->world->getBlock((int)std::floor(p.pos.x), (int)std::floor(p.pos.y - 0.1f), (int)std::floor(p.pos.z));
             if (below != AIR) sfx3d("step_" + G->reg.def(below).sound, p.pos, SoundCat::Blocks, 0.35f);
         }
-        if (p.inFluid && !G->wasInFluid && p.vel.y < -0.1f) sfx3d("splash", p.pos, SoundCat::Blocks, 0.7f);
+        if (p.inFluid && !G->wasInFluid && p.vel.y < -0.1f) {
+            sfx3d("splash", p.pos, SoundCat::Blocks, 0.7f);
+            G->particles.splash(p.pos, (u16)G->pack.layer("water"), rgba(70, 110, 230), G->rng);
+        }
         G->wasInFluid = p.inFluid;
         if (G->stats.health < G->lastHealth - 0.01f) sfx("hurt", 0.8f);
         G->lastHealth = G->stats.health;
@@ -371,6 +378,18 @@ void simulateTick() {
     }
     MobContext ctx = mobContext();
     G->mobs->tick(ctx, G->rng);
+    // particles: simulate, and let nearby torches emit flames (random sampling: no world scans)
+    G->particles.tick(*G->world);
+    for (int i = 0; i < 200; i++) {
+        BlockPos q{(int)std::floor(p.pos.x) + G->rng.range(17) - 8, (int)std::floor(p.pos.y) + G->rng.range(17) - 8, (int)std::floor(p.pos.z) + G->rng.range(17) - 8};
+        BlockState s = G->world->getBlock(q);
+        if (s == AIR) continue;
+        const BlockDef& td = G->reg.def(s);
+        if (td.shape == BlockShape::Torch && (td.propIndex("lit") < 0 || G->reg.getProp(s, "lit"))) {
+            AABB b = blockShapeBounds(G->reg, s);
+            G->particles.flame({q.x + (b.min.x + b.max.x) / 2, q.y + b.max.y, q.z + (b.min.z + b.max.z) / 2}, G->renderer.textures().face(s, FACE_PY), G->rng);
+        }
+    }
     if (G->world->meta.tick % 20 == 0) G->mobs->spawnTick(*G->world, p, ctx.daylight, G->rng);
     if (G->attackCooldown > 0) G->attackCooldown--;
     tickKilns();
@@ -402,6 +421,7 @@ bool attackMob() {
     MobContext ctx = mobContext();
     if (G->mobs->hurt(*m, dmg, G->player.look(), G->rng, &ctx)) {
         sfx3d(m->alive() ? "mob_hurt" : "mob_death", m->pos + Vec3(0, 0.8f, 0), SoundCat::Creatures);
+        if (!m->alive()) G->particles.puff(m->pos, 12, rgba(220, 220, 220, 220), G->rng);
         G->stats.exhaust(0.1f);
         if (h && h->durability > 0) { damageHeldTool(); if (h->tool != ToolType::Sword) damageHeldTool(); }
     }
@@ -422,7 +442,11 @@ void updateInteraction(float dt) {
     }
     float secs = breakSeconds(d, G->held(), G->player.onGround || G->player.flying, G->player.headInFluid);
     if (secs < 0) return;
-    if ((G->digTimer -= dt) <= 0) { G->digTimer = 0.25f; sfx3d("dig_" + d.sound, {t.x + 0.5f, t.y + 0.5f, t.z + 0.5f}, SoundCat::Blocks, 0.6f); }
+    if ((G->digTimer -= dt) <= 0) {
+        G->digTimer = 0.25f; sfx3d("dig_" + d.sound, {t.x + 0.5f, t.y + 0.5f, t.z + 0.5f}, SoundCat::Blocks, 0.6f);
+        const BlockPos& n = G->target.normal;
+        G->particles.blockDebris(t, G->renderer.textures().face(s, FACE_NZ), d.tint == Tint::None ? 0xFFFFFFFFu : rgba(120, 175, 80), 3, G->rng, Vec3((float)n.x, (float)n.y, (float)n.z) * 0.08f);
+    }
     G->breakProgress += secs == 0 ? 1.0f : dt / secs;
     if (G->breakProgress >= 1.0f) {
         breakAt(t, true);

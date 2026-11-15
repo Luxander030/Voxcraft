@@ -60,10 +60,10 @@ inline const char* linesVS = R"(
 #include <metal_stdlib>
 using namespace metal;
 struct Frame { float4x4 vp; float4 cam; };
-struct Draw { float4 origin; };
+struct Draw { float4 origin; float4 size; };
 struct VIn { float3 p [[attribute(0)]]; };
 struct VOut { float4 pos [[position]]; };
-vertex VOut vs_main(VIn in [[stage_in]], constant Frame& f [[buffer(0)]], constant Draw& dr [[buffer(1)]]) { VOut o; o.pos = f.vp * float4(in.p + dr.origin.xyz, 1.0); o.pos.z += 0.0004 * o.pos.w; return o; }
+vertex VOut vs_main(VIn in [[stage_in]], constant Frame& f [[buffer(0)]], constant Draw& dr [[buffer(1)]]) { VOut o; o.pos = f.vp * float4(in.p * dr.size.xyz + dr.origin.xyz, 1.0); o.pos.z += 0.0004 * o.pos.w; return o; }
 )";
 inline const char* linesFS = R"(
 #include <metal_stdlib>
@@ -148,8 +148,8 @@ float4 fs_cutout(VOut i) : SV_Target0 { float4 c = tex.Sample(smp, i.uvl); if (c
 )";
 inline const char* linesVS = R"(
 cbuffer Frame : register(b0) { float4x4 vp; float4 cam; };
-cbuffer Draw : register(b1) { float4 origin; };
-float4 vs_main(float3 p : TEXCOORD0) : SV_Position { float4 o = mul(vp, float4(p + origin.xyz, 1.0)); o.z += 0.0004 * o.w; return o; }
+cbuffer Draw : register(b1) { float4 origin; float4 size; };
+float4 vs_main(float3 p : TEXCOORD0) : SV_Position { float4 o = mul(vp, float4(p * size.xyz + origin.xyz, 1.0)); o.z += 0.0004 * o.w; return o; }
 )";
 inline const char* linesFS = R"(
 cbuffer Col : register(b0) { float4 color; };

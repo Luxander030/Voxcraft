@@ -44,7 +44,7 @@ sg_shader makeShader(const char* vs, const char* fs, const char* fsEntry, int ki
         d.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT; d.texture_sampler_pairs[0].view_slot = 0; d.texture_sampler_pairs[0].sampler_slot = 0;
     } else if (kind == 1) {   // lines
         d.attrs[0].base_type = SG_SHADERATTRBASETYPE_FLOAT; d.attrs[0].hlsl_sem_name = "TEXCOORD";
-        ub(0, SG_SHADERSTAGE_VERTEX, 80, 0); ub(1, SG_SHADERSTAGE_VERTEX, 16, 1); ub(2, SG_SHADERSTAGE_FRAGMENT, 16, 0);
+        ub(0, SG_SHADERSTAGE_VERTEX, 80, 0); ub(1, SG_SHADERSTAGE_VERTEX, 32, 1); ub(2, SG_SHADERSTAGE_FRAGMENT, 16, 0);
     } else {   // ui
         for (int i = 0; i < 3; i++) { d.attrs[i].base_type = SG_SHADERATTRBASETYPE_FLOAT; d.attrs[i].hlsl_sem_name = "TEXCOORD"; d.attrs[i].hlsl_sem_index = (u8)i; }
         ub(0, SG_SHADERSTAGE_VERTEX, 16, 0);
@@ -345,8 +345,11 @@ void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, c
     if (outline && outline->hit) {
         sg_apply_pipeline(linesPip_);
         sg_apply_uniforms(0, SG_RANGE_REF(frameU));
-        float o[4] = {(float)outline->block.x - eye.x, (float)outline->block.y - eye.y, (float)outline->block.z - eye.z, 0};
-        sg_apply_uniforms(1, SG_RANGE_REF(o));
+        // outline box: the block's shape bounds (1/16 units), not always the full cube
+        const AABB& ob = outlineBox;
+        float o[8] = {(float)outline->block.x + ob.min.x - eye.x, (float)outline->block.y + ob.min.y - eye.y, (float)outline->block.z + ob.min.z - eye.z, 0,
+                      ob.max.x - ob.min.x, ob.max.y - ob.min.y, ob.max.z - ob.min.z, 0};
+        sg_apply_uniforms(1, {o, sizeof o});
         float col[4] = {0.05f, 0.05f, 0.05f, 0.7f};
         sg_apply_uniforms(2, SG_RANGE_REF(col));
         sg_bindings b = {}; b.vertex_buffers[0] = outlineBuf_;

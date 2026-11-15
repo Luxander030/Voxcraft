@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Phase 9: particles
+- Particle system: debris, puffs, flames and smoke, splashes. Particles are billboards in the
+  entity pass.
+- Eight-stage crack overlay. The block outline now follows the block's shape.
+- The smoke-test script keeps control when focus changes during window activation, and
+  `--menu pause` captures the pause menu.
+
 ### Phase 9: audio
 - Procedural original sound bank and software mixer (positional, six categories, voice
   stealing), with generative ambient music and cave ambience.

@@ -8,6 +8,8 @@
 #include "game/items.h"
 #include "game/kiln.h"
 #include "game/mobs.h"
+#include "game/particles.h"
+#include "game/shapes.h"
 #include "game/player.h"
 #include "game/survival.h"
 #include "world/world.h"
@@ -58,6 +60,7 @@ struct Game {
     RecipeBook recipes;
     MobRegistry mobReg;
     SoundBank sounds;
+    ParticleSystem particles;
     std::unique_ptr<Mixer> mixer;
     float stepDistance = 0, lastHealth = 20; double nextMusic = 45, nextAmbient = 20; bool wasInFluid = false; float digTimer = 0;
     std::unique_ptr<MobSystem> mobs;   // owned before world (persisted through entities)

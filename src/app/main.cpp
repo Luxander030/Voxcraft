@@ -101,7 +101,10 @@ void frame() {
 
     if (G->opt.smokeFrames) {   // scripted: look around, fly forward, then pose creatures and open the inventory
         int last = G->opt.smokeFrames;
-        if (G->frame == 2) { vx_platform_activate(); G->screen = Screen::None; }
+        if (G->frame == 2) vx_platform_activate();
+        // focus changes while the window activates would pause the game; the script stays in control
+        if (G->screen == Screen::Pause && (int)G->frame < last - 30) G->screen = Screen::None;
+        if (G->opt.menuState == 4 && (int)G->frame == last - 30) { G->screen = Screen::Pause; G->mouseLocked = false; }
         bool posing = (int)G->frame > last - 90;
         if (!posing) { G->player.yaw += 0.01f; G->input.forward = G->frame > 120 && G->frame < 400 ? 1.0f : 0.0f; }
         else G->input.forward = 0;
@@ -114,6 +117,18 @@ void frame() {
                 at.y = (float)(G->world->surfaceY((int)std::floor(at.x), (int)std::floor(at.z)) + 1);
                 G->mobs->spawn(t, at, G->rng).yaw = G->player.yaw + PI;
             }
+        }
+        if ((int)G->frame == last - 88 && G->playerReady) {   // a torch to show flames
+            Vec3 l = G->player.look(); Vec3 f = normalize(Vec3(l.x, 0, l.z));
+            Vec3 at = G->player.pos + f * 3.0f;
+            BlockPos tp{(int)std::floor(at.x), G->world->surfaceY((int)std::floor(at.x), (int)std::floor(at.z)) + 1, (int)std::floor(at.z)};
+            G->world->setBlock(tp, G->reg.withProp(G->reg.stateOf("torch"), "facing", 4));
+        }
+        if ((int)G->frame >= last - 14 && (int)G->frame <= last - 8 && G->playerReady) {   // debris burst
+            Vec3 l = G->player.look(); Vec3 f = normalize(Vec3(l.x, 0, l.z));
+            Vec3 at = G->player.pos + f * 2.5f;
+            BlockPos b{(int)std::floor(at.x), (int)std::floor(G->player.pos.y), (int)std::floor(at.z)};
+            G->particles.blockDebris(b, G->renderer.textures().face(G->reg.stateOf("bricks"), FACE_NZ), 0xFFFFFFFFu, 12, G->rng);
         }
         if (!G->opt.screenshot.empty() && G->opt.screenshot.find("inv") != std::string::npos && (int)G->frame == last - 30) openScreen(Screen::Inventory);
     }
@@ -150,6 +165,7 @@ void frame() {
     env.fovY = G->options.fov * PI / 180.0f;
     drawFrameUi(sapp_width(), sapp_height());
     buildEntityMesh(G->entityVerts, eye, alpha, (float)dt);
+    if (G->target.hit) G->renderer.outlineBox = blockShapeBounds(G->reg, G->world->getBlock(G->target.block));
     G->renderer.render(eye, p.yaw, p.pitch, sapp_width(), sapp_height(), env, G->screen == Screen::None ? &G->target : nullptr, G->ui, &G->entityVerts);
 
     if (!G->opt.screenshot.empty() && (int)G->frame == G->opt.smokeFrames - 5) {
@@ -287,7 +303,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
-        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : 0; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));

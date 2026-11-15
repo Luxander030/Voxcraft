@@ -64,7 +64,8 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Chat with commands: /help /gamemode /time /tp /give /seed /spawnpoint /kill /summon.
 - ✅ Font descenders.
 - ✅ Audio: 51 original sounds synthesized at startup (1.6 MiB, 18 ms; no audio files), own mixer with 32 voices, positional attenuation + equal-power panning, 6 volume categories, generative ambient music, cave ambience; footsteps/dig/break/place per material, creature calls, UI, pickup, hurt, eat, splash, circuit clicks.
-- ⬜ Particles, crack overlay, environmental effects.
+- ✅ Particles (pooled, fixed capacity): block debris on dig/break, creature death puffs, torch flames + smoke, water splashes; crack overlay showing break progress; outline fits the block's shape.
+- ⬜ Weather, clouds, sky bodies.
 
 ## Phases 10–11 ⬜
 Packaging, stabilization, long-term expansion (CLAUDE.md §25).
@@ -72,4 +73,3 @@ Packaging, stabilization, long-term expansion (CLAUDE.md §25).
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.
 - Generator golden hash pinned on arm64; CI checks x64.
-- Block outline is always a full cube (plants, torches show the unit box).

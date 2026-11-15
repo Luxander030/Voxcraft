@@ -411,6 +411,26 @@ ENTITY_RECIPES = {
     "rockmite_leg": lambda r: noisy(r, pal("4a4844", "3c3a36"), 0.5, 4),
 }
 
+def crack(stage):
+    def f(rng):
+        px = [CLEAR] * (N * N)
+        r = Rng("crack")   # same base pattern for every stage, revealed progressively
+        segs = []
+        for _ in range(10):
+            x, y = 7 + r.int(3) - 1, 7 + r.int(3) - 1
+            path = []
+            for _ in range(9):
+                x = max(0, min(15, x + r.int(3) - 1)); y = max(0, min(15, y + r.int(3) - 1)); path.append((x, y))
+            segs.append(path)
+        show = (stage + 1) * 10 // 8
+        for i in range(show):
+            for k, (x, y) in enumerate(segs[i]):
+                if k <= 3 + stage: put(px, x, y, (20, 16, 14, 255))
+        return px
+    return f
+
+for _s in range(8): ENTITY_RECIPES[f"crack_{_s}"] = crack(_s)
+
 ITEM_RECIPES.update({
     "raw_venison": blob(pal("c84a4a", "b03a3a", "e07070"), r=4.6, squash=0.7),
     "cooked_venison": blob(pal("8a4a2a", "6e3a20", "a86040"), r=4.6, squash=0.7),

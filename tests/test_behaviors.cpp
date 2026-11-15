@@ -98,3 +98,17 @@ TEST(fluids_flow_resumes_identically_after_reload) {
     }
     CHECK(uninterrupted == resumed);
 }
+
+#include "game/particles.h"
+TEST(particles_fall_settle_expire_and_cap) {
+    Env e(vxtest::tempDir("parts"));
+    ParticleSystem ps; Rng rng(2);
+    ps.blockDebris({0, 8, 0}, 1, 0xFFFFFFFFu, 20, rng);
+    CHECK_EQ(ps.parts.size(), (size_t)20);
+    for (int i = 0; i < 8; i++) ps.tick(e.w);
+    for (auto& p : ps.parts) CHECK(p.pos.y >= 5.0f - 1e-3f);   // never fall through the ground (top at y=5)
+    for (int i = 0; i < 40; i++) ps.tick(e.w);
+    CHECK(ps.parts.empty());                                    // all expired
+    for (int i = 0; i < 300; i++) ps.blockDebris({0, 8, 0}, 1, 0, 20, rng);
+    CHECK_EQ(ps.parts.size(), ParticleSystem::CAPACITY);         // bounded
+}

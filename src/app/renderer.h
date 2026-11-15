@@ -43,6 +43,7 @@ public:
     void render(Vec3 eye, float yaw, float pitch, int width, int height, const FrameEnv& env, const RayHit* outline, const Ui& ui,
                 const std::vector<EntityVertex>* entities = nullptr);
     Frustum lastFrustum;   // camera-relative, from the previous render (entity culling)
+    AABB outlineBox{{0, 0, 0}, {1, 1, 1}};   // block-local bounds of the outlined block
     const Stats& stats() const { return stats_; }
     const BlockTextures& textures() const { return tex_; }
     int renderRadius = 10;

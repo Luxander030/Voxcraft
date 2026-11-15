@@ -39,6 +39,37 @@ void lightAt(Vec3 p, float& sky, float& blk) {
 
 void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, float dt) {
     out.clear();
+    // crack overlay on the block being broken: a decal box 0.05 px outside its faces
+    if (G->breakProgress > 0 && !G->creative() && G->target.hit) {
+        int stage = clamp((int)(G->breakProgress * 8), 0, 7);
+        int layer = G->pack.layer("crack_" + std::to_string(stage));
+        if (layer >= 0) {
+            const BlockPos& b = G->target.block;
+            AABB sb = blockShapeBounds(G->reg, G->world->getBlock(b));
+            Mat4 m = Mat4::translate(b.x - eye.x, b.y - eye.y, b.z - eye.z) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
+            u16 t[6]; for (auto& x : t) x = (u16)layer;
+            Vec3 mn = sb.min * 16.0f - Vec3(0.05f, 0.05f, 0.05f), sz = (sb.max - sb.min) * 16.0f + Vec3(0.1f, 0.1f, 0.1f);
+            float sky, blk; lightAt({b.x + 0.5f, b.y + 1.2f, b.z + 0.5f}, sky, blk);
+            emitBox(out, m, mn, sz, t, std::max(sky, 0.6f), blk, rgba(255, 255, 255));
+        }
+    }
+    // particles: camera-facing quads
+    {
+        float yaw = G->player.yaw, pitch = G->player.pitch;
+        Vec3 f{std::sin(yaw) * std::cos(pitch), std::sin(pitch), -std::cos(yaw) * std::cos(pitch)};
+        Vec3 r = normalize(cross(f, {0, 1, 0})), u = cross(r, f);
+        for (const Particle& p : G->particles.parts) {
+            Vec3 c = p.pos - eye;
+            if (dot(c, c) > 64 * 64 || dot(c, f) < 0) continue;
+            float sky, blk;
+            if (p.emissive) { sky = 1; blk = 1; } else lightAt(p.pos, sky, blk);
+            float h = p.size * 0.5f;
+            Vec3 q[4] = {c - r * h - u * h, c + r * h - u * h, c + r * h + u * h, c - r * h + u * h};
+            float u0 = p.u0, v0 = p.v0, us = p.uvSize;
+            const float uv[4][2] = {{u0, v0 + us}, {u0 + us, v0 + us}, {u0 + us, v0}, {u0, v0}};
+            for (int k = 0; k < 4; k++) out.push_back({q[k].x, q[k].y, q[k].z, uv[k][0], uv[k][1], (float)p.layer, 1.0f, sky, blk, p.tint});
+        }
+    }
     const Frustum& fr = G->renderer.lastFrustum;
     float maxD = (float)std::min(G->opt.radius * 16, 96);
     std::vector<Mat4> bones;
