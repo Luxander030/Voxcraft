@@ -133,6 +133,7 @@ struct Game {
     float frameMsAvg = 16, frameMsMax = 0, fps = 60;
     bool playerReady = false;
     std::string status; double statusUntil = 0;
+    std::string lastSaveError;   // empty after a successful save
 };
 
 extern Game* G;
@@ -145,7 +146,8 @@ struct NewWorld {
 bool appInit(std::string* err);                                                         // once: registries, GPU, jobs
 bool startSession(const std::string& folder, const NewWorld* create, std::string* err); // open or create a world
 void resetPlayerState();
-void endSession();
+bool endSession(bool force = false);   // false: the save failed and the session stays open
+void showSaveFailure();
 bool saveWorld(bool sync);
 void simulateTick();             // one 20 Hz step: player, survival, entities, kilns, world
 void updateInteraction(float dt); // continuous block breaking / item use (per frame)

@@ -242,6 +242,7 @@ void World::unloadChunk(ChunkPos p) {
             c.recordHash = rec.empty() ? 0 : fnv1a(rec.data(), rec.size());
         }
         c.unsaved = false;
+        c.unloadedAtTick = meta.tick;
         // Keep the entities on the cached chunk: if the chunk is reused from the cache,
         // onGenerated() hands them back to the entity host (the pending/disk record is not decoded
         // in that case). If the cache drops the chunk instead, the record has them. Exactly one
@@ -274,6 +275,11 @@ ChunkPtr World::cacheTake(ChunkPos p) {
     auto it = lruIndex_.find(p);
     if (it == lruIndex_.end()) return nullptr;
     ChunkPtr c = *it->second; lruBytes_ -= c->memoryBytes(); lru_.erase(it->second); lruIndex_.erase(it);
+    // Scheduled ticks are frozen while a chunk is unloaded, exactly as when the record is reloaded
+    // from disk (which stores due - worldTick). Without this shift, a cached chunk would fire every
+    // overdue tick at once, so circuit/fluid timing would depend on whether the chunk was cached.
+    const i64 shift = meta.tick - c->unloadedAtTick;
+    if (shift) for (auto& t : c->ticks) t.due += shift;
     return c;
 }
 

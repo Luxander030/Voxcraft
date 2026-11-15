@@ -92,6 +92,7 @@ public:
     bool unsaved = false;          // persistent state changed since last save was encoded
     bool hasRecord = false;        // a record exists on disk or pending commit
     u64 recordHash = 0;            // hash of the last encoded record (skip identical rewrites)
+    i64 unloadedAtTick = 0;        // world tick when the chunk went into the clean-chunk cache
 
     BlockState get(int lx, int y, int lz) const {
         if ((unsigned)y >= (unsigned)WORLD_H) return AIR;

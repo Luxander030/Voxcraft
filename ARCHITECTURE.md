@@ -47,6 +47,9 @@ headless, which is what `voxtests` and `voxbench` link against.
   `pending_` (an in-memory write-back set that is read *before* disk). Clean chunks go to a
   byte-bounded LRU cache (`MemoryBudget::chunkCacheBytes`). Evicting from the cache never loses
   data, because cached chunks are clean by construction.
+- A chunk reused from the cache must behave exactly like one rebuilt from its record. It keeps
+  its entities (handed back on reuse, exactly one source is ever used), and its scheduled ticks
+  are shifted by the time it spent unloaded, because the disk record stores `due - worldTick`.
 
 ## Deterministic world generation
 
@@ -97,6 +100,10 @@ deleted at the next save. Format details are in [docs/WORLD_FORMAT.md](docs/WORL
   removes a record only if the re-encoded result is empty, writes a backup first, and supports a
   dry run.
 - Undecodable regions or records are left exactly as they are (`.corrupt` copy + log).
+- Commits are serialised and sequence-numbered. A background autosave that reaches the commit
+  after a newer save is skipped, so it never writes older data over newer data.
+- A world is never closed after a failed save, except when the process is exiting anyway. Rift
+  travel, quit-to-title and window close all keep the session open and report the error.
 
 ## Block updates and fluids
 

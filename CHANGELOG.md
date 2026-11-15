@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Fixed: a failed final save no longer discards the session (data integrity)
+- **Bug:** quitting to the title screen, closing the window or travelling through a rift closed the
+  world even when its save failed (disk full, read-only folder). Every unsaved change was lost, and
+  the only sign was a log line.
+- **Fix:** the world stays open when the save fails. Travel is cancelled, quit-to-title stays in the
+  game, closing the window is cancelled, and a status message shows the error. F5 also reports
+  failures. Verified by running the game with a read-only save folder.
+
+### Fixed: scheduled ticks fired early after chunk-cache reuse
+- **Bug:** a chunk restored from the disk record resumed its pending ticks with their remaining
+  delay, but a chunk reused from the clean-chunk cache fired all overdue ticks at once. Circuit and
+  fluid timing depended on whether the chunk happened to be cached.
+- **Fix:** cached chunks record their unload tick, and their ticks are shifted on reuse, matching
+  the disk path.
+- **Test:** `scheduled_ticks_frozen_while_unloaded_cache_or_disk` checks both paths. It fails
+  without the fix.
+
 ### Fixed: stale autosave could overwrite a newer save (data integrity)
 - **Bug:** a background autosave that reached the disk after a later synchronous save (for example,
   saving on quit) wrote its older chunk data and player state over the newer save.

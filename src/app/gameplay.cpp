@@ -315,25 +315,35 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
 bool saveWorld(bool sync) {
     if (!G->world) return false;
     std::string err;
+    auto fail = [&](const std::string& e) { G->lastSaveError = e; VX_ERROR("save failed: %s", e.c_str()); return false; };
     if (G->dimension == "overworld") {
-        if (!G->world->save(sync, {{"player.dat", encodePlayer()}}, &err)) { VX_ERROR("save failed: %s", err.c_str()); return false; }
+        if (!G->world->save(sync, {{"player.dat", encodePlayer()}}, &err)) return fail(err);
     } else {
         // another dimension's folder: its chunks go there, the player file always lives in the main save
-        if (!G->world->save(sync, {}, &err)) { VX_ERROR("save failed: %s", err.c_str()); return false; }
+        if (!G->world->save(sync, {}, &err)) return fail(err);
         auto pd = encodePlayer();
-        if (!writeFileAtomic(G->saveDir / "player.dat", pd)) { VX_ERROR("save failed: player.dat"); return false; }
+        if (!writeFileAtomic(G->saveDir / "player.dat", pd)) return fail("cannot write player.dat");
     }
+    G->lastSaveError.clear();
     return true;
 }
+
+void showSaveFailure() { showStatus("Could not save the world: " + G->lastSaveError + ". Nothing was discarded."); }
 
 bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* err) {
     G->farEpoch++; G->farCX = 1 << 30;   // distant terrain belongs to the old world
     std::string mode = G->world ? G->world->meta.gameMode : "survival";
     GenSettings baseGen = G->world ? G->world->meta.gen : GenSettings{};
     if (G->world) {
-        G->renderer.detach();
+        // Never close a world whose state is not safely on disk: if the save fails, stay put.
+        const std::string from = G->dimension;
         G->dimension = dim;           // player.dat written below records the destination
-        saveWorld(true);
+        if (!saveWorld(true)) {
+            G->dimension = from;
+            if (err) *err = "cannot save before leaving: " + G->lastSaveError;
+            return false;
+        }
+        G->renderer.detach();
         G->behaviors.reset();
         G->world->close();
         G->world.reset();
@@ -397,18 +407,21 @@ void resetPlayerState() {
     G->playerReady = false; G->target = {}; G->breakProgress = 0; G->accumulator = 0;
 }
 
-void endSession() {
-    if (!G->world) return;
+bool endSession(bool force) {
+    if (!G->world) return true;
+    // Save first, while everything is still attached. If it fails, keep the session open so the
+    // player's unsaved changes stay in memory (unless the process is exiting anyway).
+    if (!saveWorld(true) && !force) return false;
     G->farEpoch++; G->farCX = 1 << 30;
     if (G->mixer) G->mixer->stopAll();
     closeScreen();
     G->renderer.detach();
-    saveWorld(true);
     G->behaviors.reset();
     G->world->close();
     G->world.reset();
     G->entities.reset();
     G->mobs.reset();
+    return true;
 }
 
 void respawn() {
@@ -547,7 +560,7 @@ void simulateTick() {
             Vec3 target = to == "hollow" ? Vec3(std::floor(p.pos.x / 8), 64, std::floor(p.pos.z / 8)) : Vec3(std::floor(p.pos.x * 8), 64, std::floor(p.pos.z * 8));
             std::string err;
             sfx("splash", 0.4f);
-            if (!enterDimension(to, target, true, &err)) { VX_ERROR("dimension travel failed: %s", err.c_str()); showStatus("Travel failed"); }
+            if (!enterDimension(to, target, true, &err)) { VX_ERROR("dimension travel failed: %s", err.c_str()); showStatus(G->lastSaveError.empty() ? "Travel failed" : "Travel cancelled: could not save the world"); }
             return;   // the world changed: nothing else this tick
         }
     }

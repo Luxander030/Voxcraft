@@ -308,3 +308,26 @@ TEST(persistence_stress_random_edits_unloads_saves_reopens) {
     printf("    %zu blocks, %zu chests, %d items tracked\n", expectBlocks.size(), expectChest.size(), expectItems);
     CHECK_EQ(failures, 0);
 }
+
+TEST(scheduled_ticks_frozen_while_unloaded_cache_or_disk) {
+    // A chunk's pending ticks must resume with the same remaining delay whether the chunk comes
+    // back from the clean-chunk cache or from its saved record.
+    static JobSystem jobs(2);
+    for (int cached = 0; cached < 2; cached++) {
+        auto dir = vxtest::tempDir(cached ? "tickcache" : "tickdisk");
+        World w(blocks(), jobs, items().names());
+        w.budget.chunkCacheBytes = cached ? (64u << 20) : 0;
+        WorldMeta m; m.gen.preset = "flat"; std::string err; REQUIRE(w.create(dir, m, &err));
+        w.setFocus({8, 6, 8}, 2); w.waitForJobs();
+        BlockPos p{3, 10, 3};
+        w.scheduleTick(p, w.getBlock(p), 10);
+        w.setFocus({16 * 40, 6, 0}, 2); w.waitForJobs();     // chunk unloads
+        REQUIRE(!w.chunk({0, 0}));
+        for (int i = 0; i < 500; i++) w.tick();               // time passes while it is unloaded
+        w.setFocus({8, 6, 8}, 2); w.waitForJobs();
+        ChunkPtr c = w.chunk({0, 0}); REQUIRE(c);
+        REQUIRE(c->ticks.size() == 1);
+        CHECK_EQ((long long)(c->ticks[0].due - w.meta.tick), 10LL);
+        w.close();
+    }
+}

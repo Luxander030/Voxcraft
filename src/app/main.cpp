@@ -82,8 +82,10 @@ void frame() {
     G->now += dt;
     if (G->quitToTitle) {   // deferred from the pause menu: never tear down a world mid-frame
         G->quitToTitle = false;
-        endSession(); refreshWorldList();
-        G->app = AppState::Title; G->screen = Screen::Pause; G->mouseLocked = false; sapp_lock_mouse(false);
+        if (endSession()) {
+            refreshWorldList();
+            G->app = AppState::Title; G->screen = Screen::Pause; G->mouseLocked = false; sapp_lock_mouse(false);
+        } else showSaveFailure();
     }
     if (G->app != AppState::Playing || !G->world) {
         drawMenus(sapp_width(), sapp_height());
@@ -269,7 +271,7 @@ void frame() {
 }
 
 void cleanup() {
-    endSession();
+    endSession(true);
     saudio_shutdown();
     G->mixer.reset();
     sg_shutdown();
@@ -279,6 +281,12 @@ void cleanup() {
 
 void event(const sapp_event* e) {
     if (G->initFailed) return;
+    if (e->type == SAPP_EVENTTYPE_QUIT_REQUESTED) {
+        // Closing the window: save now, while the quit can still be cancelled. If the save fails,
+        // keep running so nothing unsaved is lost; the player can free space and try again.
+        if (G->world && !saveWorld(true)) { sapp_cancel_quit(); showSaveFailure(); }
+        return;
+    }
     // ---- menus (title, worlds, create, settings) and in-game menu overlays
     bool overlay = G->app == AppState::Playing && (G->screen == Screen::Pause || G->screen == Screen::Settings || G->screen == Screen::Controls);
     if (G->app != AppState::Playing || overlay || (G->app == AppState::Playing && G->screen == Screen::Chat)) {
@@ -327,7 +335,7 @@ void event(const sapp_event* e) {
         if (k == SAPP_KEYCODE_F3) G->debug = !G->debug;
         if (k == SAPP_KEYCODE_F11) sapp_toggle_fullscreen();
         if (k == SAPP_KEYCODE_F6 && !e->key_repeat) { G->renderer.occlusionCulling = !G->renderer.occlusionCulling; showStatus(G->renderer.occlusionCulling ? "Occlusion culling on" : "Occlusion culling off"); }
-        if (k == SAPP_KEYCODE_F5 && !e->key_repeat) { if (saveWorld(true)) showStatus("World saved"); }
+        if (k == SAPP_KEYCODE_F5 && !e->key_repeat) { if (saveWorld(true)) showStatus("World saved"); else showSaveFailure(); }
         if (k == SAPP_KEYCODE_F4 && !e->key_repeat) {   // developer convenience: switch game mode
             G->world->meta.gameMode = G->creative() ? "survival" : "creative";
             G->player.canFly = G->creative(); if (!G->creative()) G->player.flying = false;
