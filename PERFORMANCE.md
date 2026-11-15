@@ -71,6 +71,20 @@ matters most on integrated GPUs and at long render distances. F6 toggles culling
 - It is rebuilt only after 64 blocks of movement or a change in render distance. Each job uses
   its own generator instance, so a closing world can never be referenced.
 
+### Lighting: uniform sections, emitter list, bounded sky seeding
+| | Before | After |
+|---|---|---|
+| `voxbench` light, median of 3 runs | 0.73–0.84 ms/chunk | **0.51–0.53 ms/chunk** (≈ −33%) |
+
+Output is bit-identical before and after (`lighting_output_is_pinned` has the same hash for both
+implementations). The three changes:
+- Uniform sections fill opacity and emission without per-cell lookups.
+- Light sources are collected during the scan instead of rescanning the whole region.
+- Sky-light seeding stops at the region's highest light-blocking block.
+
+Relights already report only the sections whose light actually changed, so a block edit
+re-meshes only those sections.
+
 ### Region cache bound
 `WorldStorage` keeps at most 64 parsed region files (LRU; `maxCachedRegions`). Evicting is
 always safe, because the cache only ever mirrors committed data and the World reads its pending

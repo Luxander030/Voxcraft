@@ -15,7 +15,7 @@ constexpr int RW = 16 + 2 * M;     // 46: region width
 
 struct Scratch {
     std::vector<u8> op, emit, sky, blk;
-    std::vector<u32> queue;
+    std::vector<u32> queue, emitters;
 };
 } // namespace
 
@@ -30,20 +30,35 @@ void computeChunkLight(const LightSnapshot& snap, const BlockRegistry& reg, Ligh
     S.op.assign(N, 0); S.emit.assign(N, 0); S.sky.assign(N, 0); S.blk.assign(N, 0);
     auto I = [&](int x, int y, int z) -> size_t { return ((size_t)y * RW + (size_t)z) * RW + (size_t)x; };
 
-    // 1. opacity/emission for the region
+    // 1. opacity/emission for the region. Uniform sections (all air, all stone...) are handled
+    //    without per-cell lookups; light sources are collected for step 3 instead of rescanning.
+    S.emitters.clear();
     for (int z = 0; z < RW; z++) for (int x = 0; x < RW; x++) {
         int wx = x - M, wz = z - M;                     // relative to centre chunk origin, [-15, 31)
         int ci = (floorDiv(wx, 16) + 1) + (floorDiv(wz, 16) + 1) * 3;
         int lx = floorMod(wx, 16), lz = floorMod(wz, 16);
         const Section* secs = snap.sec[ci];
-        for (int y = 0; y < H; y++) {
-            BlockState s = secs[y >> 4].get(lx, y & 15, lz);
-            if (s == AIR) continue;
-            size_t i = I(x, y, z);
-            S.op[i] = reg.opacity(s); S.emit[i] = reg.light(s);
+        for (int sy = 0; sy * 16 < H; sy++) {
+            const Section& sec = secs[sy];
+            int y1 = std::min(H, sy * 16 + 16);
+            if (sec.isUniform()) {
+                BlockState s = sec.uniform;
+                if (s == AIR) continue;
+                u8 o = reg.opacity(s), e = reg.light(s);
+                for (int y = sy * 16; y < y1; y++) { size_t i = I(x, y, z); S.op[i] = o; S.emit[i] = e; if (e) S.emitters.push_back((u32)i); }
+                continue;
+            }
+            for (int y = sy * 16; y < y1; y++) {
+                BlockState s = sec.get(lx, y & 15, lz);
+                if (s == AIR) continue;
+                size_t i = I(x, y, z);
+                S.op[i] = reg.opacity(s); S.emit[i] = reg.light(s);
+                if (S.emit[i]) S.emitters.push_back((u32)i);
+            }
         }
     }
     // 2. sky light straight down
+    int regionTop = 0;   // highest light-blocking cell anywhere in the region: above it, sky is uniformly 15
     for (int z = 0; z < RW; z++) for (int x = 0; x < RW; x++) {
         int l = 15;
         int hm = 0;
@@ -55,6 +70,7 @@ void computeChunkLight(const LightSnapshot& snap, const BlockRegistry& reg, Ligh
             if (l == 0) break;   // rest of the column stays 0
         }
         if (x >= M && x < M + 16 && z >= M && z < M + 16) heightmap[(x - M) + (z - M) * 16] = (u8)std::min(255, hm);
+        regionTop = std::max(regionTop, hm);
     }
     // 3. flood fill (BFS) for sky and block light
     auto flood = [&](std::vector<u8>& L) {
@@ -75,7 +91,8 @@ void computeChunkLight(const LightSnapshot& snap, const BlockRegistry& reg, Ligh
         }
     };
     S.queue.clear();
-    for (int y = 0; y < H; y++) for (int z = 0; z < RW; z++) for (int x = 0; x < RW; x++) {
+    const int seedTop = std::min(H, regionTop + 1);   // cells above every column top cannot spread sideways or down
+    for (int y = 0; y < seedTop; y++) for (int z = 0; z < RW; z++) for (int x = 0; x < RW; x++) {
         size_t i = I(x, y, z);
         u8 l = S.sky[i]; if (l <= 1) continue;
         // seed only cells that can brighten a horizontal or lower neighbour
@@ -89,7 +106,7 @@ void computeChunkLight(const LightSnapshot& snap, const BlockRegistry& reg, Ligh
     }
     flood(S.sky);
     S.queue.clear();
-    for (size_t i = 0; i < N; i++) if (S.emit[i]) { S.blk[i] = S.emit[i]; S.queue.push_back((u32)i); }
+    for (u32 i : S.emitters) { S.blk[i] = S.emit[i]; S.queue.push_back(i); }
     flood(S.blk);
 
     // 4. write centre chunk sections

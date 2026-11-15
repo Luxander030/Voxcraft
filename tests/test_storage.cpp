@@ -417,3 +417,20 @@ TEST(memory_budget_policy_degrades_and_recovers_with_hysteresis) {
     CHECK_EQ(p.effectiveRadius, 5);                 // never above the user's setting
     CHECK(physicalMemoryBytes() > (256ull << 20));
 }
+
+TEST(lighting_output_is_pinned) {
+    GenSettings gs; gs.seed = 4242; gs.version = 3;
+    auto gen = createGenerator(gs, blocks());
+    std::vector<std::unique_ptr<Chunk>> cs;
+    for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) { cs.push_back(std::make_unique<Chunk>(ChunkPos{dx, dz})); gen->generate(*cs.back()); }
+    cs[4]->setGen(3, 70, 3, blocks().stateOf("glowcrystal"));   // a light source in the open
+    LightSnapshot snap; snap.center = {0, 0};
+    for (int k = 0; k < 9; k++) for (int s = 0; s < SECTIONS; s++) snap.sec[k][s] = cs[k]->sec[s];
+    LightSection out[SECTIONS]; u8 hm[256];
+    computeChunkLight(snap, blocks(), out, hm);
+    u64 h = 0xcbf29ce484222325ull;
+    for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) { u8 v = out[s].get(i); h = fnv1a(&v, 1, h); }
+    h = fnv1a(hm, 256, h);
+    printf("    light hash: %016llx\n", (unsigned long long)h);
+    CHECK_EQ(h, (u64)0xb746b35eeabff306ull);   // pinned; equal before and after the uniform-section/emitter-list optimisation
+}

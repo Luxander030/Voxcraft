@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Lighting performance
+- About 33% faster chunk lighting with identical output (pinned by a test).
+
 ### Distant terrain
 - A level-of-detail horizon beyond the render distance (settings toggle) and a `--menu vista`
   smoke view.
