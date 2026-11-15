@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed: entities lost through the chunk cache (data integrity)
+- **Bug:** a chunk unloaded into the clean-chunk cache and then reused lost its dropped items and
+  creatures, and the next save also removed them from the chunk's record.
+- **Fix:** cached chunks now keep their entities and return them when reused.
+- **Test:** `entities_survive_unload_into_cache_and_back` reproduces the bug.
+
 ### Controls and accessibility
 - Key remapping, invert mouse, toggle sneak and sprint, and sound subtitles.
 - Settler and cinderwisp call sounds.

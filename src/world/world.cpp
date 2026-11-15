@@ -240,7 +240,11 @@ void World::unloadChunk(ChunkPos p) {
             c.recordHash = rec.empty() ? 0 : fnv1a(rec.data(), rec.size());
         }
         c.unsaved = false;
-        c.entities.clear();   // now persisted in the record
+        // Keep the entities on the cached chunk: if the chunk is reused from the cache,
+        // onGenerated() hands them back to the entity host (the pending/disk record is not decoded
+        // in that case). If the cache drops the chunk instead, the record has them. Exactly one
+        // source is ever used, so entities are neither lost nor duplicated.
+        if (budget.chunkCacheBytes == 0) c.entities.clear();
         cachePut(s.chunk);
         Profiler::add(Stat::ChunksUnloaded);
     }

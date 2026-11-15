@@ -211,3 +211,33 @@ TEST(farming_grain_grows_on_moist_farmland_and_drops_by_age) {
     ItemStack g[9] = {}; g[3] = st("grain"); g[4] = st("grain"); g[5] = st("grain");
     auto bread = recipes().match(g, 3, 3); REQUIRE(bread); CHECK(bread->item == items().id("bread"));
 }
+
+TEST(entities_survive_unload_into_cache_and_back) {
+    // Regression: a chunk unloaded into the clean-chunk cache and later reused must bring its
+    // entities back (they used to vanish, and the next save then dropped them from the record).
+    static JobSystem jobs(2);
+    auto dir = vxtest::tempDir("entcache");
+    EntityManager em(items());
+    World w(blocks(), jobs, items().names());
+    w.setEntityHost(&em);
+    w.budget.chunkCacheBytes = 64u << 20;   // keep unloaded chunks cached
+    WorldMeta m; m.gen.preset = "flat"; std::string err; REQUIRE(w.create(dir, m, &err));
+    w.setFocus({8, 6, 8}, 2); w.waitForJobs();
+    Rng rng(1);
+    em.spawnItem({8.5f, 6, 8.5f}, st("coal", 7), rng);
+    em.items.back().vel = {}; em.items.back().pickupDelay = 1000;
+    for (int round = 0; round < 3; round++) {
+        w.setFocus({16 * 40, 6, 0}, 2); w.waitForJobs();     // walk away: chunk unloads into the cache
+        CHECK_EQ(em.count(), (size_t)0);
+        w.setFocus({8, 6, 8}, 2); w.waitForJobs();           // come back: restored from the cache
+        CHECK_EQ(em.count(), (size_t)1);
+    }
+    REQUIRE(w.save(true, {}, &err));
+    w.close();
+    EntityManager em2(items());
+    World r(blocks(), jobs, items().names()); r.setEntityHost(&em2);
+    REQUIRE(r.open(dir, &err));
+    r.loadChunkSync({0, 0});
+    REQUIRE(em2.count() == 1);
+    CHECK_EQ((int)em2.items[0].stack.count, 7);
+}
