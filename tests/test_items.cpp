@@ -241,3 +241,70 @@ TEST(entities_survive_unload_into_cache_and_back) {
     REQUIRE(em2.count() == 1);
     CHECK_EQ((int)em2.items[0].stack.count, 7);
 }
+
+TEST(persistence_stress_random_edits_unloads_saves_reopens) {
+    static JobSystem jobs(3);
+    auto dir = vxtest::tempDir("stress");
+    Rng rng(20261115);
+    std::map<std::tuple<int, int, int>, BlockState> expectBlocks;   // positions we changed
+    std::map<std::tuple<int, int, int>, int> expectChest;            // chest -> coal count
+    int expectItems = 0;
+    const BlockState palette[] = {blocks().stateOf("bricks"), blocks().stateOf("glass"), blocks().stateOf("oak_planks"), AIR};
+    const Vec3 spots[3] = {{8, 6, 8}, {16 * 30 + 8, 6, 8}, {8, 6, 16 * 30 + 8}};
+    int failures = 0;
+    auto session = [&](int ops, bool first) {
+        EntityManager em(items());
+        World w(blocks(), jobs, items().names());
+        w.setEntityHost(&em);
+        std::string err;
+        if (first) { WorldMeta m; m.gen.preset = "flat"; REQUIRE(w.create(dir, m, &err)); }
+        else REQUIRE(w.open(dir, &err));
+        int spot = 0;
+        w.setFocus(spots[0], 2); w.waitForJobs();
+        // verify everything we expect in the area around spot 0 (loaded now)
+        for (auto& [k, s] : expectBlocks) { auto [x, y, z] = k; if (w.chunk(BlockPos{x, y, z}.chunk())) { if (w.getBlock({x, y, z}) != s) failures++; } }
+        for (auto& [k, n] : expectChest) {
+            auto [x, y, z] = k; BlockEntity* be = w.blockEntity({x, y, z});
+            int c = 0; if (be) for (auto& it : be->items) if (it.item == items().id("coal")) c += it.count;
+            if (c != n) failures++;
+        }
+        if ((int)em.count() != expectItems) failures++;
+        for (int op = 0; op < ops; op++) {
+            int kind = rng.range(10);
+            if (kind < 5 && spot == 0) {   // edit (or revert) a block near spot 0
+                int x = rng.range(24) - 4, z = rng.range(24) - 4, y = 5 + rng.range(3);
+                if (expectChest.count({x, y, z})) continue;
+                BlockState s = palette[rng.range(4)];
+                w.setBlock({x, y, z}, s);
+                expectBlocks[{x, y, z}] = w.getBlock({x, y, z});
+            } else if (kind == 5 && spot == 0) {   // chest with coal
+                int x = rng.range(16), z = rng.range(16), y = 9;
+                w.setBlock({x, y, z}, blocks().stateOf("chest"));
+                BlockEntity* be = w.ensureBlockEntity({x, y, z}, BE_CHEST); be->items.resize(CHEST_SLOTS);
+                int n = 1 + rng.range(30); be->items[0] = st("coal", n);
+                if (ChunkPtr c = w.chunk(BlockPos{x, y, z}.chunk())) c->unsaved = true;
+                expectChest[{x, y, z}] = n; expectBlocks[{x, y, z}] = w.getBlock({x, y, z});
+            } else if (kind == 6 && spot == 0 && expectItems < 6) {   // a dropped item that stays put
+                if ((int)em.count() != expectItems) failures++;   // nothing may have vanished so far
+                // items 3 blocks apart never merge, so the expected count is independent of the world
+                em.spawnItem({2.5f + expectItems * 3.0f, 6.0f, 2.5f}, st("flint", 1), rng);
+                em.items.back().vel = {}; em.items.back().pickupDelay = 100000;
+                expectItems++;
+            } else if (kind == 7) {   // move the focus: unload / reload (cache on or off)
+                w.budget.chunkCacheBytes = rng.chance(0.5f) ? (64u << 20) : 0;
+                spot = rng.range(3); w.setFocus(spots[spot], 2); w.waitForJobs();
+                if (spot == 0 && (int)em.count() != expectItems) failures++;   // back in the area: all items present
+            } else if (kind == 8) {
+                REQUIRE(w.save(true, {}, &err));
+            }
+        }
+        w.setFocus(spots[0], 2); w.waitForJobs();
+        if ((int)em.count() != expectItems) failures++;
+        w.close();   // final save
+    };
+    session(120, true);
+    for (int s = 0; s < 4; s++) session(120, false);
+    session(0, false);   // final verification only
+    printf("    %zu blocks, %zu chests, %d items tracked\n", expectBlocks.size(), expectChest.size(), expectItems);
+    CHECK_EQ(failures, 0);
+}

@@ -17,6 +17,9 @@
 - Destructive maintenance needs a dry run and a backup.
 
 ## Tests
+Persistence changes must keep `persistence_stress_*` green. It is the broadest data-integrity
+check and is verified to catch the chunk-cache entity-loss regression.
+
 `./build/voxtests [filter]`. Add a `TEST(name)` next to related tests. Storage changes must keep
 Tests A–F green.
 

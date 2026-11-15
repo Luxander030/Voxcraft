@@ -7,6 +7,9 @@
   creatures, and the next save also removed them from the chunk's record.
 - **Fix:** cached chunks now keep their entities and return them when reused.
 - **Test:** `entities_survive_unload_into_cache_and_back` reproduces the bug.
+- **Stress test:** `persistence_stress_random_edits_unloads_saves_reopens` runs several hundred
+  random edits, chests, dropped items, unloads (cache on and off), saves and reopens, and checks
+  everything against an independent model. It fails if this bug is reintroduced.
 
 ### Controls and accessibility
 - Key remapping, invert mouse, toggle sneak and sprint, and sound subtitles.
