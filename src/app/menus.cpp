@@ -293,7 +293,7 @@ void chatSubmit(const std::string& line) {
     if (a.empty()) return;
     const std::string& c = a[0];
     World& w = *G->world;
-    if (c == "help") chatPrint("commands: /gamemode survival|creative, /time set day|night|<ticks>, /tp x y z, /give item [n], /seed, /spawnpoint, /kill, /summon mob, /weather clear|rain");
+    if (c == "help") chatPrint("commands: /gamemode survival|creative, /time set day|night|<ticks>, /tp x y z, /give item [n], /seed, /spawnpoint, /kill, /summon mob, /weather clear|rain, /locate village");
     else if (c == "gamemode" && a.size() > 1 && (a[1] == "survival" || a[1] == "creative")) {
         w.meta.gameMode = a[1]; G->player.canFly = G->creative(); if (!G->creative()) G->player.flying = false; chatPrint("Game mode set to " + a[1]);
     } else if (c == "time" && a.size() > 2 && a[1] == "set") {
@@ -309,6 +309,12 @@ void chatSubmit(const std::string& line) {
         while (n > 0) { int k = std::min(n, G->items.maxStack(it)); giveOrDropInv({it, (u8)k, 0}); n -= k; }
         chatPrint("Gave " + a[1]);
     } else if (c == "seed") chatPrint("Seed: " + std::to_string(w.meta.gen.seed));
+    else if (c == "locate" && a.size() > 1 && a[1] == "village") {
+        int vx, vy, vz;
+        if (G->dimension == "overworld" && w.generator().nearestVillage((int)G->player.pos.x, (int)G->player.pos.z, 8, vx, vy, vz))
+            chatPrint("Nearest village: " + std::to_string(vx) + " " + std::to_string(vy) + " " + std::to_string(vz));
+        else chatPrint("No village nearby (villages exist in worlds created with generator v3)");
+    }
     else if (c == "weather" && a.size() > 1 && (a[1] == "clear" || a[1] == "rain")) {
         w.meta.raining = a[1] == "rain"; w.meta.weatherTicks = 12000; chatPrint("Weather: " + a[1]);
     }

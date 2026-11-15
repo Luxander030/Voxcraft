@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Generator v3: villages
+- Villages with a plaza, well, lamp posts, furnished cottages and paths. New worlds only; v1 and
+  v2 worlds are unchanged.
+- `/locate village`.
+
 ### Sky and weather
 - Sun, moon, stars and clouds.
 - Rain and snow with persistent timers, overcast lighting, a rain sound and the `/weather`

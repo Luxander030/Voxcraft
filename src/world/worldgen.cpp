@@ -262,6 +262,7 @@ private:
 
     void placeFeatures(Chunk& ch) const {
         Writer w{ch, ch.pos.x * 16, ch.pos.z * 16, cb, reg};
+        if (st.structures && st.version >= 3) placeVillage(w, ch.pos);   // v1/v2 output stays bit-identical
         for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) {
             int cx = ch.pos.x + dx, cz = ch.pos.z + dz;
             if (st.structures) {
@@ -361,6 +362,111 @@ private:
             placeCache(w, ox, 18 + r.range(20), oz, r);
         else if (roll >= 18 && roll < 34 && land && ci.biome == Biome::Desert)
             placeWell(w, ox, ci.height, oz);
+    }
+
+    // ---- generator v3: villages. A village belongs to an 8x8-chunk region and extends at most
+    // ~26 blocks from its centre, which is kept >= 28 blocks inside the region, so only chunks of
+    // that region can be touched. Every chunk recomputes the (cheap, deterministic) layout and
+    // writes the parts that fall inside it.
+    // Village centre of region (rx, rz), if the region has one. Shared by placement and /locate.
+    bool villageInRegion(int rx, int rz, int& cx, int& cz, ColumnInfo& c0, Rng& r) const {
+        r = Rng(hashCoords(st.seed ^ 0x1A6E, rx, rz));
+        if (r.range(100) >= 30) return false;
+        cx = rx * 128 + 28 + r.range(72); cz = rz * 128 + 28 + r.range(72);
+        c0 = column(cx, cz);
+        bool desert = c0.biome == Biome::Desert;
+        return c0.height > SEA_LEVEL && !c0.river && (c0.biome == Biome::Plains || c0.biome == Biome::Savanna || desert || c0.biome == Biome::Taiga);
+    }
+
+    bool nearestVillage(int x, int z, int radius, int& vx, int& vy, int& vz) const override {
+        if (st.version < 3 || !st.structures) return false;
+        int rx0 = floorDiv(x, 128), rz0 = floorDiv(z, 128); long best = -1;
+        for (int dz = -radius; dz <= radius; dz++) for (int dx = -radius; dx <= radius; dx++) {
+            int cx, cz; ColumnInfo c0; Rng r(0);
+            if (!villageInRegion(rx0 + dx, rz0 + dz, cx, cz, c0, r)) continue;
+            long d = (long)(cx - x) * (cx - x) + (long)(cz - z) * (cz - z);
+            if (best < 0 || d < best) { best = d; vx = cx; vy = c0.height + 1; vz = cz; }
+        }
+        return best >= 0;
+    }
+
+    void placeVillage(Writer& w, ChunkPos cp) const {
+        int rx = floorDiv(cp.x, 8), rz = floorDiv(cp.z, 8);
+        {   // cheap reject before evaluating terrain: is this chunk anywhere near the region's village?
+            Rng q(hashCoords(st.seed ^ 0x1A6E, rx, rz));
+            if (q.range(100) >= 30) return;
+            int qx = rx * 128 + 28 + q.range(72), qz = rz * 128 + 28 + q.range(72);
+            if (cp.x * 16 + 15 < qx - 28 || cp.x * 16 > qx + 28 || cp.z * 16 + 15 < qz - 28 || cp.z * 16 > qz + 28) return;
+        }
+        int cx, cz; ColumnInfo c0; Rng r(0);
+        if (!villageInRegion(rx, rz, cx, cz, c0, r)) return;
+        bool desert = c0.biome == Biome::Desert;
+        int y0 = c0.height;
+        BlockState path = desert ? cb.sandstone : cb.gravel, plaza = desert ? cb.sandstone : cb.cobblestone;
+        // plaza with a well and lamp posts
+        for (int dz = -4; dz <= 4; dz++) for (int dx = -4; dx <= 4; dx++) {
+            for (int yy = y0 - 2; yy <= y0; yy++) w.solid(cx + dx, yy, cz + dz, yy == y0 ? plaza : cb.dirt);
+            for (int yy = y0 + 1; yy <= y0 + 5; yy++) w.solid(cx + dx, yy, cz + dz, AIR);
+        }
+        for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) {
+            bool rim = dx != 0 || dz != 0;
+            w.solid(cx + dx, y0 + 1, cz + dz, rim ? plaza : AIR);
+            for (int yy = y0 - 3; yy <= y0; yy++) w.solid(cx + dx, yy, cz + dz, rim ? plaza : cb.water);
+        }
+        for (int s : {-4, 4}) for (int t : {-4, 4}) {
+            for (int yy = 1; yy <= 3; yy++) w.solid(cx + s, y0 + yy, cz + t, cb.oak_log);
+            w.solid(cx + s, y0 + 4, cz + t, reg.withProp(cb.torch, "facing", 4));
+        }
+        // cottages on a ring, doors facing the plaza
+        int n = 4 + r.range(4);
+        float a0 = r.unit() * 2 * PI;
+        for (int i = 0; i < n; i++) {
+            float a = a0 + i * 2 * PI / n + (r.unit() - 0.5f) * 0.3f;
+            float dist = 13 + r.range(7);
+            int hx = cx + (int)std::lround(std::cos(a) * dist), hz = cz + (int)std::lround(std::sin(a) * dist);
+            ColumnInfo hc = column(hx, hz);
+            if (hc.height <= SEA_LEVEL || hc.river || std::abs(hc.height - y0) > 6) continue;
+            // door side: the axis-aligned side that faces the plaza
+            int ddx = cx - hx, ddz = cz - hz;
+            int face = std::abs(ddx) > std::abs(ddz) ? (ddx > 0 ? 3 : 2) : (ddz > 0 ? 1 : 0);   // 0 N 1 S 2 W 3 E
+            Rng hr(hashCoords(st.seed ^ 0xC077, hx, hz));
+            placeCottage(w, hx, hc.height, hz, face, hr, desert);
+            // gravel path from the door to the plaza
+            static const int FX[4] = {0, 0, -1, 1}, FZ[4] = {-1, 1, 0, 0};
+            int px = hx + FX[face] * 3, pz = hz + FZ[face] * 3;
+            for (int k = 0; k < 40; k++) {
+                if (std::abs(px - cx) <= 4 && std::abs(pz - cz) <= 4) break;
+                w.ground(px, column(px, pz).height, pz, path);
+                if (std::abs(cx - px) > std::abs(cz - pz)) px += cx > px ? 1 : -1; else pz += cz > pz ? 1 : -1;
+            }
+        }
+    }
+
+    void placeCottage(Writer& w, int hx, int y, int hz, int face, Rng& rng, bool desert) const {
+        BlockState wall = desert ? cb.sandstone : cb.oak_planks, corner = desert ? cb.sandstone : cb.oak_log, roof = desert ? cb.sandstone : reg.stateOf("pine_planks");
+        int h = 4;
+        for (int dz = -2; dz <= 2; dz++) for (int dx = -2; dx <= 2; dx++) {
+            for (int yy = y - 3; yy <= y; yy++) w.solid(hx + dx, yy, hz + dz, cb.cobblestone);   // foundation
+            bool edgeX = std::abs(dx) == 2, edgeZ = std::abs(dz) == 2;
+            for (int yy = 1; yy <= h; yy++) {
+                BlockState b = AIR;
+                if (edgeX && edgeZ) b = corner;
+                else if (edgeX || edgeZ) b = (yy == 2 && (dx == 0 || dz == 0)) ? cb.glass : wall;
+                w.solid(hx + dx, y + yy, hz + dz, b);
+            }
+            w.solid(hx + dx, y + h + 1, hz + dz, roof);
+            if (std::abs(dx) <= 1 && std::abs(dz) <= 1) w.solid(hx + dx, y + h + 2, hz + dz, roof);
+        }
+        // door opening facing the plaza
+        static const int FX[4] = {0, 0, -1, 1}, FZ[4] = {-1, 1, 0, 0};
+        for (int yy = 1; yy <= 2; yy++) w.solid(hx + FX[face] * 2, y + yy, hz + FZ[face] * 2, AIR);
+        // furnishings: torch, and one of workbench / chest / kiln in the back corner
+        w.solid(hx - FX[face], y + 3, hz - FZ[face], reg.withProp(cb.torch, "facing", 4));
+        w.solid(hx - FX[face], y + 2, hz - FZ[face], reg.stateOf("oak_planks"));
+        int kind = rng.range(3);
+        BlockState furn = kind == 0 ? cb.workbench : kind == 1 ? reg.withProp(cb.chest, "facing", face) : reg.withProp(cb.kiln, "facing", face);
+        int sx = FZ[face] != 0 ? 1 : -FX[face], sz = FX[face] != 0 ? 1 : -FZ[face];
+        w.solid(hx + sx, y + 1, hz + sz, furn);
     }
 
     void placeWatchtower(Writer& w, int ox, int y, int oz, Rng& rng) const {

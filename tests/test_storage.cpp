@@ -343,3 +343,30 @@ TEST(world_meta_round_trips_weather_and_generator_fields) {
     CHECK(r.gen.seed == m.gen.seed); CHECK_EQ(r.gen.version, 2u); CHECK(r.gen.dimension == std::string("hollow"));
     CHECK_EQ(r.tick, m.tick); CHECK(r.gameMode == std::string("creative"));
 }
+
+TEST(worldgen_v3_adds_villages_only_where_they_stand) {
+    GenSettings v2; v2.seed = 99; v2.version = 2;
+    GenSettings v3 = v2; v3.version = 3;
+    auto g2 = createGenerator(v2, blocks()), g3 = createGenerator(v3, blocks());
+    REQUIRE(g2 && g3);
+    u16 bench = blocks().def(blocks().stateOf("workbench")).index, kiln = blocks().def(blocks().stateOf("kiln")).index, glass = blocks().def(blocks().stateOf("glass")).index;
+    int differ = 0, furnished = 0, total = 0;
+    for (int cz = -24; cz < 24; cz += 1) for (int cx = -24; cx < 24; cx += 1) {
+        Chunk a({cx, cz}), b({cx, cz});
+        g2->generate(a); g3->generate(b);
+        total++;
+        bool d = false, f = false;
+        for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) {
+            BlockState x = a.sec[s].get(i), y = b.sec[s].get(i);
+            if (x != y) d = true;
+            u16 k = blocks().def(y).index;
+            if (x != y && (k == bench || k == kiln || k == glass)) f = true;
+        }
+        differ += d; furnished += f;
+        CHECK(!b.hasPersistentData());
+    }
+    printf("    v3 vs v2 over %d chunks: %d contain village parts, %d with furnished cottages\n", total, differ, furnished);
+    CHECK(differ > 0);
+    CHECK(furnished > 0);
+    CHECK(differ < total / 4);   // villages are local; everything else is unchanged
+}

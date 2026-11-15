@@ -120,16 +120,26 @@ void frame() {
             G->world->meta.dayTime = G->opt.menuState == 7 ? 18000 : G->opt.menuState == 8 ? 4500 : 6000;
         }
         if (G->opt.menuState >= 6 && (int)G->frame >= last - 20) { G->player.pitch = G->opt.menuState == 7 ? 0.9f : G->opt.menuState == 8 ? 1.2f : 0.3f; if (G->opt.menuState == 8) G->player.yaw = PI * 0.5f; }
+        if (G->opt.menuState == 9 && G->frame == 20) {   // visit the nearest village
+            int vx, vy, vz;
+            if (G->world->generator().nearestVillage((int)G->player.pos.x, (int)G->player.pos.z, 8, vx, vy, vz)) {
+                G->player.pos = {vx + 18.5f, (float)vy + 12, vz + 18.5f}; G->player.prevPos = G->player.pos; G->playerReady = false;
+                G->player.yaw = std::atan2((float)vx - G->player.pos.x, -((float)vz - G->player.pos.z)); G->player.flying = true;
+                fprintf(stderr, "village at %d %d %d\n", vx, vy, vz);
+            } else fprintf(stderr, "no village found\n");
+        }
+        if (G->opt.menuState == 9 && (int)G->frame > 20) { G->player.pitch = -0.45f; G->input.forward = 0; G->player.flying = true; G->player.vel = {}; }
         if (G->opt.menuState == 5 && (int)G->frame == 30 && G->playerReady) {   // travel to the Hollow through a gate
             std::string err;
             Vec3 t{std::floor(G->player.pos.x / 8), 64, std::floor(G->player.pos.z / 8)};
             if (!enterDimension(G->dimension == "hollow" ? "overworld" : "hollow", t, true, &err)) fprintf(stderr, "travel failed: %s\n", err.c_str());
         }
         bool posing = (int)G->frame > last - 90;
+        if (G->opt.menuState == 9) posing = true;
         if (!posing) { G->player.yaw += 0.01f; G->input.forward = G->frame > 120 && G->frame < 400 ? 1.0f : 0.0f; }
         else G->input.forward = 0;
         G->player.flying = G->creative() && !posing;
-        if ((int)G->frame == last - 90 && G->playerReady) {   // one of each creature in front of the camera
+        if ((int)G->frame == last - 90 && G->playerReady && G->opt.menuState != 9) {   // one of each creature in front of the camera
             Vec3 l = G->player.look(); Vec3 f = normalize(Vec3(l.x, 0, l.z)), r{-f.z, 0, f.x};
             G->player.pitch = -0.25f;
             for (u16 t = 0; t < G->mobReg.size(); t++) {
@@ -323,7 +333,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
-        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : 0; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));

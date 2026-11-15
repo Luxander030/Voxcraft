@@ -40,11 +40,14 @@ public:
     virtual void generate(Chunk& c) const = 0;
     virtual ColumnInfo column(int x, int z) const = 0;     // surface height + biome at world column
     virtual u32 version() const = 0;
+    // Nearest village centre within `radiusRegions` 128-block regions (false if none / no villages).
+    virtual bool nearestVillage(int x, int z, int radiusRegions, int& vx, int& vy, int& vz) const { (void)x; (void)z; (void)radiusRegions; (void)vx; (void)vy; (void)vz; return false; }
 };
 
 // Returns nullptr if the version is unknown (caller must refuse to open the world).
 std::unique_ptr<WorldGenerator> createGenerator(const GenSettings& s, const BlockRegistry& reg);
-// Version history: 1 = initial terrain, ruins, trees.  2 = adds watchtowers, buried caches, desert wells.
-constexpr u32 LATEST_GENERATOR_VERSION = 2;
+// Version history: 1 = initial terrain, ruins, trees.  2 = adds watchtowers, buried caches, desert
+// wells (and the Hollow dimension).  3 = adds villages.
+constexpr u32 LATEST_GENERATOR_VERSION = 3;
 
 } // namespace vx
