@@ -1,0 +1,7 @@
+/build*/
+/out/
+*.tmp
+.DS_Store
+/assets/generated/
+__pycache__/
+/dist/
