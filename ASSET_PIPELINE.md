@@ -35,6 +35,14 @@ All assets are original. Nothing is extracted from or traced over any other game
   linear or step interpolation, stored as JSON and packed.
 - Procedural layers (walk cycle from speed, head look) are blended on top in code. Distant
   entities update at reduced rates.
+- Sign convention: models face -Z. A positive X angle swings a hanging limb forward and tilts a
+  head up. A negative X angle lowers a head or leans a body forward. A test pins this.
+- The player rig (`"player"` in `animations.json`) adds eased stance layers to the shared
+  locomotion: sneak lean (legs stay vertical), swim (body flat), climb (hand over hand),
+  airborne arms, and a raised arm while using an item.
+- Box faces sample the top-left of their 16×16 tile: an 8×8 head uses pixels 0..7, and a
+  4×12 limb uses rows 0..11. Skins that are not uniform (faces, belts, boots) put their detail
+  there.
 
 ## Status
 - **Done:** the texture generator and packer, 78 original block textures and 31 item textures
@@ -42,7 +50,8 @@ All assets are original. Nothing is extracted from or traced over any other game
   writes a preview sheet with `--preview`.
 - **Done:** the original 5×7 UI font. It is compiled into `src/app/ui.cpp` and rendered into a
   texture at startup.
-- **Done:** the OpenSCAD model pipeline (below) and 4 original creature models. Their skins are
+- **Done:** the OpenSCAD model pipeline (below), 6 original creature models and the player
+  model (`wanderer.scad`). Their skins are
   16×16 tiles in `assets/textures/entities` (documented exception: entity skins are tiled from
   several 16×16 tiles rather than one atlas).
 

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Third-person camera and player model
+- V (remappable as "Camera view") cycles first person, behind the player and facing the player.
+  The camera pulls in when a solid block is in the way. Grass, flowers and torches do not block it.
+- The wanderer, an original player character (OpenSCAD `wanderer.scad`, 5 new 16×16 textures),
+  is shown in third person. Animations: idle, walk/sprint (stride scales with speed), sneak lean,
+  jump/fall, swim, climb, swing on attack/dig/use, arm raised while eating or drawing a bow, hurt
+  flash, and death. The held item is shown in the right hand.
+- `--view 0|1|2` starts in a given view (smoke testing).
+- **Fix:** creature animation signs were inverted. Arm attacks swung backwards, grazers raised
+  their heads to graze, puffbirds pecked upward, and head-look tilted the wrong way. A sign convention
+  is now documented in `animations.json`, and `anim_directions_attack_forward_head_look_up` pins it.
+
 ### Fixed: a failed final save no longer discards the session (data integrity)
 - **Bug:** quitting to the title screen, closing the window or travelling through a rift closed the
   world even when its save failed (disk full, read-only folder). Every unsaved change was lost, and

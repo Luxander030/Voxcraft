@@ -97,7 +97,7 @@ void controlsPanel(float W, float H, bool inGame) {
         std::string label = std::string(ACTION_NAMES[i]) + ": " + (G->rebinding == i ? "> press a key <" : keyName(o.keys[i]));
         if (button(bx, by, 150, label)) G->rebinding = i;
     }
-    float ty = y + 5 * 22 + 6;
+    float ty = y + ((UserOptions::ActionCount + 1) / 2) * 22 + 6;
     if (button(x, ty, 150, o.invertMouse ? "Invert mouse: On" : "Invert mouse: Off")) o.invertMouse = !o.invertMouse;
     if (button(x + 160, ty, 150, o.subtitles ? "Subtitles: On" : "Subtitles: Off")) o.subtitles = !o.subtitles;
     if (button(x, ty + 22, 150, o.toggleSneak ? "Sneak: Toggle" : "Sneak: Hold")) o.toggleSneak = !o.toggleSneak;

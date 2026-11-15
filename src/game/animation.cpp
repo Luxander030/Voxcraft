@@ -92,6 +92,28 @@ void Animator::update(float dt, const AnimInput& in) {
     walkPhase_ += dt * (4.0f + in.speed * 40.0f);
     float sw = std::sin(walkPhase_) * walkAmp_;
     auto add = [&](const char* n, Vec3 r) { int b = model_->bone(n); if (b >= 0) pose.rot[b] += r; };
+    // stance blend weights ease in/out so switching stance never pops
+    auto ease = [&](float& v, bool on) { v += ((on ? 1.0f : 0.0f) - v) * std::min(1.0f, dt * 10); return v; };
+    float sneak = ease(sneak_, in.sneaking), swim = ease(swim_, in.swimming), climb = ease(climb_, in.climbing && !in.onGround);
+    float air = ease(air_, !in.onGround && !in.swimming && !in.climbing), hold = ease(hold_, in.holdArm > 0.5f);
+    if (swim > 0.01f) {   // body horizontal, legs flutter, arms sweep
+        add("body", {-1.45f * swim, 0, 0}); add("head", {1.1f * swim, 0, 0});
+        float k = std::sin(stateTime_ * 9.0f) * 0.35f * swim, s = std::sin(stateTime_ * 3.0f);
+        add("leg_l", {k, 0, 0}); add("leg_r", {-k, 0, 0});
+        add("arm_l", {(2.4f + s * 0.6f) * swim, 0, -0.3f * swim}); add("arm_r", {(2.4f + s * 0.6f) * swim, 0, 0.3f * swim});
+    }
+    if (sneak > 0.01f) {   // lean forward, keep legs vertical and the gaze level
+        add("body", {-0.45f * sneak, 0, 0}); add("head", {0.45f * sneak, 0, 0});
+        add("leg_l", {0.45f * sneak, 0, 0}); add("leg_r", {0.45f * sneak, 0, 0});
+        add("arm_l", {0.25f * sneak, 0, 0}); add("arm_r", {0.25f * sneak, 0, 0});
+    }
+    if (climb > 0.01f) {   // reach up hand over hand
+        float c = std::sin(stateTime_ * 6.0f) * 0.4f;
+        add("arm_l", {(2.6f + c) * climb, 0, 0}); add("arm_r", {(2.6f - c) * climb, 0, 0});
+        add("leg_l", {c * climb, 0, 0}); add("leg_r", {-c * climb, 0, 0});
+    }
+    if (air > 0.01f) { add("arm_l", {0, 0, -0.35f * air}); add("arm_r", {0, 0, 0.35f * air}); add("leg_l", {0.2f * air, 0, 0}); add("leg_r", {-0.15f * air, 0, 0}); }
+    if (hold > 0.01f) add("arm_r", {1.25f * hold, 0, 0});
     add("leg_fl", {sw, 0, 0}); add("leg_br", {sw, 0, 0}); add("leg_fr", {-sw, 0, 0}); add("leg_bl", {-sw, 0, 0});
     add("leg_l", {sw, 0, 0}); add("leg_r", {-sw, 0, 0});
     add("arm_l", {-sw * 0.8f, 0, 0}); add("arm_r", {sw * 0.8f, 0, 0});
@@ -104,7 +126,7 @@ void Animator::update(float dt, const AnimInput& in) {
     // idle breathing
     add("body", {std::sin(stateTime_ * 2.0f) * 0.015f, 0, 0});
     // head look
-    add("head", {clamp(-in.headPitch, -0.8f, 0.8f), clamp(-in.headYaw, -1.0f, 1.0f), 0});
+    add("head", {clamp(in.headPitch, -0.8f, 0.8f), clamp(-in.headYaw, -1.0f, 1.0f), 0});
     // keyframed clips, crossfaded
     if (const Clip* c = clipFor(state_)) c->sample(stateTime_, fade_, pose);
     if (fade_ < 1) if (const Clip* c = clipFor(prev_)) c->sample(c->length, 1 - fade_, pose);

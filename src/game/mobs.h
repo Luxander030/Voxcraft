@@ -34,10 +34,12 @@ public:
     u16 id(const std::string& n) const { for (auto& d : defs_) if (d.name == n) return d.id; return 0xFFFF; }
     size_t size() const { return defs_.size(); }
     const Model& model(int i) const { return models_[i]; }
+    int modelIndex(const std::string& name) const { auto it = modelIndex_.find(name); return it == modelIndex_.end() ? -1 : it->second; }
     const std::unordered_map<std::string, Clip>& clips(u16 id) const { return clips_[id]; }
 private:
     std::vector<MobDef> defs_;
     std::vector<Model> models_;
+    std::unordered_map<std::string, int> modelIndex_;
     std::vector<std::unordered_map<std::string, Clip>> clips_;
 };
 

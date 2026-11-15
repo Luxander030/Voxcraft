@@ -31,6 +31,22 @@ void emitBox(std::vector<EntityVertex>& out, const Mat4& m, Vec3 mn, Vec3 size, 
     }
 }
 
+// An item stack as a spinning-pickup style model: a small cube for full blocks, otherwise a thin
+// double-sided card. `world` maps pixel units; the model sits on y = 0, centred on x/z.
+void emitItemModel(std::vector<EntityVertex>& out, const Mat4& world, const ItemStack& st, float sky, float blk, bool pile) {
+    const ItemDef& def = G->items.def(st.item);
+    if (def.texture < 0 && def.places != AIR && G->reg.def(def.places).shape == BlockShape::Cube) {
+        u16 t[6]; for (int f = 0; f < 6; f++) t[f] = G->renderer.textures().face(def.places, f);
+        u32 tint = G->reg.def(def.places).tint == Tint::None ? rgba(255, 255, 255) : rgba(120, 180, 80);
+        emitBox(out, world, {-2, 0, -2}, {4, 4, 4}, t, sky, blk, tint);
+        if (pile && st.count > 1) emitBox(out, world * Mat4::translate(1.5f, 1.5f, 1.0f), {-2, 0, -2}, {4, 4, 4}, t, sky, blk, tint);
+    } else {
+        int layer = def.texture >= 0 ? def.texture : G->renderer.textures().face(def.places, FACE_NZ);
+        u16 t[6] = {(u16)layer, (u16)layer, (u16)layer, (u16)layer, (u16)layer, (u16)layer};
+        emitBox(out, world, {-4, 0, -0.05f}, {8, 8, 0.1f}, t, sky, blk, rgba(255, 255, 255));
+    }
+}
+
 void lightAt(Vec3 p, float& sky, float& blk) {
     BlockPos b{(int)std::floor(p.x), (int)std::floor(p.y), (int)std::floor(p.z)};
     sky = G->world->skyLight(b) / 15.0f; blk = G->world->blockLight(b) / 15.0f;
@@ -112,7 +128,7 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
     }
     // particles: camera-facing quads
     {
-        float yaw = G->player.yaw, pitch = G->player.pitch;
+        float yaw = G->camYaw, pitch = G->camPitch;
         Vec3 f{std::sin(yaw) * std::cos(pitch), std::sin(pitch), -std::cos(yaw) * std::cos(pitch)};
         Vec3 r = normalize(cross(f, {0, 1, 0})), u = cross(r, f);
         for (const Particle& p : G->particles.parts) {
@@ -175,21 +191,45 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
     for (auto& e : G->entities->items) {
         Vec3 rel = e.pos - eye;
         if (dot(rel, rel) > 48 * 48) continue;
-        const ItemDef& def = G->items.def(e.stack.item);
         float bob = std::sin((e.age + alpha) * 0.1f) * 0.06f + 0.1f;
         float spin = (e.age + alpha) * 0.05f;
         float sky, blk; lightAt(e.pos + Vec3(0, 0.2f, 0), sky, blk);
         Mat4 world = Mat4::translate(rel.x, rel.y + bob, rel.z) * Mat4::rotateY(spin) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
-        if (def.texture < 0 && def.places != AIR && G->reg.def(def.places).shape == BlockShape::Cube) {
-            u16 t[6]; for (int f = 0; f < 6; f++) t[f] = G->renderer.textures().face(def.places, f);
-            u32 tint = G->reg.def(def.places).tint == Tint::None ? rgba(255, 255, 255) : rgba(120, 180, 80);
-            emitBox(out, world, {-2, 0, -2}, {4, 4, 4}, t, sky, blk, tint);
-            if (e.stack.count > 1) emitBox(out, world * Mat4::translate(1.5f, 1.5f, 1.0f), {-2, 0, -2}, {4, 4, 4}, t, sky, blk, tint);
-        } else {
-            int layer = def.texture >= 0 ? def.texture : G->renderer.textures().face(def.places, FACE_NZ);
-            u16 t[6] = {(u16)layer, (u16)layer, (u16)layer, (u16)layer, (u16)layer, (u16)layer};
-            emitBox(out, world, {-4, 0, -0.05f}, {8, 8, 0.1f}, t, sky, blk, rgba(255, 255, 255));   // thin double-sided card
-        }
+        emitItemModel(out, world, e.stack, sky, blk, true);
+    }
+}
+
+void buildPlayerMesh(std::vector<EntityVertex>& out, Vec3 eye, Vec3 playerPos, float alpha, float dt) {
+    (void)alpha;
+    const Player& p = G->player;
+    Animator& a = G->playerAnim;
+    if (G->stats.dead) a.play(AnimState::Death);
+    else if (G->swingRequested || (G->mouseDown[0] && G->mouseLocked && G->screen == Screen::None && G->target.hit && a.state() != AnimState::Attack)) a.play(AnimState::Attack);
+    G->swingRequested = false;
+    AnimInput in;
+    in.speed = std::sqrt((p.pos.x - p.prevPos.x) * (p.pos.x - p.prevPos.x) + (p.pos.z - p.prevPos.z) * (p.pos.z - p.prevPos.z));
+    in.onGround = p.onGround || p.flying;
+    in.headPitch = p.pitch;
+    in.sneaking = p.sneaking && !p.flying;
+    in.swimming = p.headInFluid && !p.onGround;
+    in.climbing = p.onClimbable;
+    in.holdArm = (G->eatTicks > 0 || G->bowCharge > 0) ? 1.0f : 0.0f;
+    if (in.swimming) in.headPitch = 0;
+    a.update(dt, in);
+    std::vector<Mat4>& bones = G->scratchBones;
+    a.boneMatrices(bones);
+    const Model& model = G->mobReg.model(G->playerModel);
+    Vec3 rel = playerPos - eye;
+    Mat4 world = Mat4::translate(rel.x, rel.y, rel.z) * Mat4::rotateY(-p.yaw) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
+    float sky, blk; lightAt(playerPos + Vec3(0, 1.0f, 0), sky, blk);
+    u32 tint = a.state() == AnimState::Hurt || G->stats.dead ? rgba(255, 110, 110) : rgba(255, 255, 255);
+    for (auto& b : model.boxes) emitBox(out, world * bones[b.bone], b.min, b.size, b.tex, sky, blk, tint);
+    // held item, in the right hand: rotated to point forward, seen side-on
+    const ItemStack& held = G->inv.slots[G->hotbarSel];
+    int arm = model.bone("arm_r");
+    if (!held.empty() && arm >= 0) {
+        Mat4 hand = world * bones[arm] * Mat4::translate(6, 10, -1) * Mat4::rotateX(-PI * 0.5f) * Mat4::rotateY(PI * 0.5f) * Mat4::translate(0, -1, 0);
+        emitItemModel(out, hand, held, sky, blk, false);
     }
 }
 

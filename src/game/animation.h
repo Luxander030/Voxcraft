@@ -46,7 +46,10 @@ enum class AnimState : u8 { Idle, Walk, Attack, Hurt, Death };
 struct AnimInput {
     float speed = 0;          // horizontal blocks per tick
     bool onGround = true;
-    float headYaw = 0, headPitch = 0;   // relative to body, radians
+    float headYaw = 0, headPitch = 0;   // relative to body, radians; pitch > 0 looks up
+    // Player-only stances (creatures leave them off).
+    bool sneaking = false, swimming = false, climbing = false;
+    float holdArm = 0;        // 0..1: right arm raised forward (using an item, drawing a bow, eating)
 };
 
 class Animator {
@@ -63,6 +66,7 @@ private:
     const std::unordered_map<std::string, Clip>* clips_ = nullptr;
     AnimState state_ = AnimState::Idle, prev_ = AnimState::Idle;
     float stateTime_ = 0, fade_ = 1, walkPhase_ = 0, walkAmp_ = 0, flap_ = 0, orbit_ = 0;
+    float sneak_ = 0, swim_ = 0, climb_ = 0, air_ = 0, hold_ = 0;
     const Clip* clipFor(AnimState s) const;
 };
 

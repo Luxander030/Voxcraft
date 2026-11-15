@@ -23,6 +23,7 @@ struct Flat {
 
 TEST(anim_models_load_and_pivots_are_fixed_points) {
     REQUIRE(mobs().size() == 6);
+    CHECK(mobs().modelIndex("wanderer") >= 0);   // the player model ships in the same pack
     const Model& m = mobs().model(mobs().def(mobs().id("grazer")).model);
     CHECK(m.bone("head") > 0); CHECK(m.boxes.size() >= 8);
     Animator a; a.bind(&m, &mobs().clips(mobs().id("grazer")));
@@ -41,7 +42,7 @@ TEST(anim_clip_interpolation_and_state_machine) {
     const Clip& c = mobs().clips(g).at("attack");
     Pose p; p.reset(m.bones.size());
     c.sample(0.1f, 1.0f, p);   // halfway to -100 deg at t=0.2
-    CHECK(std::fabs(p.rot[m.bone("arm_l")].x - (-50.0f * PI / 180.0f)) < 1e-3f);
+    CHECK(std::fabs(p.rot[m.bone("arm_l")].x - (50.0f * PI / 180.0f)) < 1e-3f);
     Animator a; a.bind(&m, &mobs().clips(g));
     a.update(0.05f, {0.1f, true, 0, 0});
     CHECK(a.state() == AnimState::Walk);
@@ -202,4 +203,57 @@ TEST(settlers_trade_stay_home_and_persist_their_home) {
     REQUIRE(ms.mobs.size() == 1);
     CHECK(ms.mobs[0].hasHome); CHECK_EQ(ms.mobs[0].seed, 42u);
     CHECK(std::fabs(ms.mobs[0].home.x - 0.5f) < 1e-4f);
+}
+
+TEST(anim_directions_attack_forward_head_look_up) {
+    // Models face -Z. An attack swings the hand forward (toward -Z); looking up raises the face;
+    // grazing lowers it.
+    u16 g = mobs().id("gloomling");
+    const Model& m = mobs().model(mobs().def(g).model);
+    Animator a; a.bind(&m, &mobs().clips(g));
+    a.play(AnimState::Attack);
+    a.update(0.2f, {0, true, 0, 0});
+    std::vector<Mat4> mats; a.boneMatrices(mats);
+    int arm = m.bone("arm_l");
+    Vec4 hand = mats[arm] * Vec4{-5.5f, 9, 0, 1};
+    CHECK(hand.z < -6);
+    Animator b; b.bind(&m, &mobs().clips(g));
+    b.update(0.05f, {0, true, 0, 0.6f});
+    b.boneMatrices(mats);
+    int head = m.bone("head");
+    Vec4 face = mats[head] * Vec4{0, 25.5f, -4.5f, 1}, rest{0, 25.5f, -4.5f, 1};
+    CHECK(face.y > rest.y + 1);
+    u16 gz = mobs().id("grazer");
+    const Model& gm = mobs().model(mobs().def(gz).model);
+    const Clip& graze = mobs().clips(gz).at("graze");
+    Pose p; p.reset(gm.bones.size()); graze.sample(1.0f, 1, p);
+    CHECK(p.rot[gm.bone("head")].x < -0.5f);
+}
+
+TEST(anim_player_stances_and_swing) {
+    int mi = mobs().modelIndex("wanderer"); REQUIRE(mi >= 0);
+    const Model& m = mobs().model(mi);
+    std::unordered_map<std::string, Clip> clips; std::string err;
+    Json anim = loadJson("assets/data/animations.json");
+    REQUIRE(loadClips(anim["player"], m, clips, &err));
+    Animator a; a.bind(&m, &clips);
+    AnimInput in; in.swimming = true; in.onGround = false;
+    for (int i = 0; i < 30; i++) a.update(0.05f, in);
+    std::vector<Mat4> mats; a.boneMatrices(mats);
+    Vec4 headTop = mats[m.bone("head")] * Vec4{0, 32, 0, 1};
+    CHECK(headTop.y < 22);                 // swimming: the body lies (nearly) flat
+    CHECK(headTop.z < -10);                // ... head first
+    Animator s; s.bind(&m, &clips);
+    AnimInput sn; sn.sneaking = true;
+    for (int i = 0; i < 30; i++) s.update(0.05f, sn);
+    s.boneMatrices(mats);
+    Vec4 foot = mats[m.bone("leg_l")] * Vec4{-2, 0, 0, 1};
+    CHECK(std::fabs(foot.z) < 0.5f);       // legs stay under the body while leaning
+    Vec4 neck = mats[m.bone("body")] * Vec4{0, 24, 0, 1};
+    CHECK(neck.z < -3);                    // leaning forward
+    Animator w; w.bind(&m, &clips);
+    w.play(AnimState::Attack); w.update(0.08f, {});
+    w.boneMatrices(mats);
+    Vec4 hand = mats[m.bone("arm_r")] * Vec4{6, 10, 0, 1};
+    CHECK(hand.z < -6);                    // swing goes forward
 }

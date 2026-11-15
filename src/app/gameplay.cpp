@@ -220,6 +220,10 @@ bool appInit(std::string* err) {
         fs::path models = G->assetDir / "models.json";
         if (!readJson(dataFile("mobs.json"), mobsJ) || !readJson(models, modelsJ) || !readJson(dataFile("animations.json"), animJ)) return false;
         if (!G->mobReg.load(mobsJ, modelsJ, animJ, G->items, &pn, err)) return false;
+        G->playerModel = G->mobReg.modelIndex("wanderer");
+        if (G->playerModel < 0) { if (err) *err = "models.json: missing the wanderer (player) model"; return false; }
+        if (const Json* rig = animJ.find("player")) { if (!loadClips(*rig, G->mobReg.model(G->playerModel), G->playerClips, err)) return false; }
+        G->playerAnim.bind(&G->mobReg.model(G->playerModel), &G->playerClips);
     }
     G->particles.whiteLayer = (u16)std::max(0, G->pack.layer("snow"));
     G->jobs = std::make_unique<JobSystem>(0);
@@ -427,6 +431,7 @@ bool endSession(bool force) {
 void respawn() {
     if (G->dimension != "overworld") { std::string err; enterDimension("overworld", surfaceSpawn(), false, &err); }
     G->stats.respawn();
+    if (G->playerModel >= 0) G->playerAnim.bind(&G->mobReg.model(G->playerModel), &G->playerClips);   // leave the death pose
     G->player.pos = surfaceSpawn(); G->player.vel = {}; G->player.prevPos = G->player.pos; G->player.fallDistance = 0;
     G->playerReady = false;   // re-run the "find surface" step once the spawn chunk is loaded
     G->screen = Screen::None;
@@ -523,7 +528,7 @@ void simulateTick() {
             G->particles.splash(p.pos, (u16)G->pack.layer("water"), rgba(70, 110, 230), G->rng);
         }
         G->wasInFluid = p.inFluid;
-        if (G->stats.health < G->lastHealth - 0.01f) sfx("hurt", 0.8f);
+        if (G->stats.health < G->lastHealth - 0.01f) { sfx("hurt", 0.8f); G->playerAnim.play(AnimState::Hurt); }
         G->lastHealth = G->stats.health;
         if (G->eatTicks > 0 && G->eatTicks % 8 == 1) sfx("eat", 0.5f);
     }
@@ -699,6 +704,7 @@ void updateInteraction(float dt) {
 
 void clickUse() {
     G->useCooldown = 4;
+    G->swingRequested = true;
     {   // talk to a settler
         float md = 0;
         if (Mob* m = G->mobs->raycast(G->player.eye(), G->player.look(), 4.0f, &md); m && G->mobReg.def(m->type).trader && (!G->target.hit || md < G->target.distance)) {

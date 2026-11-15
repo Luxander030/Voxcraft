@@ -29,15 +29,15 @@ struct UserOptions {
     float volume[6] = {0.8f, 0.5f, 1.0f, 1.0f, 0.7f, 0.8f};   // master, music, blocks, creatures, ambient, ui
     bool distantTerrain = true;
     // controls & accessibility
-    enum Action { Forward, Back, Left, Right, Jump, Sneak, Sprint, InventoryKey, Drop, Chat, ActionCount };
+    enum Action { Forward, Back, Left, Right, Jump, Sneak, Sprint, InventoryKey, Drop, Chat, View, ActionCount };
     int keys[ActionCount] = {SAPP_KEYCODE_W, SAPP_KEYCODE_S, SAPP_KEYCODE_A, SAPP_KEYCODE_D, SAPP_KEYCODE_SPACE, SAPP_KEYCODE_LEFT_SHIFT,
-                             SAPP_KEYCODE_LEFT_CONTROL, SAPP_KEYCODE_E, SAPP_KEYCODE_Q, SAPP_KEYCODE_T};
+                             SAPP_KEYCODE_LEFT_CONTROL, SAPP_KEYCODE_E, SAPP_KEYCODE_Q, SAPP_KEYCODE_T, SAPP_KEYCODE_V};
     bool invertMouse = false, toggleSneak = false, toggleSprint = false, subtitles = false;
     bool load();
     void save() const;
 };
 static const char* const VOLUME_NAMES[6] = {"Master", "Music", "Blocks", "Creatures", "Ambient", "Interface"};
-static const char* const ACTION_NAMES[10] = {"Forward", "Back", "Left", "Right", "Jump", "Sneak", "Sprint", "Inventory", "Drop", "Chat"};
+static const char* const ACTION_NAMES[UserOptions::ActionCount] = {"Forward", "Back", "Left", "Right", "Jump", "Sneak", "Sprint", "Inventory", "Drop", "Chat", "Camera view"};
 
 struct WorldEntry { std::string folder, name, mode; u64 seed = 0, lastPlayed = 0; };
 
@@ -48,6 +48,7 @@ struct Options {
     int smokeFrames = 0;
     std::string screenshot;
     bool directWorld = false;
+    int view = 0;               // --view: start in this camera view
     int menuState = 0;          // --menu: which menu --title-smoke shows   // --world/--smoke: start in a world instead of the title screen
 };
 
@@ -78,6 +79,14 @@ struct Game {
     ItemRegistry items;
     RecipeBook recipes;
     MobRegistry mobReg;
+    // third-person view: 0 first person, 1 behind the player, 2 facing the player
+    int view = 0;
+    int playerModel = -1;
+    std::unordered_map<std::string, Clip> playerClips;
+    Animator playerAnim;
+    bool swingRequested = false;
+    float camYaw = 0, camPitch = 0;   // the rendering camera (differs from the player's view in third person)
+    std::vector<Mat4> scratchBones;
     SoundBank sounds;
     ParticleSystem particles;
     ProjectileSystem projectiles;
@@ -166,6 +175,7 @@ MobContext mobContext();
 
 // entity_render.cpp
 void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, float dt);
+void buildPlayerMesh(std::vector<EntityVertex>& out, Vec3 eye, Vec3 playerPos, float alpha, float dt);   // third-person body + held item
 
 // menus.cpp
 void drawMenus(int w, int h);                     // title / worlds / create / settings (not in game)

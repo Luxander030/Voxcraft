@@ -32,7 +32,8 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 ## Phase 5 — Player gameplay 🔶
 - ✅ Movement (walk, sprint, sneak with edge guard, jump, fly, swim, climb), exact swept AABB collision, raycast targeting, break/place/pick, player save.
 - ✅ Survival breaking: hardness × tool type/tier, harvest rules, break progress, tool durability.
-- ⬜ Third-person camera, crack overlay on the block being broken.
+- ✅ Crack overlay on the block being broken.
+- ✅ Third-person camera (V cycles first person / behind / facing; stops at solid blocks, not plants) with an original player model, the wanderer (OpenSCAD): walk, sprint, sneak lean, jump/fall, swim, climb, swing, use/eat/draw, hurt and death animation, held item in hand.
 
 ## Phase 6 — Core gameplay 🔶
 - ✅ Data-driven item registry (`items.json`): block items, materials, 16 tiered tools, food, fuel. 31 original item textures.

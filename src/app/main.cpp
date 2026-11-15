@@ -42,6 +42,7 @@ void init() {
     else if (!appInit(&err)) {}
     if (!err.empty()) { VX_ERROR("startup failed: %s", err.c_str()); G->initFailed = true; sapp_request_quit(); return; }
     fs::create_directories(userDataDir("Voxcraft") / "saves");
+    G->view = G->opt.view;
     if (G->opt.directWorld) {   // --world / --smoke: skip the menus
         NewWorld nw; nw.seed = G->opt.seed; nw.seedSet = G->opt.seedSet; nw.flat = G->opt.flat; nw.creative = G->opt.creative;
         if (!startSession(G->opt.world, &nw, &err)) { VX_ERROR("world: %s", err.c_str()); sapp_request_quit(); return; }
@@ -248,9 +249,30 @@ void frame() {
         env.fogStart = env.fogEnd * 0.9f; env.fogEnd = G->renderer.farRadius * 0.97f;   // the horizon moves out to the LOD ring
     }
     drawFrameUi(sapp_width(), sapp_height());
-    buildEntityMesh(G->entityVerts, eye, alpha, (float)dt);
+    // Third-person camera: pulled back along the view ray (or ahead of the player, looking back),
+    // stopping short of blocks so the view never ends up inside terrain. Targeting and audio stay
+    // at the player's eye.
+    Vec3 camEye = eye; float camYaw = p.yaw, camPitch = p.pitch;
+    if (G->view != 0 && !G->stats.dead) {
+        Vec3 dir = G->view == 1 ? p.look() * -1.0f : p.look();
+        if (G->view == 2) { camYaw = p.yaw + PI; camPitch = -p.pitch; }
+        float want = 4.0f, dist = want;
+        // probe a few rays around the centre so the near plane does not clip walls at the edges
+        const Vec3 off[5] = {{0, 0, 0}, {0.15f, 0.15f, 0.1f}, {-0.15f, 0.15f, -0.1f}, {0.15f, -0.15f, -0.1f}, {-0.15f, -0.15f, 0.1f}};
+        for (const Vec3& o : off) {   // only solid blocks stop the camera (not grass, flowers, torches)
+            for (float t = 0; t < dist; t += 0.05f) {
+                Vec3 q = eye + o + dir * t;
+                if (G->reg.solid(G->world->getBlock((int)std::floor(q.x), (int)std::floor(q.y), (int)std::floor(q.z)))) { dist = std::max(0.0f, t - 0.25f); break; }
+            }
+        }
+        camEye = eye + dir * dist;
+    }
+    G->camYaw = camYaw; G->camPitch = camPitch;
+    buildEntityMesh(G->entityVerts, camEye, alpha, (float)dt);
+    if (G->view != 0) buildPlayerMesh(G->entityVerts, camEye, renderPos, alpha, (float)dt);
+    else G->swingRequested = false;
     if (G->target.hit) G->renderer.outlineBox = blockShapeBounds(G->reg, G->world->getBlock(G->target.block));
-    G->renderer.render(eye, p.yaw, p.pitch, sapp_width(), sapp_height(), env, G->screen == Screen::None ? &G->target : nullptr, G->ui, &G->entityVerts);
+    G->renderer.render(camEye, camYaw, camPitch, sapp_width(), sapp_height(), env, G->screen == Screen::None ? &G->target : nullptr, G->ui, &G->entityVerts);
 
     if (!G->opt.screenshot.empty() && (int)G->frame == G->opt.smokeFrames - 5) {
 #if defined(__APPLE__)
@@ -342,6 +364,7 @@ void event(const sapp_event* e) {
             showStatus("Game mode: " + G->world->meta.gameMode);
         }
         if (inScreen) break;
+        if ((int)k == G->options.keys[UserOptions::View] && !e->key_repeat) G->view = (G->view + 1) % 3;
         if (k == SAPP_KEYCODE_F && !e->key_repeat) G->input.toggleFly = true;
         if ((int)k == G->options.keys[UserOptions::Drop] && !e->key_repeat) dropSelected((e->modifiers & SAPP_MODIFIER_CTRL) != 0);
         if (k >= SAPP_KEYCODE_1 && k <= SAPP_KEYCODE_9) G->hotbarSel = k - SAPP_KEYCODE_1;
@@ -400,6 +423,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--radius") G->opt.radius = clamp(atoi(next()), 2, 32);
         else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
+        else if (a == "--view") G->opt.view = atoi(next()) % 3;
         else if (a == "--no-occlusion") G->noOcclusion = true;
         else if (a == "--underground") G->smokeUnderground = true;
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }

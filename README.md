@@ -45,6 +45,7 @@ build\Release\voxcraft.exe                    # Windows
 | 1–9, wheel | hotbar |
 | T or / | chat and commands (`/help`) |
 | F3 | debug overlay |
+| V (remappable) | camera view: first person → behind → facing the player |
 | F5 | save now |
 | F11 | fullscreen |
 | Esc | pause menu (settings, save and quit to title) |

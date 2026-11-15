@@ -6,7 +6,8 @@ namespace vx {
 // ------------------------------------------------------------------ registry
 bool MobRegistry::load(const Json& mobs, const Json& models, const Json& anims, const ItemRegistry& items, const TexturePackNames* tex, std::string* err) {
     defs_.clear(); models_.clear(); clips_.clear();
-    std::unordered_map<std::string, int> modelIndex;
+    modelIndex_.clear();
+    auto& modelIndex = modelIndex_;
     for (auto& [name, mj] : models.obj) {
         Model m; if (!loadModel(mj, tex, m, err)) return false;
         modelIndex[name] = (int)models_.size(); models_.push_back(std::move(m));

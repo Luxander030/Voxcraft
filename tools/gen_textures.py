@@ -421,6 +421,33 @@ ITEM_RECIPES = {
     "baked_root": blob(pal("c87a3a", "a85e24", "e09858"), r=4.6, squash=0.6),
 }
 # ------------------------------------------------------------------ creature skins (16x16 tiles)
+def rows(rng, bands):
+    """Horizontal bands: [(end_row_exclusive, palette), ...]; rows after the last band repeat it."""
+    px = []
+    for y in range(N):
+        cols = next((c for end, c in bands if y < end), bands[-1][1])
+        for x in range(N): px.append(cols[rng.int(len(cols))])
+    return px
+
+def wanderer_face(rng):
+    skin = pal("d8a47c", "cc9870", "e0b088")
+    px = [skin[rng.int(3)] for _ in range(N * N)]
+    hair = pal("3a2a1e", "32241a", "44322a")
+    for x in range(8):
+        put(px, x, 0, hair[rng.int(3)]); put(px, x, 1, hair[rng.int(3)])
+    for y in (2, 3): put(px, 0, y, hair[0]); put(px, 7, y, hair[1])
+    for (x, y, c) in ((1, 4, "f4f0ea"), (2, 4, "2a4a6a"), (5, 4, "2a4a6a"), (6, 4, "f4f0ea")): put(px, x, y, hexc(c))
+    for x in (3, 4): put(px, x, 5, hexc("b8845e"))
+    for x in (3, 4): put(px, x, 6, hexc("8a4a3a"))
+    return px
+
+def wanderer_tunic_front(rng):
+    px = rows(rng, [(8, pal("2e7a74", "28706a", "34847e")), (9, pal("5a3a22", "4e321c")), (12, pal("2e7a74", "28706a"))])
+    for i in range(8): put(px, i, i, hexc("6a4428"))           # satchel strap across the chest
+    put(px, 3, 8, hexc("c8a040")); put(px, 4, 8, hexc("c8a040"))   # belt buckle
+    for x in (3, 4): put(px, x, 0, hexc("d8a47c"))             # neckline
+    return px
+
 def face(base, eye, extra=None):
     def f(rng):
         px = noisy(rng, base, 0.5, 4)
@@ -455,6 +482,14 @@ ENTITY_RECIPES = {
     "rockmite_shell": lambda r: [hexc("4a4844") if (i % N) % 5 == 0 or (i // N) % 6 == 0 else p for i, p in enumerate(noisy(r, pal("7a766e", "6c6862", "88847a"), 0.5, 4))],
     "rockmite_face": face(pal("7a766e", "6c6862"), pal("c82020", "ff6060")),
     "rockmite_leg": lambda r: noisy(r, pal("4a4844", "3c3a36"), 0.5, 4),
+    # wanderer (player). Boxes sample the top-left of the tile: an 8x8 head uses x,y 0..7 and a
+    # 4-wide, 12-tall limb uses rows 0..11, so the art is laid out in rows from the top.
+    "wanderer_hair": lambda r: noisy(r, pal("3a2a1e", "32241a", "44322a"), 0.5, 3),
+    "wanderer_face": wanderer_face,
+    "wanderer_tunic": lambda r: rows(r, [(8, pal("2e7a74", "28706a", "34847e")), (9, pal("5a3a22", "4e321c")), (12, pal("2e7a74", "28706a"))]),
+    "wanderer_tunic_front": wanderer_tunic_front,
+    "wanderer_sleeve": lambda r: rows(r, [(8, pal("2e7a74", "28706a", "34847e")), (9, pal("246660")), (12, pal("d8a47c", "cc9870"))]),
+    "wanderer_trousers": lambda r: rows(r, [(8, pal("4a4a5e", "424256", "525268")), (9, pal("3a2a1e")), (12, pal("5a3a22", "4e321c", "64422a"))]),
 }
 
 def crack(stage):
