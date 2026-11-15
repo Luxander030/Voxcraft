@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed: stale autosave could overwrite a newer save (data integrity)
+- **Bug:** a background autosave that reached the disk after a later synchronous save (for example,
+  saving on quit) wrote its older chunk data and player state over the newer save.
+- **Fix:** saves are sequence-numbered, and a commit older than the last committed save is skipped.
+  Its records are still pending, so the newer save already included them.
+- **Test:** `storage_stale_async_save_never_overwrites_newer_data` holds an autosave back until a
+  newer save has finished. It fails without the fix.
+
 ### Fixed: entities lost through the chunk cache (data integrity)
 - **Bug:** a chunk unloaded into the clean-chunk cache and then reused lost its dropped items and
   creatures, and the next save also removed them from the chunk's record.

@@ -86,6 +86,10 @@ On open: a valid journal is rolled forward; a corrupt journal is set aside; left
 files without a journal are discarded (the previous save is intact). Verified by
 `storage_F_crash_recovery` at all three fault points.
 
+Commits are serialised and sequence-numbered: a background autosave that reaches the commit after a
+newer save has already been committed is dropped, never written over newer data
+(`storage_stale_async_save_never_overwrites_newer_data`).
+
 ## Maintenance
 
 `vxworld info|verify|optimize <dir> [--apply]` — `optimize` re-derives every record against the

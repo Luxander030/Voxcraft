@@ -97,6 +97,7 @@ public:
     // --- persistence
     bool save(bool sync, const std::map<std::string, std::vector<u8>>& extras, std::string* err = nullptr);
     bool saveInProgress() const { return saving_.load(); }
+    static std::function<void()> s_beforeAsyncCommit;   // tests only
 
     // --- stats
     struct Stats {
@@ -141,6 +142,8 @@ private:
     std::mutex pendingM_;
     std::unordered_map<ChunkPos, std::vector<u8>, ChunkPosHash> pending_;
     std::atomic<bool> saving_{false};
+    std::atomic<u64> saveSeq_{0};
+    u64 committedSeq_ = 0;   // guarded by the commit mutex
     // streaming focus (read by job priority functions on worker threads)
     std::atomic<float> focusX_{0}, focusZ_{0};
     ChunkPos focusChunk_{0, 0};

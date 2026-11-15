@@ -14,6 +14,8 @@ static std::mutex g_commitM;   // serialises commits (async autosave vs. sync sa
 
 World::World(const BlockRegistry& r, JobSystem& jobs, ItemNames it) : reg(r), items(std::move(it)), jobs_(jobs) { cb.resolve(r); }
 
+std::function<void()> World::s_beforeAsyncCommit;
+
 World::~World() { close(); }
 
 bool World::create(const fs::path& dir, const WorldMeta& m, std::string* err) {
@@ -449,10 +451,15 @@ bool World::save(bool sync, const std::map<std::string, std::vector<u8>>& extras
     { std::lock_guard<std::mutex> lk(pendingM_); for (auto& kv : pending_) batch->push_back(kv); }
     auto metaCopy = std::make_shared<WorldMeta>(meta);
     auto extraCopy = std::make_shared<std::map<std::string, std::vector<u8>>>(extras);
-    auto doCommit = [this, batch, metaCopy, extraCopy](std::string* e) {
+    const u64 seq = ++saveSeq_;
+    auto doCommit = [this, batch, metaCopy, extraCopy, seq](std::string* e) {
         std::lock_guard<std::mutex> lk(g_commitM);
+        // A newer save already reached the disk: this batch is stale. Its records are still in
+        // pending_ (they are only erased after their own commit), so the newer save included them.
+        if (seq < committedSeq_) return true;
         WorldStorage::Batch b; b.chunks = *batch; b.meta = metaCopy.get(); b.extraFiles = *extraCopy;
         bool ok = storage_.commit(b, e);
+        if (ok) committedSeq_ = seq;
         if (ok) {
             std::lock_guard<std::mutex> plk(pendingM_);
             for (auto& [p, rec] : *batch) { auto it = pending_.find(p); if (it != pending_.end() && it->second == rec) pending_.erase(it); }
@@ -463,6 +470,7 @@ bool World::save(bool sync, const std::map<std::string, std::vector<u8>>& extras
     if (saving_.exchange(true)) return true;   // a save is already running; pending data is retained for the next one
     auto alive = alive_;
     jobs_.submit([this, doCommit, alive] {
+        if (s_beforeAsyncCommit) s_beforeAsyncCommit();   // test hook: delay the background commit
         std::string e;
         if (!doCommit(&e)) VX_ERROR("autosave failed (data kept in memory, will retry): %s", e.c_str());
         saving_.store(false);

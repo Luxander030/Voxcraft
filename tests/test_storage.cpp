@@ -459,3 +459,29 @@ TEST(worldgen_v4_adds_biome_features_locally) {
     CHECK(found["mossy_cobblestone"] + found["capshroom"] + found["lilypad"] + found["ice"] > 0);
     CHECK(differ < total);   // features are local; plenty of chunks stay identical
 }
+
+#include <future>
+TEST(storage_stale_async_save_never_overwrites_newer_data) {
+    // An autosave that commits after a later synchronous save must not write its older data.
+    auto dir = vxtest::tempDir("race");
+    World w(blocks(), jobs(), vxtest::testItems());
+    std::string err; REQUIRE(w.create(dir, testMeta(8), &err));
+    ChunkPtr c = w.loadChunkSync({0, 0});
+    BlockPos p = airAbove(*c);
+    REQUIRE(w.setBlock(p, blocks().stateOf("bricks")));
+    std::promise<void> syncDone; auto syncDoneF = syncDone.get_future().share();
+    World::s_beforeAsyncCommit = [syncDoneF] { syncDoneF.wait(); };   // hold the autosave until the sync save finished
+    REQUIRE(w.save(false, {{"player.dat", {1}}}, &err));                 // autosave snapshot: bricks, player v1
+    REQUIRE(w.setBlock(p, blocks().stateOf("glass")));                  // newer edit
+    REQUIRE(w.save(true, {{"player.dat", {2}}}, &err));                  // synchronous save: glass, player v2
+    syncDone.set_value();
+    w.waitForJobs();                                                     // let the stale autosave run
+    World::s_beforeAsyncCommit = nullptr;
+    auto pd = w.storage().readExtra("player.dat");
+    REQUIRE(pd && pd->size() == 1); CHECK_EQ((int)(*pd)[0], 2);
+    w.close();
+    World r(blocks(), jobs(), vxtest::testItems());
+    REQUIRE(r.open(dir, &err));
+    r.loadChunkSync({0, 0});
+    CHECK_EQ(r.getBlock(p), blocks().stateOf("glass"));
+}
