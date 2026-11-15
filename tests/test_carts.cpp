@@ -4,6 +4,8 @@
 #include "game/behaviors.h"
 #include "game/carts.h"
 #include "game/entities.h"
+#include "game/mobs.h"
+#include "core/util.h"
 
 using namespace vx;
 using vxtest::blocks;
@@ -11,6 +13,12 @@ using vxtest::blocks;
 namespace {
 JobSystem& jobs() { static JobSystem j(2); return j; }
 const ItemRegistry& itemsReg() { static ItemRegistry r; static bool ok = [] { std::string e; return r.loadFile(std::string(VX_SOURCE_DIR) + "/assets/data/items.json", blocks(), nullptr, &e); }(); (void)ok; return r; }
+Json loadJson(const char* rel) { auto t = readTextFile(fs::path(VX_SOURCE_DIR) / rel); std::string e; return Json::parse(t ? *t : "{}", &e); }
+const MobRegistry& mobReg() {
+    static MobRegistry r;
+    static bool ok = [] { std::string e; return r.load(loadJson("assets/data/mobs.json"), loadJson("assets/generated/models.json"), loadJson("assets/data/animations.json"), itemsReg(), nullptr, &e); }();
+    (void)ok; return r;
+}
 struct Env {
     World w{blocks(), jobs(), vxtest::testItems()};
     std::unique_ptr<BlockBehaviors> b;
@@ -125,4 +133,80 @@ TEST(carts_circle_a_closed_loop_without_derailing) {
         if (q != lastQuadrant) { corners++; lastQuadrant = q; }
     }
     CHECK(corners > 8);   // went round more than twice
+}
+
+TEST(carts_collide_and_hand_over_speed) {
+    Env e("cartbump");
+    for (int x = 0; x <= 30; x++) e.rail(x, 5, 0);
+    CartSystem cs;
+    cs.spawn({2.5f, 5, 0.5f}).vel = {0.3f, 0, 0};
+    cs.spawn({8.5f, 5, 0.5f});
+    float minGap = 10;
+    for (int t = 0; t < 60; t++) { cs.tick(e.w); minGap = std::min(minGap, cs.carts[1].pos.x - cs.carts[0].pos.x); }
+    CHECK(minGap > 0.5f);                             // never passed through each other
+    CHECK(cs.carts[1].pos.x > 12);                    // the struck cart took over the motion
+    CHECK(std::fabs(cs.carts[0].vel.x) < 0.05f);      // and the striker came (nearly) to rest
+    // two carts dropped on the same spot separate along the track
+    CartSystem two;
+    two.spawn({20.5f, 5, 0.5f}); two.spawn({20.6f, 5, 0.5f});
+    for (int t = 0; t < 100; t++) two.tick(e.w);
+    CHECK(std::fabs(two.carts[0].pos.x - two.carts[1].pos.x) > 0.9f);
+    CHECK(std::fabs(two.carts[0].pos.z - 0.5f) < 1e-3f);   // still on the rail line
+}
+
+TEST(carts_knock_creatures_aside_and_players_push_carts) {
+    Env e("cartmob");
+    for (int x = 0; x <= 30; x++) e.rail(x, 5, 0);
+    MobSystem ms(mobReg()); Rng rng(7);
+    Mob& m = ms.spawn(mobReg().id("grazer"), {8.5f, 5, 0.5f}, rng);
+    m.vel = {};
+    CartSystem cs;
+    cs.spawn({2.5f, 5, 0.5f}).vel = {0.3f, 0, 0};
+    float speedAtHit = 0; bool hit = false;
+    for (int t = 0; t < 40 && !hit; t++) {
+        cs.tick(e.w);
+        float v = cs.carts[0].vel.x;
+        collideCartsWithMobs(cs, ms);
+        if (length(ms.mobs[0].vel) > 0.1f) { hit = true; speedAtHit = v; }
+    }
+    REQUIRE(hit);
+    CHECK(ms.mobs[0].vel.x > 0.1f);                   // shoved ahead of the cart
+    cs.tick(e.w);
+    CHECK(cs.carts[0].vel.x < speedAtHit);            // the cart lost some speed
+    CHECK(cs.carts[0].vel.x > speedAtHit * 0.5f);     // but not most of it
+    // a player leaning on a resting cart from the west walks it east, along the track only
+    CartSystem ps;
+    ps.spawn({15.5f, 5, 0.5f});
+    for (int t = 0; t < 40; t++) {
+        Vec3 c = ps.carts[0].pos;
+        AABB player{{c.x - 1.2f, 5, c.z - 0.2f}, {c.x - 0.4f, 6.8f, c.z + 0.5f}};   // overlapping its west side, a bit north
+        collideCartsWithPlayer(ps, player, {0.1f, 0, 0}, 0);
+        ps.tick(e.w);
+    }
+    CHECK(ps.carts[0].pos.x > 16);
+    CHECK(std::fabs(ps.carts[0].pos.z - 0.5f) < 1e-3f);
+}
+
+TEST(detector_rail_signals_while_a_cart_is_on_it) {
+    Env e("detector");
+    for (int x = 0; x <= 12; x++) e.rail(x, 5, 0);
+    e.w.setBlock({6, 5, 0}, blocks().stateOf("detector_rail"));
+    e.w.setBlock({7, 5, 0}, blocks().stateOf("powered_rail"));
+    for (int i = 0; i < 4; i++) e.w.tick();
+    CHECK_EQ(e.shape(6, 5, 0), 1);                                  // shaped like any rail
+    CHECK_EQ(blocks().getProp(e.w.getBlock({7, 5, 0}), "powered"), 0);
+    CartSystem cs;
+    cs.onRail = [&](const BlockPos& p, BlockState s) { if (isDetectorRail(blocks(), s)) e.b->cartOnDetector(p); };
+    e.b->cartOnRail = [&](const BlockPos& p) {
+        for (auto& c : cs.carts) { BlockPos cell; BlockState s; if (cs.railCell(e.w, c.pos, cell, s) && cell == p) return true; }
+        return false;
+    };
+    cs.spawn({6.5f, 5, 0.5f});                                      // parked on the detector
+    for (int t = 0; t < 60; t++) { cs.tick(e.w); e.w.tick(); }
+    CHECK_EQ(blocks().getProp(e.w.getBlock({6, 5, 0}), "on"), 1);  // stays on while occupied
+    CHECK_EQ(blocks().getProp(e.w.getBlock({7, 5, 0}), "powered"), 1);
+    cs.carts.clear();                                               // the cart leaves
+    for (int t = 0; t < 30; t++) e.w.tick();
+    CHECK_EQ(blocks().getProp(e.w.getBlock({6, 5, 0}), "on"), 0);
+    CHECK_EQ(blocks().getProp(e.w.getBlock({7, 5, 0}), "powered"), 0);
 }

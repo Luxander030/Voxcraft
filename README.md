@@ -18,6 +18,8 @@ Windows hardware. See [ROADMAP.md](ROADMAP.md).
 - **Creatures (all original):**
   - Grazers, puffbirds, gloomlings, rockmites and settlers who trade.
   - In the Hollow, cinderwisps that shoot ember bolts.
+- **Building and transport:** slabs, stairs, fences, panes, doors, trapdoors, gates and walls;
+  rails, powered and detector rails, and carts that ride them and bump into things.
 - **The Hollow:** a cavern dimension reached through slate rift gates.
 - **Glimmer circuits:** wire, torches, lamps, relays, comparators, watchers, pistons and sticky
   pistons, hoppers, droppers and dispensers.

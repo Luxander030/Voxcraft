@@ -25,6 +25,10 @@ public:
     void pressButton(const BlockPos& p);
     void pressPlate(const BlockPos& p);
     std::function<bool(const BlockPos&)> entityOnPlate;
+    // Detector rails: a cart is on the rail at p (switches it on); and the game's "is a cart still
+    // on this rail" query for the scheduled switch-off.
+    void cartOnDetector(const BlockPos& p);
+    std::function<bool(const BlockPos&)> cartOnRail;
     // Hooks into the item layer (set by the game / tests):
     std::function<int(const BlockPos&)> containerSignal;                       // comparator input 0..15 (-1 = not a container)
     std::function<void(const BlockPos&, bool dispenser, const BlockPos& dir)> onDispense;
@@ -51,7 +55,8 @@ private:
     bool inUpdate_ = false;
     std::vector<std::pair<BlockPos, BlockPos>> queue_;
     bool riftSupported(const BlockPos& p) const;
-    u16 riftIdx_ = 0xFFFF, slateIdx_ = 0xFFFF, stickyIdx_ = 0xFFFF, comparatorIdx_ = 0xFFFF, dropperIdx_ = 0xFFFF, dispenserIdx_ = 0xFFFF, hopperIdx_ = 0xFFFF;
+    u16 detectorIdx_ = 0xFFFF, riftIdx_ = 0xFFFF, slateIdx_ = 0xFFFF, stickyIdx_ = 0xFFFF, comparatorIdx_ = 0xFFFF, dropperIdx_ = 0xFFFF, dispenserIdx_ = 0xFFFF, hopperIdx_ = 0xFFFF;
+    bool isFloorSource(u16 i) const { return i == leverIdx_ || i == buttonIdx_ || i == plateIdx_ || i == detectorIdx_; }
     bool isPiston(u16 i) const { return i == pistonIdx_ || i == stickyIdx_; }
     int comparatorTarget(const BlockPos& p, BlockState s) const;
     u16 wireIdx_, torchIdx_, leverIdx_, buttonIdx_, plateIdx_, lampIdx_, relayIdx_, watcherIdx_, pistonIdx_, headIdx_;

@@ -32,7 +32,7 @@ int BlockBehaviors::strongPower(const BlockPos& b) const {
     // a source standing on it
     BlockState up = w_.getBlock({b.x, b.y + 1, b.z});
     u16 ui = w_.reg.def(up).index;
-    if ((ui == leverIdx_ || ui == buttonIdx_ || ui == plateIdx_) && w_.reg.getProp(up, "on")) best = 15;
+    if (isFloorSource(ui) && w_.reg.getProp(up, "on")) best = 15;
     // a lit torch below it
     BlockState dn = w_.getBlock({b.x, b.y - 1, b.z});
     if (w_.reg.def(dn).index == torchIdx_ && w_.reg.getProp(dn, "lit")) best = 15;
@@ -57,7 +57,7 @@ int BlockBehaviors::emitInto(const BlockPos& src, const BlockPos& dst, bool forW
     if (s == AIR) return 0;
     const BlockDef& d = w_.reg.def(s);
     u16 i = d.index;
-    if (i == leverIdx_ || i == buttonIdx_ || i == plateIdx_) return w_.reg.getProp(s, "on") ? 15 : 0;
+    if (isFloorSource(i)) return w_.reg.getProp(s, "on") ? 15 : 0;
     if (i == torchIdx_) return (w_.reg.getProp(s, "lit") && !eq(dst, {src.x, src.y - 1, src.z})) ? 15 : 0;
     if (i == wireIdx_) {
         if (forWire) return 0;   // wire-to-wire handled by the wire rule
@@ -114,6 +114,7 @@ bool BlockBehaviors::circuitUpdate(const BlockPos& p, BlockState s, const BlockP
         return true;
     }
     if (eq(p, from) && (i == leverIdx_ || i == buttonIdx_ || i == plateIdx_)) { notifyAround(p); return true; }
+    if (i == detectorIdx_) { if (eq(p, from)) notifyAround(p); return false; }   // the rail rules still shape it
     if (i == torchIdx_) {
         BlockPos below{p.x, p.y - 1, p.z};
         bool powered = strongPower(below) > 0 || weaklyPowered(below);
@@ -198,6 +199,11 @@ bool BlockBehaviors::circuitTick(const BlockPos& p, BlockState s) {
             if (entityOnPlate && entityOnPlate(p)) w_.scheduleTick(p, s, 10);
             else w_.setBlock(p, w_.reg.withProp(s, "on", 0));
         }
+    } else if (i == detectorIdx_) {
+        if (w_.reg.getProp(s, "on")) {
+            if (cartOnRail && cartOnRail(p)) w_.scheduleTick(p, s, 20);
+            else w_.setBlock(p, w_.reg.withProp(s, "on", 0));
+        }
     } else if (isPiston(i)) {
         bool on = false;
         BlockPos front = p + SIX[w_.reg.getProp(s, "facing")];
@@ -271,6 +277,12 @@ void BlockBehaviors::toggleLever(const BlockPos& p) {
 void BlockBehaviors::pressButton(const BlockPos& p) {
     BlockState s = w_.getBlock(p);
     if (w_.reg.def(s).index != buttonIdx_ || w_.reg.getProp(s, "on")) return;
+    BlockState on = w_.reg.withProp(s, "on", 1);
+    w_.setBlock(p, on); w_.scheduleTick(p, on, 20);
+}
+void BlockBehaviors::cartOnDetector(const BlockPos& p) {
+    BlockState s = w_.getBlock(p);
+    if (w_.reg.def(s).index != detectorIdx_ || w_.reg.getProp(s, "on")) return;
     BlockState on = w_.reg.withProp(s, "on", 1);
     w_.setBlock(p, on); w_.scheduleTick(p, on, 20);
 }

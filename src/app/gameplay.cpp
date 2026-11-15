@@ -196,6 +196,10 @@ void setupBehaviors() {
         for (auto& e : G->entities->items) if (plate.intersects({e.pos - Vec3(0.125f, 0, 0.125f), e.pos + Vec3(0.125f, 0.25f, 0.125f)})) return true;
         return false;
     };
+    G->behaviors->cartOnRail = [](const BlockPos& b) {
+        for (auto& c : G->carts->carts) { BlockPos cell; BlockState s; if (!c.removed && G->carts->railCell(*G->world, c.pos, cell, s) && cell == b) return true; }
+        return false;
+    };
     G->behaviors->containerSignal = [](const BlockPos& p) { ContainerContext c = containerCtx(); return containerSignal(c, p); };
     G->behaviors->onDispense = [](const BlockPos& p, bool d, const BlockPos& dir) {
         ContainerContext c = containerCtx();
@@ -299,6 +303,7 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
     G->mobs = std::make_unique<MobSystem>(G->mobReg);
     G->entities->mobs = G->mobs.get();
     G->carts = std::make_unique<CartSystem>();
+    G->carts->onRail = [](const BlockPos& cell, BlockState s) { if (isDetectorRail(G->reg, s)) G->behaviors->cartOnDetector(cell); };
     G->entities->carts = G->carts.get();
     G->riding = 0;
     G->entities->onPickup = [](const ItemStack&) { sfx("pickup", 0.5f); };
@@ -486,6 +491,7 @@ void simulateTick() {
     } else if (!G->stats.dead) p.tick(*G->world, in);
     G->input.toggleFly = false;
     G->carts->tick(*G->world);
+    if (!G->stats.dead) p.vel += collideCartsWithPlayer(*G->carts, p.box(), p.pos - before, G->riding);
     if (G->riding) {
         if (Cart* c = G->carts->byId(G->riding)) {
             p.prevPos = before; p.pos = c->pos + Vec3(0, 0.25f, 0); p.vel = {}; p.onGround = true; p.fallDistance = 0;
@@ -627,6 +633,7 @@ void simulateTick() {
     }
     MobContext ctx = mobContext();
     G->mobs->tick(ctx, G->rng);
+    collideCartsWithMobs(*G->carts, *G->mobs);
     // particles: simulate, and let nearby torches emit flames (random sampling: no world scans)
     G->particles.tick(*G->world);
     for (int i = 0; i < 200; i++) {

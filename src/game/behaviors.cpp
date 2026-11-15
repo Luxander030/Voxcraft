@@ -17,7 +17,7 @@ BlockBehaviors::BlockBehaviors(World& w) : w_(w) {
     wireIdx_ = idx("glimmer_wire"); torchIdx_ = idx("spark_torch"); leverIdx_ = idx("lever"); buttonIdx_ = idx("push_button");
     plateIdx_ = idx("pressure_plate"); lampIdx_ = idx("lamp"); relayIdx_ = idx("relay"); watcherIdx_ = idx("watcher");
     pistonIdx_ = idx("piston"); headIdx_ = idx("piston_head");
-    riftIdx_ = idx("rift"); slateIdx_ = idx("slate");
+    riftIdx_ = idx("rift"); slateIdx_ = idx("slate"); detectorIdx_ = idx("detector_rail");
     stickyIdx_ = idx("sticky_piston"); comparatorIdx_ = idx("comparator"); dropperIdx_ = idx("dropper"); dispenserIdx_ = idx("dispenser"); hopperIdx_ = idx("hopper");
     w.onNeighborChanged = [this](const BlockPos& p, const BlockPos& from) { neighborChanged(p, from); };
     w.onScheduledTick = [this](const BlockPos& p, BlockState s) { scheduled(p, s); };

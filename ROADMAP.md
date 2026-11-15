@@ -100,7 +100,8 @@ Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, furt
 - ✅ Building shapes in generated villages (generator v5).
 - ✅ Animal breeding: feeding, love mode, babies that grow up, persisted (creature record v3).
 - ✅ Rails (straight, curves, slopes), powered rails, rideable carts with rail physics, persisted.
-- ⬜ Cart-to-cart and cart-to-creature collisions; carts with chests or hoppers; detector rails.
+- ✅ Cart-to-cart, cart-to-creature and player-to-cart collisions; detector rails.
+- ⬜ Carts with chests or hoppers; creatures riding carts.
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

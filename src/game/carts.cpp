@@ -1,4 +1,5 @@
 #include "game/carts.h"
+#include "game/mobs.h"
 
 namespace vx {
 
@@ -35,6 +36,8 @@ void CartSystem::step(const World& w, Cart& c) {
         float sp = length(c.vel), dir = dot(c.vel, uh);
         float s1 = dir >= 0 ? sp : -sp;
         if (sp < 1e-6f) s1 = 0;
+        s1 += dot(c.push, uh);   // collision impulses act only along the track
+        c.push = {};
         if (u.y != 0) s1 -= SLOPE_G * (u.y / len);   // downhill accelerates, uphill slows
         if (isPoweredRail(w.reg, s)) {
             if (w.reg.getProp(s, "powered")) { if (std::fabs(s1) > 1e-3f) s1 += s1 > 0 ? BOOST : -BOOST; }
@@ -66,6 +69,7 @@ void CartSystem::step(const World& w, Cart& c) {
     }
     // off the rails: fall and slide
     c.pitch = 0;
+    c.vel += Vec3(c.push.x, 0, c.push.z); c.push = {};
     c.vel.y = std::max(c.vel.y - 0.04f, -2.0f);
     bool h;
     AABB b = c.box();
@@ -85,8 +89,80 @@ void CartSystem::tick(const World& w) {
         if (!w.isReady({(int)std::floor(c.pos.x) >> 4, (int)std::floor(c.pos.z) >> 4})) continue;   // frozen at the world edge
         step(w, c);
         if (c.pos.y < -32) c.removed = true;
+        if (onRail && c.onRail) { BlockPos cell; BlockState s; if (railCell(w, c.pos, cell, s)) onRail(cell, s); }
     }
+    collideCarts();
     carts.erase(std::remove_if(carts.begin(), carts.end(), [](const Cart& c) { return c.removed; }), carts.end());
+}
+
+namespace {
+bool overlaps(const AABB& a, const AABB& b) {
+    return a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y && a.max.y > b.min.y && a.min.z < b.max.z && a.max.z > b.min.z;
+}
+// Horizontal unit direction between two centres (pushes never lift or sink anything).
+Vec3 flatNormal(Vec3 from, Vec3 to, float tieBreak) {
+    Vec3 d{to.x - from.x, 0, to.z - from.z};
+    float l = length(d);
+    if (l < 1e-4f) return {std::cos(tieBreak), 0, std::sin(tieBreak)};   // exactly stacked: any fixed direction
+    return d * (1.0f / l);
+}
+}
+
+void CartSystem::collideCarts() {
+    for (size_t i = 0; i < carts.size(); i++) for (size_t j = i + 1; j < carts.size(); j++) {
+        Cart& a = carts[i]; Cart& b = carts[j];
+        if (a.removed || b.removed) continue;
+        if (std::fabs(a.pos.x - b.pos.x) >= 0.98f || std::fabs(a.pos.z - b.pos.z) >= 0.98f) continue;   // cheap reject
+        if (!overlaps(a.box(), b.box())) continue;
+        Vec3 n = flatNormal(a.pos, b.pos, (float)(a.id * 2654435761u % 628) * 0.01f);
+        float closing = dot(a.vel - b.vel, n);
+        if (closing > 0) { a.push -= n * closing; b.push += n * closing; }   // elastic, equal masses
+        // separation keeps resting carts from sitting inside each other
+        float gap = 0.98f - std::max(std::fabs(a.pos.x - b.pos.x), std::fabs(a.pos.z - b.pos.z));
+        Vec3 sep = n * std::min(gap * 0.1f, 0.02f);
+        a.push -= sep; b.push += sep;
+    }
+}
+
+bool CartSystem::contact(const Cart& c, const AABB& body, Vec3 bodyVel, Vec3& normal, float& approach) {
+    if (c.removed || !overlaps(c.box(), body)) return false;
+    Vec3 centre = (body.min + body.max) * 0.5f;
+    normal = flatNormal(c.pos, centre, (float)(c.id % 628) * 0.01f);
+    approach = dot(c.vel - Vec3(bodyVel.x, 0, bodyVel.z), normal);
+    return true;
+}
+
+void collideCartsWithMobs(CartSystem& cs, MobSystem& ms) {
+    if (cs.carts.empty()) return;
+    for (auto& m : ms.mobs) {
+        if (m.removed || !m.alive()) continue;
+        const MobDef& d = ms.registry().def(m.type);
+        AABB mb = m.box(d);
+        for (auto& c : cs.carts) {
+            Vec3 n; float approach;
+            if (!CartSystem::contact(c, mb, m.vel, n, approach)) continue;
+            if (approach > 0) {
+                m.vel += n * approach;
+                if (m.onGround) m.vel.y = std::max(m.vel.y, 0.2f);   // bumped off its feet
+                c.push -= n * (approach * CartSystem::CREATURE_MASS * 0.5f);
+            }
+            m.vel += n * 0.03f; c.push -= n * 0.005f;
+        }
+    }
+}
+
+Vec3 collideCartsWithPlayer(CartSystem& cs, const AABB& pb, Vec3 pv, u32 ridden) {
+    Vec3 out{};
+    for (auto& c : cs.carts) {
+        if (c.id == ridden) continue;
+        Vec3 n; float approach;
+        if (!CartSystem::contact(c, pb, pv, n, approach)) continue;
+        (void)approach;
+        float cartToward = dot(c.vel, n);              // the cart's own motion, not the player's walking
+        if (cartToward > 0.08f) out += n * cartToward;   // a fast cart shoves the player
+        else c.push -= n * 0.015f;                      // walking into it nudges it
+    }
+    return out;
 }
 
 Cart* CartSystem::raycast(Vec3 o, Vec3 dir, float reach, float* outDist) {

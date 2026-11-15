@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Cart collisions and detector rails
+- Carts bump each other: a moving cart hands its speed to the one it hits, and carts dropped on the
+  same spot separate along the track.
+- A cart running into a creature knocks it aside and loses some speed. Walking into a resting cart
+  pushes it along the track; a fast cart shoves the player out of the way.
+- Detector rails (6 iron, a pressure plate and glimmer dust, 6 rails) give a full-strength circuit
+  signal while a cart is on them, so a cart can power the powered rail next to it. Like powered
+  rails they only run straight or up slopes.
+- Tests: `carts_collide_and_hand_over_speed`, `carts_knock_creatures_aside_and_players_push_carts`,
+  `detector_rail_signals_while_a_cart_is_on_it`.
+
 ### Rails and carts
 - Rails (16 from 6 iron + a stick) shape themselves from their neighbours: straight lines, curves, and
   slopes up or down one block. Slopes connect diagonally, so a rail re-checks the rails above and

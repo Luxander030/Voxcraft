@@ -133,6 +133,15 @@ that carts follow. A cart keeps a signed speed along that line. Past an end, it 
 end's direction into the next cell with the same speed, so a curve never costs speed. Off the
 rails it is a falling box using the same `sweepAxis` as everything else.
 
+Collisions add impulses to a per-cart `push` that the next step applies. On a rail only the part
+along the track counts, so a sideways bump never turns into speed. Carts swap their closing speed
+along the line between centres (equal masses, elastic) and slowly drift apart when overlapping. A
+cart running into a creature hands it the closing speed and loses a quarter of it. A player walking
+into a resting cart nudges it, and a fast cart shoves the player. All of this is O(n²) over carts
+with a cheap distance reject, and carts are few. Detector rails are circuit sources like pressure
+plates: `CartSystem::onRail` reports each occupied rail cell, the rail switches on, and a
+scheduled check every 20 ticks switches it off once `cartOnRail` finds no cart in the cell.
+
 ## Block updates and fluids
 
 `game/behaviors.cpp` subscribes to World's neighbour-update, scheduled-tick and random-tick hooks.

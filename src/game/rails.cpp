@@ -4,6 +4,7 @@ namespace vx {
 
 bool isRail(const BlockRegistry& reg, BlockState s) { return s != AIR && reg.def(s).shape == BlockShape::Rail; }
 bool isPoweredRail(const BlockRegistry& reg, BlockState s) { return isRail(reg, s) && reg.def(s).propIndex("powered") >= 0; }
+bool isDetectorRail(const BlockRegistry& reg, BlockState s) { return isRail(reg, s) && reg.def(s).propIndex("on") >= 0; }
 
 void railShapeExits(int shape, int& d0, int& d1) {
     static const int E[10][2] = {{0, 1}, {2, 3}, {1, 0}, {0, 1}, {3, 2}, {2, 3}, {1, 3}, {1, 2}, {0, 2}, {0, 3}};
@@ -38,13 +39,13 @@ bool railToward(const World& w, const BlockPos& p, int d, bool& up) {
 
 BlockState withRailShape(const World& w, const BlockPos& p, BlockState s) {
     if (!isRail(w.reg, s)) return s;
-    bool powered = isPoweredRail(w.reg, s);
+    bool straightOnly = isPoweredRail(w.reg, s) || isDetectorRail(w.reg, s);
     bool c[4], up[4];
     for (int d = 0; d < 4; d++) c[d] = railToward(w, p, d, up[d]);
     int shape = w.reg.getProp(s, "shape");
     if (c[0] && c[1]) shape = up[0] ? 2 : up[1] ? 3 : 0;
     else if (c[2] && c[3]) shape = up[2] ? 4 : up[3] ? 5 : 1;
-    else if (!powered && (c[0] || c[1]) && (c[2] || c[3])) {
+    else if (!straightOnly && (c[0] || c[1]) && (c[2] || c[3])) {
         bool n = c[0], e = c[3];
         shape = !n && e ? 6 : !n && !e ? 7 : n && !e ? 8 : 9;
     }
