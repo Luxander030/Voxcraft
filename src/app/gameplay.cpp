@@ -699,6 +699,16 @@ void clickUse() {
         if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.name == "relay") { G->world->setBlock(G->target.block, G->reg.withProp(s, "delay", (G->reg.getProp(s, "delay") + 1) % 4)); return; }
     }
+    // lily pads go on the surface of still water
+    if (const ItemDef* h = G->held(); h && h->name == "lilypad") {
+        RayHit f = raycastBlocks(*G->world, G->player.eye(), G->player.look(), 5.0f, true);
+        if (f.hit && G->reg.def(G->world->getBlock(f.block)).name == "water" && G->world->getBlock({f.block.x, f.block.y + 1, f.block.z}) == AIR) {
+            G->world->setBlock({f.block.x, f.block.y + 1, f.block.z}, G->reg.stateOf("lilypad"));
+            sfx3d("place_grass", {f.block.x + 0.5f, f.block.y + 1.0f, f.block.z + 0.5f}, SoundCat::Blocks);
+            if (!G->creative()) { ItemStack& s = G->inv.slots[G->hotbarSel]; s.count--; if (!s.count) s = {}; }
+        }
+        return;
+    }
     // hoe: till turf/dirt with air above into farmland
     if (const ItemDef* h = G->held(); h && h->tool == ToolType::Hoe && G->target.hit) {
         BlockPos t = G->target.block;

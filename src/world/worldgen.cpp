@@ -244,6 +244,11 @@ private:
             if (cur == AIR || (reg.def(cur).has(BF_REPLACEABLE) && !reg.fluid(cur))) ch.setGen(wx - bx, y, wz - bz, s);
         }
         void solid(int wx, int y, int wz, BlockState s) { if (inside(wx, y, wz)) ch.setGen(wx - bx, y, wz - bz, s); }
+        void leafOnSoil(int wx, int y, int wz, BlockState s) {   // plants: only on air above turf/podzol/dirt
+            if (!inside(wx, y, wz) || !inside(wx, y - 1, wz)) return;
+            BlockState below = ch.get(wx - bx, y - 1, wz - bz), cur = ch.get(wx - bx, y, wz - bz);
+            if ((cur == AIR || (reg.def(cur).has(BF_REPLACEABLE) && !reg.fluid(cur))) && (below == cb.turf || below == cb.podzol || below == cb.dirt)) ch.setGen(wx - bx, y, wz - bz, s);
+        }
         void ground(int wx, int y, int wz, BlockState s) {   // only replaces surface soil
             if (!inside(wx, y, wz)) return;
             BlockState cur = ch.get(wx - bx, y, wz - bz);
@@ -263,6 +268,7 @@ private:
     void placeFeatures(Chunk& ch) const {
         Writer w{ch, ch.pos.x * 16, ch.pos.z * 16, cb, reg};
         if (st.structures && st.version >= 3) placeVillage(w, ch.pos);   // v1/v2 output stays bit-identical
+        if (st.trees && st.version >= 4) placeBiomeFeatures(w, ch.pos);   // v1-v3 output stays bit-identical
         for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) {
             int cx = ch.pos.x + dx, cz = ch.pos.z + dz;
             if (st.structures) {
@@ -362,6 +368,45 @@ private:
             placeCache(w, ox, 18 + r.range(20), oz, r);
         else if (roll >= 18 && roll < 34 && land && ci.biome == Biome::Desert)
             placeWell(w, ox, ci.height, oz);
+    }
+
+    // ---- generator v4: biome features. Each feature extends <= 4 blocks from its origin, so the
+    // 3x3 candidate-chunk evaluation covers it and every chunk writes only its own blocks.
+    void placeBiomeFeatures(Writer& w, ChunkPos cp) const {
+        BlockState mossy = reg.stateOf("mossy_cobblestone"), lily = reg.stateOf("lilypad"), shroom = reg.stateOf("capshroom");
+        for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) {
+            int cx = cp.x + dx, cz = cp.z + dz;
+            Rng r(hashCoords(st.seed ^ 0xB10E4, cx, cz));
+            // mossy boulders
+            int ox = cx * 16 + 2 + r.range(12), oz = cz * 16 + 2 + r.range(12);
+            ColumnInfo ci = column(ox, oz);
+            if (r.range(6) == 0 && ci.height > SEA_LEVEL && (ci.biome == Biome::Taiga || ci.biome == Biome::Forest || ci.biome == Biome::Mountains)) {
+                int rad = 1 + r.range(2);
+                for (int by = -1; by <= rad; by++) for (int bz = -rad; bz <= rad; bz++) for (int bx = -rad; bx <= rad; bx++) {
+                    if (bx * bx + bz * bz + by * by * 2 > rad * rad + 1) continue;
+                    w.solid(ox + bx, ci.height + by, oz + bz, ((bx + by + bz) & 1) || r.chance(0.4f) ? mossy : cb.cobblestone);
+                }
+            }
+            // ice spires
+            int ix = cx * 16 + 3 + r.range(10), iz = cz * 16 + 3 + r.range(10);
+            ColumnInfo ic = column(ix, iz);
+            if (r.range(8) == 0 && ic.height > SEA_LEVEL && (ic.biome == Biome::Tundra || ic.biome == Biome::SnowyPeaks)) {
+                int h = 5 + r.range(8);
+                for (int y = 0; y < h; y++) {
+                    int rad = y < h / 3 ? 1 : 0;
+                    for (int bz = -rad; bz <= rad; bz++) for (int bx = -rad; bx <= rad; bx++) if (bx * bx + bz * bz <= 1) w.solid(ix + bx, ic.height + 1 + y, iz + bz, cb.ice);
+                }
+            }
+            // lily pads on calm swamp / river water, capshrooms on shady forest floors
+            for (int k = 0; k < 6; k++) {
+                int lx = cx * 16 + r.range(16), lz = cz * 16 + r.range(16);
+                ColumnInfo lc = column(lx, lz);
+                if ((lc.biome == Biome::Swamp || lc.river) && lc.height < SEA_LEVEL && lc.height > SEA_LEVEL - 5 && r.chance(0.6f)) w.leaf(lx, SEA_LEVEL + 1, lz, lily);
+                else if ((lc.biome == Biome::Forest || lc.biome == Biome::Taiga || lc.biome == Biome::Swamp) && lc.height > SEA_LEVEL && r.chance(0.25f)) {
+                    for (int m = 0; m < 3; m++) w.leafOnSoil(lx + r.range(3) - 1, lc.height + 1, lz + r.range(3) - 1, shroom);
+                }
+            }
+        }
     }
 
     // ---- generator v3: villages. A village belongs to an 8x8-chunk region and extends at most
@@ -538,6 +583,11 @@ private:
             BlockState ground = ch.get(x, y, z);
             u64 h = hashCoords(st.seed ^ 0x6A55, bx + x, bz + z);
             int roll = (int)(h % 1000);
+            if (ground == cb.turf && st.version >= 4 && ci.biome == Biome::Plains) {
+                // v4: flower meadows - patches of a single flower kind from a low-frequency field
+                float m = hillN.noise2((bx + x) / 48.0f + 100.0f, (bz + z) / 48.0f);
+                if (m > 0.35f && roll < 180) { ch.setGen(x, y + 1, z, m > 0.6f ? cb.bluebell : (m > 0.47f ? cb.sunpetal : cb.emberbloom)); continue; }
+            }
             if (ground == cb.turf) {
                 int grass = ci.biome == Biome::Plains ? 220 : ci.biome == Biome::Savanna ? 260 : ci.biome == Biome::Swamp ? 120 : 90;
                 if (roll < grass) ch.setGen(x, y + 1, z, ci.biome == Biome::Taiga || ((h >> 20) & 7) == 0 ? cb.fern : cb.tall_grass);

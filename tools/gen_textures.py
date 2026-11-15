@@ -296,6 +296,11 @@ RECIPES = {
     "farmland_top": lambda r: [hexc(["4a3020", "5a3a26", "3e281a"][r.int(3)]) if (i // N) % 4 != 0 else hexc("2e1e12") for i in range(N * N)],
     "bedroll_top": lambda r: [hexc("b84040") if (i % N) > 3 else hexc("e8e8e0") for i in range(N * N)],
     "bedroll_side": lambda r: [hexc("8a2a2a") if (i // N) > 12 else CLEAR for i in range(N * N)],
+    "mossy_cobblestone": overlay("cobblestone", lambda px, r: [put(px, x, y, hexc(["4f7a3a", "5d8a44", "466e34"][r.int(3)])) for y in range(N) for x in range(N) if r.next() < 0.22 + 0.25 * (y > 9)]),
+    "lilypad": plant(lambda px, r: [put(px, x, y, hexc(["4f8a3a", "5d9b3f", "467e34"][r.int(3)])) for y in range(N) for x in range(N)
+                                    if (x - 7.5) ** 2 + (y - 7.5) ** 2 < 46 and not (x > 7 and abs(y - 7.5) < 1.2)]),
+    "capshroom": plant(lambda px, r: (stem(px, 8, 9, 15, hexc("e8e0c8")), stem(px, 7, 10, 15, hexc("d8d0b8")),
+                                      [put(px, 8 + dx, 7 + dy, hexc(["b84a2a", "c85a36", "e8e0c8" if (dx + dy) % 3 == 0 else "a83a20"][r.int(3)])) for dx in range(-4, 5) for dy in range(-2, 2) if abs(dx) + max(0, -dy) * 2 < 6])),
     "relay_top": overlay("slate", lambda px, r: [put(px, x, y, hexc("8a2a3a")) for x in (4, 11) for y in (3, 4, 11, 12)]),
     "watcher_face": overlay("cobblestone", lambda px, r: [put(px, x, y, hexc("1a1a1a")) for x in range(3, 13) for y in (4, 5, 6)] +
                             [put(px, x, y, hexc("e83070")) for x in (5, 10) for y in (5,)]),

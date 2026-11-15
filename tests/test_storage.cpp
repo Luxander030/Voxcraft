@@ -434,3 +434,28 @@ TEST(lighting_output_is_pinned) {
     printf("    light hash: %016llx\n", (unsigned long long)h);
     CHECK_EQ(h, (u64)0xb746b35eeabff306ull);   // pinned; equal before and after the uniform-section/emitter-list optimisation
 }
+
+TEST(worldgen_v4_adds_biome_features_locally) {
+    GenSettings v3; v3.seed = 77; v3.version = 3;
+    GenSettings v4 = v3; v4.version = 4;
+    auto g3 = createGenerator(v3, blocks()), g4 = createGenerator(v4, blocks());
+    REQUIRE(g3 && g4);
+    std::map<std::string, int> found;
+    int differ = 0, total = 0;
+    for (int cz = -16; cz < 16; cz++) for (int cx = -16; cx < 16; cx++) {
+        Chunk a({cx, cz}), b({cx, cz}); g3->generate(a); g4->generate(b); total++;
+        bool d = false;
+        for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) {
+            BlockState x = a.sec[s].get(i), y = b.sec[s].get(i);
+            if (x == y) continue;
+            d = true; found[blocks().def(y).name]++;
+        }
+        differ += d;
+        CHECK(!b.hasPersistentData());
+    }
+    printf("    v4 vs v3: %d of %d chunks differ;", differ, total);
+    for (auto& [n, c] : found) if (c > 20) printf(" %s:%d", n.c_str(), c);
+    printf("\n");
+    CHECK(found["mossy_cobblestone"] + found["capshroom"] + found["lilypad"] + found["ice"] > 0);
+    CHECK(differ < total);   // features are local; plenty of chunks stay identical
+}

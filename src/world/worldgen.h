@@ -47,7 +47,8 @@ public:
 // Returns nullptr if the version is unknown (caller must refuse to open the world).
 std::unique_ptr<WorldGenerator> createGenerator(const GenSettings& s, const BlockRegistry& reg);
 // Version history: 1 = initial terrain, ruins, trees.  2 = adds watchtowers, buried caches, desert
-// wells (and the Hollow dimension).  3 = adds villages.
-constexpr u32 LATEST_GENERATOR_VERSION = 3;
+// wells (and the Hollow dimension).  3 = adds villages.  4 = biome features (boulders, lily pads,
+// capshrooms, ice spires, flower meadows).
+constexpr u32 LATEST_GENERATOR_VERSION = 4;
 
 } // namespace vx

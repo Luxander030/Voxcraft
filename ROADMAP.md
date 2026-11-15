@@ -63,7 +63,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Generator v3 (new worlds): villages — plaza with well and lamp posts, 4-7 furnished cottages facing it, gravel paths; region-based layout so multi-chunk structures stay chunk-independent; `/locate village`.
 - ✅ Settlers: original villager creature (OpenSCAD model), spawned lazily the first time a player approaches a village (recorded in world.json so it happens once; generation stays entity-free), wander around their home plaza, trade 3 deterministic offers each using copper as currency.
 - ✅ Smooth fluid surfaces: per-corner heights averaged over neighbouring fluid cells, sloped top and side faces.
-- ⬜ More biome features.
+- ✅ Generator v4 (new worlds): mossy boulders (taiga/forest/mountains), lily pads on swamp and river water, capshroom clusters on forest floors, ice spires in snowy biomes, single-flower meadows in plains; new blocks mossy cobblestone, lily pad, capshroom. v1-v3 unchanged.
 
 ## Phase 8 — Advanced gameplay 🔶
 - ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).

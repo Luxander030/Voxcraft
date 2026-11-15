@@ -68,6 +68,8 @@ dimension, chunk position)*.
   region decides deterministically whether it holds a village. Every chunk recomputes that
   region's layout, which is cheap, and keeps only its own blocks, so chunks still never read
   each other.
+- Version 4 added biome features (boulders, lily pads, capshrooms, ice spires, flower meadows).
+  It uses the same pattern: gated on `version >= 4`, with an extent of at most 4 blocks.
 - Generated chests are empty. Loot is rolled from (seed, position) the first time a chest is
   opened, so the generated baseline never contains block entities.
 - The generator version is stored in `world.json`. Old generators stay in the codebase. Changing

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Generator v4: biome variety
+- Mossy boulders, lily pads (placed on water, pop off without it), capshrooms, ice spires and
+  flower meadows.
+
 ### Lighting performance
 - About 33% faster chunk lighting with identical output (pinned by a test).
 
