@@ -21,7 +21,9 @@
 - **Picking:** rays hit the actual boxes, so you can aim through an open doorway, and they return
   the hit point (used to choose slab and stair halves).
 - Flat worlds no longer draw distant-terrain LOD, which sampled the default terrain height.
-- `--menu build` smoke scene. Tests: `building_*` (7).
+- Creature pathfinding walks through open doors and trapdoors, treats closed ones as walls, and
+  never plans to stand on fences or panes.
+- `--menu build` smoke scene. Tests: `building_*` (8).
 
 ### Third-person camera and player model
 - V (remappable as "Camera view") cycles first person, behind the player and facing the player.

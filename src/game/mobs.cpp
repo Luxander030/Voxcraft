@@ -46,9 +46,14 @@ bool walkableCell(const World& w, const BlockPos& p, int h) {
     if (p.y <= 0 || p.y + h >= WORLD_H) return false;
     for (int k = 0; k < h; k++) {
         BlockState s = w.getBlock(p.x, p.y + k, p.z);
-        if (w.reg.solid(s) || w.reg.def(s).has(BF_HOT) || w.reg.def(s).name == "lava") return false;
+        const BlockDef& d = w.reg.def(s);
+        // an open door or trapdoor is a doorway; any other solid block is in the way
+        bool doorway = (d.shape == BlockShape::Door || d.shape == BlockShape::Trapdoor) && w.reg.getProp(s, "open");
+        if ((w.reg.solid(s) && !doorway) || d.has(BF_HOT) || d.name == "lava") return false;
     }
     BlockState below = w.getBlock(p.x, p.y - 1, p.z);
+    BlockShape bs = w.reg.def(below).shape;
+    if (bs == BlockShape::Fence || bs == BlockShape::Pane) return false;   // too tall / too thin to stand on
     return w.reg.solid(below) || w.reg.fluid(w.getBlock(p.x, p.y, p.z));
 }
 

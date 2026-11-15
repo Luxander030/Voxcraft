@@ -5,6 +5,7 @@
 #include "game/building.h"
 #include "game/player.h"
 #include "game/shapes.h"
+#include "game/mobs.h"
 
 using namespace vx;
 using vxtest::blocks;
@@ -155,4 +156,24 @@ TEST(building_ray_passes_open_door_gap_and_hits_slab_top) {
     CHECK(!m.hit);
     RayHit k = raycastBlocks(e.w, {3.5f, 5.5f, 3}, {0, 0, -1}, 5);
     REQUIRE(k.hit); CHECK((k.block == BlockPos{3, 5, 0})); CHECK(std::fabs(k.point.z - 3.0f / 16) < 1e-3f);
+}
+
+TEST(building_pathfinding_doorways_and_fences) {
+    Env e("bpath");
+    // a wall along x = 3 with a closed door in it; a path across must wait for the door to open
+    // a closed 3x3 room around (6, 5, 0) with roof; its only way in is a door at (5, 5, 0)
+    for (int x = 5; x <= 7; x++) for (int z = -1; z <= 1; z++) {
+        for (int y = 5; y <= 6; y++) if (!(x == 6 && z == 0)) e.w.setBlock({x, y, z}, e.st("stone"));
+        e.w.setBlock({x, 7, z}, e.st("stone"));
+    }
+    e.w.setBlock({5, 5, 0}, AIR); e.w.setBlock({5, 6, 0}, AIR);
+    BlockState d = blocks().withProp(e.st("oak_door"), "facing", 2);
+    PlacePlan pl; pl.ok = true; pl.at = {5, 5, 0}; pl.state = d; pl.upper = blocks().withProp(d, "upper", 1);
+    REQUIRE(applyPlacement(e.w, pl));
+    CHECK(findPath(e.w, {0, 5, 0}, {6, 5, 0}, 2, 4000).empty());
+    REQUIRE(toggleOpenable(e.w, {5, 5, 0}));
+    CHECK(!findPath(e.w, {0, 5, 0}, {6, 5, 0}, 2, 4000).empty());
+    // nobody stands on a fence
+    e.w.setBlock({0, 5, 4}, e.st("oak_fence"));
+    CHECK(!walkableCell(e.w, {0, 6, 4}, 2));
 }
