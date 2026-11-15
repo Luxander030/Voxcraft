@@ -19,7 +19,7 @@ struct MobDef {
     int model = -1;
     float health = 10, speed = 0.1f, width = 0.6f, height = 1.8f, damage = 0;
     MobBehavior behavior = MobBehavior::Passive;
-    bool burnsInDaylight = false, flying = false, ranged = false, emissive = false;
+    bool burnsInDaylight = false, flying = false, ranged = false, emissive = false, trader = false;
     std::vector<std::string> dimensions{"overworld"};
     struct Drop { u16 item; int min, max; };
     std::vector<Drop> drops;
@@ -48,6 +48,8 @@ struct Mob {
     bool onGround = false, removed = false;
     int hurtTicks = 0, deathTicks = -1, attackCooldown = 0, panicTicks = 0, age = 0, pathTimer = 0, idleTimer = 0, burnTimer = 0;
     std::vector<BlockPos> path; size_t pathIdx = 0;
+    Vec3 home; bool hasHome = false;   // settlers stay near their village
+    u32 seed = 0;                      // per-creature variation (trade offers)
     Animator anim;
     AABB box(const MobDef& d) const { float h = d.width * 0.5f; return {{pos.x - h, pos.y, pos.z - h}, {pos.x + h, pos.y + d.height, pos.z + h}}; }
     bool alive() const { return deathTicks < 0; }

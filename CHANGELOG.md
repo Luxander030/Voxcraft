@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Settlers and trading
+- Settlers populate villages the first time a player comes near, and stay near home.
+- A trade screen with deterministic offers that use copper ingots. Mob records (v2) store each
+  settler's home and seed.
+
 ### Optimization
 - Occlusion culling with a section connectivity graph (F6 toggles it). Underground scenes draw
   about 99% fewer triangles.

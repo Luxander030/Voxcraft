@@ -199,6 +199,9 @@ Json WorldMeta::toJson() const {
     j.set("spawn", sp);
     j.set("game_mode", Json::of(gameMode));
     j.set("raining", Json::of(raining)); j.set("weather_ticks", Json::of((double)weatherTicks));
+    Json pv = Json::makeArray();
+    for (auto& [a, b] : populatedVillages) { Json e = Json::makeArray(); e.push(Json::of((double)a)); e.push(Json::of((double)b)); pv.push(e); }
+    j.set("populated_villages", pv);
     j.set("created", Json::of((double)createdUnix));
     j.set("last_played", Json::of((double)lastPlayedUnix));
     return j;
@@ -222,6 +225,8 @@ bool WorldMeta::fromJson(const Json& j, WorldMeta& m, std::string* err) {
     if (sp.isArray() && sp.size() == 3) m.spawn = {sp[0].asInt(), sp[1].asInt(), sp[2].asInt()};
     m.gameMode = j["game_mode"].asString("survival");
     m.raining = j["raining"].asBool(false); m.weatherTicks = (i64)j["weather_ticks"].asNumber(12000);
+    m.populatedVillages.clear();
+    for (auto& e : j["populated_villages"].arr) m.populatedVillages.push_back({e[0].asInt(), e[1].asInt()});
     m.createdUnix = (u64)j["created"].asNumber(0);
     m.lastPlayedUnix = (u64)j["last_played"].asNumber(0);
     return true;

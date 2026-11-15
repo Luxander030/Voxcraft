@@ -55,6 +55,7 @@ struct WorldMeta {
     BlockPos spawn{0, 80, 0};
     std::string gameMode = "survival";
     bool raining = false; i64 weatherTicks = 12000;   // ticks until the weather changes
+    std::vector<std::pair<i32, i32>> populatedVillages;   // village regions whose settlers were spawned
     u64 createdUnix = 0, lastPlayedUnix = 0;
     Json toJson() const;
     static bool fromJson(const Json& j, WorldMeta& out, std::string* err);

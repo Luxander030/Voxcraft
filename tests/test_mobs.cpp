@@ -22,7 +22,7 @@ struct Flat {
 } // namespace
 
 TEST(anim_models_load_and_pivots_are_fixed_points) {
-    REQUIRE(mobs().size() == 5);
+    REQUIRE(mobs().size() == 6);
     const Model& m = mobs().model(mobs().def(mobs().id("grazer")).model);
     CHECK(m.bone("head") > 0); CHECK(m.boxes.size() >= 8);
     Animator a; a.bind(&m, &mobs().clips(mobs().id("grazer")));
@@ -173,4 +173,33 @@ TEST(cinderwisps_spawn_only_in_the_hollow_and_shoot_with_sight) {
     for (int i = 0; i < 200; i++) ms.tick(ctx, rng);
     CHECK(shots >= 2);
     CHECK(ms.mobs[0].pos.y > 6);   // still airborne
+}
+
+TEST(settlers_trade_stay_home_and_persist_their_home) {
+    REQUIRE(mobs().id("settler") != 0xFFFF);
+    // offers: three distinct, deterministic per seed
+    static RecipeBook rb; std::string e;
+    REQUIRE(rb.loadFile(std::string(VX_SOURCE_DIR) + "/assets/data/recipes.json", items(), &e));
+    auto a = rb.offersFor(1234), b = rb.offersFor(1234), c = rb.offersFor(999);
+    REQUIRE(a.size() == 3); CHECK(a == b);
+    CHECK(a[0] != a[1] && a[1] != a[2] && a[0] != a[2]);
+    CHECK(!(a == c));
+    // AI keeps settlers near home
+    Flat f("settle");
+    MobSystem ms(mobs()); Rng rng(8);
+    Player pl; pl.pos = {60.5f, 5, 60.5f};
+    MobContext ctx{f.w, pl, true, 1.0f, nullptr, nullptr};
+    Mob& m = ms.spawn(mobs().id("settler"), {0.5f, 5, 0.5f}, rng);
+    m.hasHome = true; m.home = {0.5f, 5, 0.5f}; m.seed = 42;
+    float maxD = 0;
+    for (int i = 0; i < 3000; i++) { ms.tick(ctx, rng); Vec3 d = ms.mobs[0].pos - m.home; maxD = std::max(maxD, std::sqrt(d.x * d.x + d.z * d.z)); }
+    CHECK(maxD < 26);
+    // persistence of home + seed through entity records
+    EntityManager em(items()); em.mobs = &ms;
+    auto recs = em.collectEntities(ChunkPos{(int)std::floor(ms.mobs[0].pos.x) >> 4, (int)std::floor(ms.mobs[0].pos.z) >> 4}, true);
+    REQUIRE(recs.size() == 1); CHECK(ms.mobs.empty());
+    em.spawnEntities({0, 0}, std::move(recs));
+    REQUIRE(ms.mobs.size() == 1);
+    CHECK(ms.mobs[0].hasHome); CHECK_EQ(ms.mobs[0].seed, 42u);
+    CHECK(std::fabs(ms.mobs[0].home.x - 0.5f) < 1e-4f);
 }

@@ -18,7 +18,7 @@
 
 namespace vx {
 
-enum class Screen { None, Pause, Inventory, Workbench, Chest, Kiln, Dead, Chat, Settings };
+enum class Screen { None, Pause, Inventory, Workbench, Chest, Kiln, Dead, Chat, Settings, Trade };
 enum class AppState { Title, Worlds, CreateWorld, ConfirmDelete, Settings, Playing };
 
 // Persistent user options (<user data>/Voxcraft/options.json).
@@ -67,6 +67,7 @@ struct Game {
     ParticleSystem particles;
     ProjectileSystem projectiles;
     int bowCharge = 0; bool prevRight = false;
+    u32 tradeSeed = 0; Vec3 tradePos; bool tradeClick = false;   // the settler being traded with
     std::unique_ptr<Mixer> mixer;
     float stepDistance = 0, lastHealth = 20; double nextMusic = 45, nextAmbient = 20; bool wasInFluid = false; float digTimer = 0;
     std::unique_ptr<MobSystem> mobs;   // owned before world (persisted through entities)

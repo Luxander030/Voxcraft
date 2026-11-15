@@ -1,0 +1,143 @@
+{
+ "name": "settler",
+ "source_hash": "49a913d69bb3acf5",
+ "bones": [
+  {
+   "name": "body",
+   "parent": "",
+   "pivot": [
+    0.0,
+    12.0,
+    0.0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    24.0,
+    0.0
+   ]
+  },
+  {
+   "name": "arms",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    21.0,
+    0.0
+   ]
+  },
+  {
+   "name": "leg_l",
+   "parent": "body",
+   "pivot": [
+    -2.0,
+    12.0,
+    0.0
+   ]
+  },
+  {
+   "name": "leg_r",
+   "parent": "body",
+   "pivot": [
+    2.0,
+    12.0,
+    0.0
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "bone": "body",
+   "min": [
+    -4.0,
+    12.0,
+    -2.5
+   ],
+   "size": [
+    8.0,
+    12.0,
+    5.0
+   ],
+   "tex": "settler_robe",
+   "front": "settler_robe"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -4.0,
+    24.0,
+    -4.0
+   ],
+   "size": [
+    8.0,
+    8.0,
+    8.0
+   ],
+   "tex": "settler_hood",
+   "front": "settler_face"
+  },
+  {
+   "bone": "arms",
+   "min": [
+    -4.5,
+    16.0,
+    -5.0
+   ],
+   "size": [
+    9.0,
+    4.0,
+    3.0
+   ],
+   "tex": "settler_robe",
+   "front": "settler_robe"
+  },
+  {
+   "bone": "arms",
+   "min": [
+    -1.5,
+    15.0,
+    -5.5
+   ],
+   "size": [
+    3.0,
+    3.0,
+    2.0
+   ],
+   "tex": "settler_hands",
+   "front": "settler_hands"
+  },
+  {
+   "bone": "leg_l",
+   "min": [
+    -3.5,
+    0.0,
+    -2.0
+   ],
+   "size": [
+    3.5,
+    12.0,
+    4.0
+   ],
+   "tex": "settler_robe",
+   "front": "settler_robe"
+  },
+  {
+   "bone": "leg_r",
+   "min": [
+    0.0,
+    0.0,
+    -2.0
+   ],
+   "size": [
+    3.5,
+    12.0,
+    4.0
+   ],
+   "tex": "settler_robe",
+   "front": "settler_robe"
+  }
+ ]
+}

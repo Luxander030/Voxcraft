@@ -264,6 +264,7 @@ void screenScroll(float dy) {
 
 void screenMouseDown(bool right, bool shift) {
     if (G->screen == Screen::Pause || G->screen == Screen::Settings || G->screen == Screen::Chat) return;   // handled by menus
+    if (G->screen == Screen::Trade) { G->tradeClick = !right; return; }   // offers are resolved while drawing
     if (G->screen == Screen::Dead) { respawn(); closeScreen(); G->screen = Screen::None; return; }
     buildSlots();
     float mx = G->mouseX / G->ui.scale, my = G->mouseY / G->ui.scale;
@@ -385,6 +386,35 @@ void drawFrameUi(int w, int h) {
         const char* t1 = "You died"; const char* t2 = "Click to respawn";
         ui.text(W / 2 - Ui::textWidth(t1) / 2, H / 2 - 20, t1, C(255, 255, 255));
         ui.text(W / 2 - Ui::textWidth(t2) / 2, H / 2 - 6, t2, C(220, 200, 200));
+        break;
+    }
+    case Screen::Trade: {
+        drawPanel("Settler");
+        float px = panelX(), py = panelY();
+        auto offers = G->recipes.offersFor(G->tradeSeed);
+        float mx = G->mouseX / ui.scale, my = G->mouseY / ui.scale;
+        for (size_t i = 0; i < offers.size(); i++) {
+            const auto& t = G->recipes.trades[offers[i]];
+            float y = py + 18 + i * 20;
+            bool can = G->creative() || G->inv.count(t.give) >= t.giveCount;
+            bool hv = mx >= px + 8 && mx < px + PW - 8 && my >= y && my < y + 18;
+            ui.rect(px + 8, y, PW - 16, 18, hv && can ? C(110, 120, 150) : C(120, 116, 110));
+            drawItemIcon(ui, px + 10, y + 1, {t.give, (u8)t.giveCount, 0});
+            ui.text(px + 34, y + 6, "->", C(40, 40, 40), false);
+            drawItemIcon(ui, px + 50, y + 1, {t.get, (u8)t.getCount, 0});
+            std::string label = G->items.def(t.get).name;
+            ui.text(px + 72, y + 6, label, can ? C(30, 30, 30) : C(90, 80, 80), false);
+            if (hv && can && G->tradeClick) {
+                G->tradeClick = false;
+                if (!G->creative()) G->inv.remove(t.give, t.giveCount);
+                giveOrDropInv({t.get, (u8)t.getCount, 0});
+                sfx("pickup", 0.7f);
+            }
+        }
+        G->tradeClick = false;
+        G->slots.clear();
+        addPlayerInventory(px, py);
+        for (auto& s : G->slots) { slotBox(s.x, s.y); if (!s.ptr->empty()) drawItemIcon(ui, s.x, s.y, *s.ptr); }
         break;
     }
     case Screen::Inventory: case Screen::Workbench: case Screen::Chest: case Screen::Kiln: {

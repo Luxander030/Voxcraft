@@ -86,6 +86,10 @@ public:
     u16 smelt(u16 input) const { auto it = kiln_.find(input); return it == kiln_.end() ? 0 : it->second; }
     struct Loot { u16 item; float chance; int extra; };
     const std::vector<Loot>* loot(const std::string& block) const { auto it = loot_.find(block); return it == loot_.end() ? nullptr : &it->second; }
+    struct Trade { u16 give; int giveCount; u16 get; int getCount; };
+    std::vector<Trade> trades;
+    // The three offers of a trader, chosen deterministically from its seed.
+    std::vector<int> offersFor(u32 seed) const;
     struct ChestLoot { u16 item; int min, max; float chance; };
     std::vector<ChestLoot> structureLoot;
     // Deterministic contents of a generated structure chest (rolled when first opened).

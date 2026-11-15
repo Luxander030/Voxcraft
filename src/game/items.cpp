@@ -160,6 +160,12 @@ bool RecipeBook::load(const Json& root, const ItemRegistry& items, std::string* 
         if (!resolve(r["input"].asString(), in) || !resolve(r["result"].asString(), out)) return false;
         for (u16 i : in) kiln_[i] = out[0];
     }
+    trades.clear();
+    for (auto& t : root["trades"].arr) {
+        u16 g = items.id(t["give"].asString()), r = items.id(t["get"].asString());
+        if (!g || !r) { if (err) *err = "trade: unknown item"; return false; }
+        trades.push_back({g, t["give_count"].asInt(1), r, t["get_count"].asInt(1)});
+    }
     structureLoot.clear();
     for (auto& e : root["structure_loot"].arr) {
         u16 i = items.id(e["item"].asString()); if (!i) { if (err) *err = "structure_loot: unknown item " + e["item"].asString(); return false; }
@@ -212,6 +218,17 @@ void RecipeBook::rollStructureLoot(u64 seed, const BlockPos& p, std::vector<Item
             if (slots[k].empty()) { slots[k] = {l.item, (u8)n, 0}; break; }
         }
     }
+}
+
+std::vector<int> RecipeBook::offersFor(u32 seed) const {
+    std::vector<int> out;
+    if (trades.empty()) return out;
+    Rng r((u64)seed * 0x9E3779B97F4A7C15ull + 1);
+    for (int tries = 0; tries < 32 && out.size() < 3 && out.size() < trades.size(); tries++) {
+        int k = r.range((int)trades.size());
+        if (std::find(out.begin(), out.end(), k) == out.end()) out.push_back(k);
+    }
+    return out;
 }
 
 void RecipeBook::consume(ItemStack* grid, int n) {

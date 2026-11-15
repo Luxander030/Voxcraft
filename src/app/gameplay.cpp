@@ -425,6 +425,27 @@ void simulateTick() {
         closeScreen(); G->screen = Screen::Dead; G->mouseLocked = false; sapp_lock_mouse(false);
     }
 
+    // ---- villages are populated lazily the first time a player comes near (never at generation)
+    if (G->dimension == "overworld" && G->world->meta.tick % 40 == 0) {
+        int vx, vy, vz;
+        if (G->world->generator().nearestVillage((int)p.pos.x, (int)p.pos.z, 1, vx, vy, vz)) {
+            float dx = vx - p.pos.x, dz = vz - p.pos.z;
+            std::pair<i32, i32> reg{floorDiv(vx, 128), floorDiv(vz, 128)};
+            auto& pv = G->world->meta.populatedVillages;
+            if (dx * dx + dz * dz < 64 * 64 && G->world->isReady({vx >> 4, vz >> 4}) && std::find(pv.begin(), pv.end(), reg) == pv.end()) {
+                u16 settler = G->mobReg.id("settler");
+                int n = 3 + G->rng.range(3);
+                for (int i = 0; i < n && settler != 0xFFFF; i++) {
+                    int sx = vx + G->rng.range(9) - 4, sz = vz + G->rng.range(9) - 4;
+                    if (std::abs(sx - vx) <= 1 && std::abs(sz - vz) <= 1) sx += 3;   // not in the well
+                    Mob& m = G->mobs->spawn(settler, {sx + 0.5f, (float)(G->world->surfaceY(sx, sz) + 1), sz + 0.5f}, G->rng);
+                    m.hasHome = true; m.home = {vx + 0.5f, (float)vy, vz + 0.5f}; m.seed = (u32)G->rng.next();
+                }
+                pv.push_back(reg);
+            }
+        }
+    }
+
     // ---- weather (overworld): rain/snow spells with persistent timers
     if (G->dimension == "overworld") {
         WorldMeta& wm = G->world->meta;
@@ -633,6 +654,15 @@ void updateInteraction(float dt) {
 
 void clickUse() {
     G->useCooldown = 4;
+    {   // talk to a settler
+        float md = 0;
+        if (Mob* m = G->mobs->raycast(G->player.eye(), G->player.look(), 4.0f, &md); m && G->mobReg.def(m->type).trader && (!G->target.hit || md < G->target.distance)) {
+            G->tradeSeed = m->seed; G->tradePos = m->pos;
+            openScreen(Screen::Trade);
+            sfx3d("grazer_call", m->pos + Vec3(0, 1.6f, 0), SoundCat::Creatures, 0.6f);
+            return;
+        }
+    }
     if (G->target.hit && !G->keys[SAPP_KEYCODE_LEFT_SHIFT]) {
         BlockState s = G->world->getBlock(G->target.block);
         const BlockDef& d = G->reg.def(s);

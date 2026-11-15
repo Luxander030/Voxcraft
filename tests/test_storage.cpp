@@ -337,11 +337,13 @@ TEST(worldgen_v2_adds_structures_without_changing_v1_or_storage) {
 TEST(world_meta_round_trips_weather_and_generator_fields) {
     WorldMeta m; m.name = "w"; m.gen.seed = 18446744073709551000ull; m.gen.version = 2; m.gen.dimension = "hollow";
     m.raining = true; m.weatherTicks = 4321; m.tick = 9876543210ll; m.gameMode = "creative";
+    m.populatedVillages = {{-3, 7}, {12, -1}};
     WorldMeta r; std::string err;
     REQUIRE(WorldMeta::fromJson(Json::parse(m.toJson().dump(), &err), r, &err));
     CHECK(r.raining); CHECK_EQ(r.weatherTicks, (i64)4321);
     CHECK(r.gen.seed == m.gen.seed); CHECK_EQ(r.gen.version, 2u); CHECK(r.gen.dimension == std::string("hollow"));
     CHECK_EQ(r.tick, m.tick); CHECK(r.gameMode == std::string("creative"));
+    CHECK(r.populatedVillages == m.populatedVillages);
 }
 
 TEST(worldgen_v3_adds_villages_only_where_they_stand) {

@@ -20,6 +20,7 @@ bool MobRegistry::load(const Json& mobs, const Json& models, const Json& anims, 
         d.height = (float)j["height"].asNumber(1.8); d.damage = (float)j["damage"].asNumber(0);
         d.behavior = j["behavior"].asString() == "hostile" ? MobBehavior::Hostile : MobBehavior::Passive;
         d.burnsInDaylight = j["burns_in_daylight"].asBool(false);
+        d.trader = j["trader"].asBool(false);
         d.flying = j["flying"].asBool(false); d.ranged = j["ranged"].asBool(false); d.emissive = j["emissive"].asBool(false);
         if (const Json* dims = j.find("dimensions")) { d.dimensions.clear(); for (auto& x : dims->arr) d.dimensions.push_back(x.asString()); }
         for (auto& dr : j["drops"].arr) {
@@ -231,8 +232,10 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
         } else if (m.path.empty() || m.pathIdx >= m.path.size()) {
             if (--m.idleTimer <= 0) {
                 m.idleTimer = 60 + rng.range(140);
-                if (rng.chance(0.6f)) {
+                bool farFromHome = m.hasHome && (std::fabs(m.pos.x - m.home.x) > 20 || std::fabs(m.pos.z - m.home.z) > 20);
+                if (farFromHome || rng.chance(0.6f)) {
                     BlockPos g{feet.x + rng.range(17) - 8, feet.y, feet.z + rng.range(17) - 8};
+                    if (m.hasHome) g = {(int)std::floor(m.home.x) + rng.range(21) - 10, feet.y, (int)std::floor(m.home.z) + rng.range(21) - 10};   // wander around home
                     for (int dy = 3; dy >= -3; dy--) if (walkableCell(w, {g.x, g.y + dy, g.z}, hb)) { g.y += dy; break; }
                     m.path = findPath(w, feet, g, hb, 200); m.pathIdx = 1;
                 }

@@ -220,8 +220,9 @@ void frame() {
     }
     if (G->opt.smokeFrames && (int)G->frame >= G->opt.smokeFrames) {
         auto rs = G->renderer.stats(); auto ws = G->world->stats();
-        printf("smoke [%s]: %llu frames, avg %.2f ms, chunks ready %d, sections %d visible %d, draws %d, tris %llu, mesh VRAM %.1f MiB, rss %.0f MiB\n",
-               G->dimension.c_str(), (unsigned long long)G->frame, G->frameMsAvg, ws.ready, rs.sections, rs.visibleSections, rs.drawCalls, (unsigned long long)(rs.quads * 2),
+        int settlers = 0; for (auto& m : G->mobs->mobs) settlers += G->mobReg.def(m.type).trader;
+        printf("smoke [%s] mobs %zu (settlers %d) villages %zu: %llu frames, avg %.2f ms, chunks ready %d, sections %d visible %d, draws %d, tris %llu, mesh VRAM %.1f MiB, rss %.0f MiB\n",
+               G->dimension.c_str(), G->mobs->mobs.size(), settlers, G->world->meta.populatedVillages.size(), (unsigned long long)G->frame, G->frameMsAvg, ws.ready, rs.sections, rs.visibleSections, rs.drawCalls, (unsigned long long)(rs.quads * 2),
                rs.gpuBytes / 1048576.0, processMemoryBytes() / 1048576.0);
         sapp_request_quit();
     }
