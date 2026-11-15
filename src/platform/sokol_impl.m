@@ -5,6 +5,7 @@
 #include "sokol/sokol_gfx.h"
 #include "sokol/sokol_glue.h"
 #include "sokol/sokol_time.h"
+#include "sokol/sokol_audio.h"
 
 #import <Cocoa/Cocoa.h>
 // Platform helpers used by src/app (C linkage).

@@ -38,7 +38,7 @@ if(NOT MSVC)
 endif()
 
 # ---- engine core: no graphics, fully testable headless ----
-file(GLOB VX_CORE_SRC CONFIGURE_DEPENDS src/core/*.cpp src/world/*.cpp src/storage/*.cpp src/game/*.cpp)
+file(GLOB VX_CORE_SRC CONFIGURE_DEPENDS src/core/*.cpp src/world/*.cpp src/storage/*.cpp src/game/*.cpp src/audio/*.cpp)
 add_library(voxcore STATIC ${VX_CORE_SRC})
 target_include_directories(voxcore PUBLIC src third_party)
 find_package(Threads REQUIRED)

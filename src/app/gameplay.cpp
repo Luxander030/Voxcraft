@@ -1,6 +1,8 @@
 // Session lifecycle, persistence of player state, simulation tick and block interaction.
 #include "app/game.h"
 #include "core/profiler.h"
+#include "sokol/sokol_audio.h"
+#include "sokol/sokol_log.h"
 #include <ctime>
 
 namespace vx {
@@ -71,6 +73,7 @@ void breakAt(const BlockPos& pos, bool withDrops) {
     const BlockDef& d = G->reg.def(s);
     if (BlockEntity* be = G->world->blockEntity(pos)) spill(pos, be->items);
     G->world->setBlock(pos, AIR);
+    sfx3d("break_" + d.sound, {pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f}, SoundCat::Blocks);
     if (withDrops) {
         auto drops = blockDrops(s, G->reg, G->items, G->recipes, G->held(), G->rng);
         for (auto& it : drops) G->entities->spawnItem({pos.x + 0.5f, pos.y + 0.3f, pos.z + 0.5f}, it, G->rng);
@@ -139,6 +142,7 @@ bool placeHeld() {
         }
     }
     if (!G->world->setBlock(at, place)) return false;
+    sfx3d("place_" + d.sound, {at.x + 0.5f, at.y + 0.5f, at.z + 0.5f}, SoundCat::Blocks);
     if (d.has(BF_INTERACT_CHEST)) G->world->ensureBlockEntity(at, BE_CHEST)->items.resize(CHEST_SLOTS);
     if (d.has(BF_INTERACT_KILN)) G->world->ensureBlockEntity(at, BE_KILN)->items.resize(KILN_SLOTS);
     if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
@@ -190,8 +194,23 @@ bool appInit(std::string* err) {
     }
     G->jobs = std::make_unique<JobSystem>(0);
     if (!G->renderer.init(G->reg, G->pack, *G->jobs, err)) return false;
+    {   // audio: synthesize the bank (~0.1 s), then start the output stream
+        Stopwatch sw; G->sounds.generate();
+        G->mixer = std::make_unique<Mixer>(G->sounds);
+        VX_INFO("audio: %zu sounds, %.1f KiB, %.0f ms", G->sounds.count(), G->sounds.bytes() / 1024.0, sw.ms());
+        saudio_desc ad = {}; ad.sample_rate = Mixer::RATE; ad.num_channels = 2; ad.logger.func = slog_func;
+        ad.stream_cb = [](float* buf, int frames, int ch) {
+            if (G && G->mixer && ch == 2) G->mixer->render(buf, frames); else std::memset(buf, 0, sizeof(float) * frames * ch);
+        };
+        saudio_setup(&ad);
+        if (!saudio_isvalid()) VX_WARN("audio output unavailable; continuing without sound");
+        applyOptions();
+    }
     return true;
 }
+
+void sfx(const std::string& n, float gain) { if (G->mixer) G->mixer->play(n, SoundCat::Ui, gain); }
+void sfx3d(const std::string& n, Vec3 at, SoundCat cat, float gain) { if (G->mixer) G->mixer->play3d(n, cat, at, gain, 0.9f + G->rng.unit() * 0.2f); }
 
 bool startSession(const std::string& worldName, const NewWorld* create, std::string* err) {
     G->opt.world = worldName;
@@ -199,7 +218,7 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
     G->entities = std::make_unique<EntityManager>(G->items);
     G->mobs = std::make_unique<MobSystem>(G->mobReg);
     G->entities->mobs = G->mobs.get();
-    G->entities->onPickup = [](const ItemStack&) {};
+    G->entities->onPickup = [](const ItemStack&) { sfx("pickup", 0.5f); };
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
     G->saveDir = userDataDir("Voxcraft") / "saves" / G->opt.world;
@@ -252,6 +271,7 @@ void resetPlayerState() {
 
 void endSession() {
     if (!G->world) return;
+    if (G->mixer) G->mixer->stopAll();
     closeScreen();
     G->renderer.detach();
     saveWorld(true);
@@ -301,6 +321,32 @@ void simulateTick() {
     if (G->stats.dead && G->screen != Screen::Dead) {
         if (!creative) { std::vector<ItemStack> all = G->inv.slots; spill({(int)std::floor(p.pos.x), (int)std::floor(p.pos.y), (int)std::floor(p.pos.z)}, all); G->inv.clear(); }
         closeScreen(); G->screen = Screen::Dead; G->mouseLocked = false; sapp_lock_mouse(false);
+    }
+
+    // ---- audio events
+    if (!G->stats.dead) {
+        float dx = p.pos.x - before.x, dz = p.pos.z - before.z;
+        if (p.onGround && !p.sneaking) G->stepDistance += std::sqrt(dx * dx + dz * dz);
+        if (G->stepDistance > 1.7f) {
+            G->stepDistance = 0;
+            BlockState below = G->world->getBlock((int)std::floor(p.pos.x), (int)std::floor(p.pos.y - 0.1f), (int)std::floor(p.pos.z));
+            if (below != AIR) sfx3d("step_" + G->reg.def(below).sound, p.pos, SoundCat::Blocks, 0.35f);
+        }
+        if (p.inFluid && !G->wasInFluid && p.vel.y < -0.1f) sfx3d("splash", p.pos, SoundCat::Blocks, 0.7f);
+        G->wasInFluid = p.inFluid;
+        if (G->stats.health < G->lastHealth - 0.01f) sfx("hurt", 0.8f);
+        G->lastHealth = G->stats.health;
+        if (G->eatTicks > 0 && G->eatTicks % 8 == 1) sfx("eat", 0.5f);
+    }
+    for (auto& m : G->mobs->mobs) {
+        Vec3 d = m.pos - p.pos;
+        if (m.alive() && dot(d, d) < 20 * 20 && G->rng.range(500) == 0) sfx3d(G->mobReg.def(m.type).name + "_call", m.pos + Vec3(0, 1, 0), SoundCat::Creatures, 0.8f);
+    }
+    {
+        double t = G->world->meta.tick / 20.0;
+        bool underground = G->world->skyLight({(int)std::floor(p.pos.x), (int)std::floor(p.eye().y), (int)std::floor(p.pos.z)}) == 0 && p.pos.y < 55;
+        if (underground && t > G->nextAmbient) { G->nextAmbient = t + 15 + G->rng.range(20); if (G->mixer) G->mixer->play(G->rng.chance(0.5f) ? "cave_drone" : "drip", SoundCat::Ambient, 0.4f); }
+        if (t > G->nextMusic) { G->nextMusic = t + 300 + G->rng.range(300); if (G->mixer) G->mixer->startMusic(G->rng.next()); }
     }
 
     // eating: hold use with food selected
@@ -355,6 +401,7 @@ bool attackMob() {
     float dmg = h ? h->damage : 1.0f;
     MobContext ctx = mobContext();
     if (G->mobs->hurt(*m, dmg, G->player.look(), G->rng, &ctx)) {
+        sfx3d(m->alive() ? "mob_hurt" : "mob_death", m->pos + Vec3(0, 0.8f, 0), SoundCat::Creatures);
         G->stats.exhaust(0.1f);
         if (h && h->durability > 0) { damageHeldTool(); if (h->tool != ToolType::Sword) damageHeldTool(); }
     }
@@ -375,6 +422,7 @@ void updateInteraction(float dt) {
     }
     float secs = breakSeconds(d, G->held(), G->player.onGround || G->player.flying, G->player.headInFluid);
     if (secs < 0) return;
+    if ((G->digTimer -= dt) <= 0) { G->digTimer = 0.25f; sfx3d("dig_" + d.sound, {t.x + 0.5f, t.y + 0.5f, t.z + 0.5f}, SoundCat::Blocks, 0.6f); }
     G->breakProgress += secs == 0 ? 1.0f : dt / secs;
     if (G->breakProgress >= 1.0f) {
         breakAt(t, true);
@@ -393,8 +441,9 @@ void clickUse() {
         if (d.has(BF_INTERACT_CRAFT)) { openScreen(Screen::Workbench); return; }
         if (d.has(BF_INTERACT_CHEST)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_CHEST)->items.resize(CHEST_SLOTS); openScreen(Screen::Chest); return; }
         if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
-        if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); return; }
-        if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); return; }
+        Vec3 tc{G->target.block.x + 0.5f, G->target.block.y + 0.5f, G->target.block.z + 0.5f};
+        if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
+        if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.name == "relay") { G->world->setBlock(G->target.block, G->reg.withProp(s, "delay", (G->reg.getProp(s, "delay") + 1) % 4)); return; }
     }
     // buckets: scoop a source or pour one

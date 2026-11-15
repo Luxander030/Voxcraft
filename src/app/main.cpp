@@ -9,6 +9,7 @@
 #include "core/profiler.h"
 #include "sokol/sokol_log.h"
 #include "sokol/sokol_time.h"
+#include "sokol/sokol_audio.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -139,6 +140,7 @@ void frame() {
     G->target = G->stats.dead ? RayHit{} : raycastBlocks(*G->world, eye, p.look(), G->creative() ? 6.0f : 5.0f);
     if (simulate) updateInteraction((float)dt);
 
+    if (G->mixer) G->mixer->setListener(eye, p.yaw);
     G->world->setFocus(renderPos, G->opt.radius + 2);
     G->world->update(4.0);
     G->renderer.updateMeshes(eye, G->opt.radius);
@@ -169,6 +171,8 @@ void frame() {
 
 void cleanup() {
     endSession();
+    saudio_shutdown();
+    G->mixer.reset();
     sg_shutdown();
     G->jobs.reset();
     delete G; G = nullptr;

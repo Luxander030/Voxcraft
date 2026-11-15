@@ -5,6 +5,7 @@
 #include "sokol/sokol_gfx.h"
 #include "sokol/sokol_glue.h"
 #include "sokol/sokol_time.h"
+#include "sokol/sokol_audio.h"
 
 int vx_platform_window_id(void) { return 0; }
 void vx_platform_activate(void) {}

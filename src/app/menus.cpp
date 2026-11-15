@@ -18,7 +18,7 @@ bool button(float x, float y, float w, const std::string& label, bool enabled = 
     ui.frame(x, y, w, h, 1, hv ? C(240, 240, 255) : C(20, 20, 24));
     ui.rect(x + 1, y + 1, w - 2, 1, C(255, 255, 255, 50));
     ui.text(x + w / 2 - Ui::textWidth(label) / 2, y + 6, label, enabled ? C(240, 240, 240) : C(140, 140, 140));
-    if (hv && G->clicked) { G->clicked = false; return true; }
+    if (hv && G->clicked) { G->clicked = false; sfx("ui_click", 0.6f); return true; }
     return false;
 }
 
@@ -119,7 +119,10 @@ void UserOptions::save() const {
     std::string s = j.dump(2);
     if (!writeFileAtomic(userDataDir("Voxcraft") / "options.json", s.data(), s.size())) VX_WARN("could not save options");
 }
-void applyOptions() { G->opt.radius = G->options.renderDistance; }
+void applyOptions() {
+    G->opt.radius = G->options.renderDistance;
+    if (G->mixer) for (int i = 0; i < (int)SoundCat::Count; i++) G->mixer->setVolume((SoundCat)i, G->options.volume[i]);
+}
 
 // ------------------------------------------------------------------ worlds
 void refreshWorldList() {

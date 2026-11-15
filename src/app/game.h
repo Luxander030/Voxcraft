@@ -2,6 +2,7 @@
 #pragma once
 #include "app/renderer.h"
 #include "app/ui.h"
+#include "audio/audio.h"
 #include "game/behaviors.h"
 #include "game/entities.h"
 #include "game/items.h"
@@ -56,6 +57,9 @@ struct Game {
     ItemRegistry items;
     RecipeBook recipes;
     MobRegistry mobReg;
+    SoundBank sounds;
+    std::unique_ptr<Mixer> mixer;
+    float stepDistance = 0, lastHealth = 20; double nextMusic = 45, nextAmbient = 20; bool wasInFluid = false; float digTimer = 0;
     std::unique_ptr<MobSystem> mobs;   // owned before world (persisted through entities)
     std::unique_ptr<JobSystem> jobs;
     std::unique_ptr<EntityManager> entities;   // declared before world: must outlive it
@@ -140,6 +144,8 @@ void refreshWorldList();
 void chatSubmit(const std::string& line);
 void chatPrint(const std::string& line);
 void applyOptions();
+void sfx(const std::string& name, float gain = 1.0f);                            // UI / non-positional
+void sfx3d(const std::string& name, Vec3 at, SoundCat cat, float gain = 1.0f);    // positional, random pitch
 
 // screens.cpp
 void drawFrameUi(int w, int h);

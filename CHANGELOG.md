@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Phase 9: audio
+- Procedural original sound bank and software mixer (positional, six categories, voice
+  stealing), with generative ambient music and cave ambience.
+- Sound hooks across gameplay and UI. Volume settings take effect immediately.
+
 ### Phase 9: menus
 - Title screen and world list: play, create, and delete (moved to `saves/.trash`, so it can be
   recovered). World creation takes a name, seed, game mode and world type.

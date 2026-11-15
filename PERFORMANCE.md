@@ -49,6 +49,8 @@ Storage tests (`voxtests`):
 | Mesh VRAM | ~15 MiB (12 B/vertex) |
 | Process RSS | 85–125 MiB |
 
+Audio bank: 51 sounds synthesized in 18 ms at startup, 1.6 MiB of RAM, 0 bytes on disk.
+
 Greedy merging turns a flat 16×16 floor from 512 quads into 2 (`render_greedy_merges_flat_floor`).
 
 ## Storage optimizations in place

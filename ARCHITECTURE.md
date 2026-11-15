@@ -99,6 +99,17 @@ changes. Nothing scans the world per frame.
 - A flowing cell whose support weakens drains immediately. This avoids the slow
   "count-to-infinity" decay of mutually-feeding cells.
 
+## Audio
+
+`src/audio` (platform independent) has two parts:
+- `SoundBank` synthesizes every sound from DSP recipes: filtered noise grains per material,
+  damped resonators, and FM tones. The sounds are therefore original, need no disk space, and
+  are deterministic per platform.
+- `Mixer` renders interleaved stereo for sokol_audio's stream callback. Requests from the main
+  thread go into a queue that the audio thread drains with `try_lock`, so the audio thread
+  never blocks. Voices are stolen when all 32 are busy. Gains are computed once per block
+  rather than per sample.
+
 ## Circuits
 
 `game/circuits.cpp` defines which blocks emit power into which neighbours, and the rules for
