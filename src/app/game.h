@@ -19,8 +19,8 @@
 
 namespace vx {
 
-enum class Screen { None, Pause, Inventory, Workbench, Chest, Kiln, Dead, Chat, Settings, Trade };
-enum class AppState { Title, Worlds, CreateWorld, ConfirmDelete, Settings, Playing };
+enum class Screen { None, Pause, Inventory, Workbench, Chest, Kiln, Dead, Chat, Settings, Trade, Controls };
+enum class AppState { Title, Worlds, CreateWorld, ConfirmDelete, Settings, Controls, Playing };
 
 // Persistent user options (<user data>/Voxcraft/options.json).
 struct UserOptions {
@@ -28,10 +28,16 @@ struct UserOptions {
     float fov = 70, sensitivity = 1.0f;
     float volume[6] = {0.8f, 0.5f, 1.0f, 1.0f, 0.7f, 0.8f};   // master, music, blocks, creatures, ambient, ui
     bool distantTerrain = true;
+    // controls & accessibility
+    enum Action { Forward, Back, Left, Right, Jump, Sneak, Sprint, InventoryKey, Drop, Chat, ActionCount };
+    int keys[ActionCount] = {SAPP_KEYCODE_W, SAPP_KEYCODE_S, SAPP_KEYCODE_A, SAPP_KEYCODE_D, SAPP_KEYCODE_SPACE, SAPP_KEYCODE_LEFT_SHIFT,
+                             SAPP_KEYCODE_LEFT_CONTROL, SAPP_KEYCODE_E, SAPP_KEYCODE_Q, SAPP_KEYCODE_T};
+    bool invertMouse = false, toggleSneak = false, toggleSprint = false, subtitles = false;
     bool load();
     void save() const;
 };
 static const char* const VOLUME_NAMES[6] = {"Master", "Music", "Blocks", "Creatures", "Ambient", "Interface"};
+static const char* const ACTION_NAMES[10] = {"Forward", "Back", "Left", "Right", "Jump", "Sneak", "Sprint", "Inventory", "Drop", "Chat"};
 
 struct WorldEntry { std::string folder, name, mode; u64 seed = 0, lastPlayed = 0; };
 
@@ -59,6 +65,10 @@ struct Game {
     std::string fieldName = "New World", fieldSeed; int focusField = 0; bool newCreative = false, newFlat = false;
     AppState settingsReturn = AppState::Title;
     bool clicked = false, mouseHeld = false;      // menu input for this frame
+    int rebinding = -1;                           // action waiting for a key press
+    bool sneakLatched = false, sprintLatched = false;
+    struct Caption { std::string text; double until; int side; };   // side: -1 left, 0 centre, 1 right
+    std::vector<Caption> captions;
     std::string chatLine; std::vector<std::pair<std::string, double>> chatLog;
     fs::path assetDir, saveDir;                 // saveDir = main save folder (overworld)
     std::string dimension = "overworld", pendingDimension = "overworld";

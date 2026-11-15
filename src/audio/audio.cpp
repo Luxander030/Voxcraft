@@ -86,6 +86,8 @@ void SoundBank::generate() {
     { Gen g("puffbird_call", 0.4f); g.fm(0, 0.08f, 2200, 2900, 1, 0.5f, 0.7f); g.fm(0.14f, 0.1f, 2400, 3300, 1, 0.5f, 0.7f); sounds_["puffbird_call"] = g.done(); }
     { Gen g("gloomling_call", 1.0f); g.fm(0, 0.9f, 95, 70, 0.51f, 3.0f, 0.8f, 6); g.burst(0, 0.9f, 400, 40, 0.3f, 2); sounds_["gloomling_call"] = g.done(); }
     { Gen g("rockmite_call", 0.3f); for (int k = 0; k < 4; k++) g.burst(k * 0.06f, 0.03f, 7000, 2500, 0.8f, 150); sounds_["rockmite_call"] = g.done(); }
+    { Gen g("settler_call", 0.6f); g.fm(0, 0.25f, 260, 300, 1.0f, 0.6f, 0.7f, 4); g.fm(0.28f, 0.28f, 300, 240, 1.0f, 0.6f, 0.7f, 4); sounds_["settler_call"] = g.done(); }
+    { Gen g("cinderwisp_call", 0.5f); for (int k = 0; k < 7; k++) g.burst(k * 0.06f, 0.05f, 6000, 1200, 0.7f, 70); g.fm(0, 0.4f, 420, 380, 2.0f, 2.5f, 0.3f, 10); sounds_["cinderwisp_call"] = g.done(); }
     { Gen g("mob_hurt", 0.25f); g.fm(0, 0.2f, 400, 250, 1.2f, 2.0f, 0.8f); sounds_["mob_hurt"] = g.done(); }
     { Gen g("mob_death", 0.6f); g.fm(0, 0.55f, 300, 80, 1.3f, 2.5f, 0.8f); g.burst(0.05f, 0.4f, 2000, 100, 0.3f, 6); sounds_["mob_death"] = g.done(); }
     // ambient

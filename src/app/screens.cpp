@@ -377,9 +377,20 @@ void drawFrameUi(int w, int h) {
     if (G->now < G->statusUntil) ui.text(W / 2 - Ui::textWidth(G->status) / 2, H / 2 + 20, G->status, C(255, 240, 160));
     if (!G->playerReady) { const char* t = "Generating terrain..."; ui.text(W / 2 - Ui::textWidth(t) / 2, H / 2 - 30, t, C(255, 255, 255)); }
     if (G->debug) drawDebug();
+    if (G->options.subtitles) {   // sound captions, bottom right, with direction markers
+        float y = H - 48;
+        for (auto it = G->captions.rbegin(); it != G->captions.rend(); ++it) {
+            if (it->until < G->now) continue;
+            std::string t = (it->side < 0 ? "< " : "  ") + it->text + (it->side > 0 ? " >" : "  ");
+            float w = Ui::textWidth(t) + 6;
+            ui.rect(W - w - 4, y - 1, w, 10, C(0, 0, 0, 170));
+            ui.text(W - w - 1, y, t, C(255, 255, 255), false);
+            y -= 11;
+        }
+    }
 
     switch (G->screen) {
-    case Screen::Pause: case Screen::Settings:
+    case Screen::Pause: case Screen::Settings: case Screen::Controls:
         drawPauseOrSettingsOverlay();
         break;
     case Screen::Dead: {

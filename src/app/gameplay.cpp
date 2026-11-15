@@ -239,8 +239,34 @@ bool appInit(std::string* err) {
     return true;
 }
 
-void sfx(const std::string& n, float gain) { if (G->mixer) G->mixer->play(n, SoundCat::Ui, gain); }
-void sfx3d(const std::string& n, Vec3 at, SoundCat cat, float gain) { if (G->mixer) G->mixer->play3d(n, cat, at, gain, 0.9f + G->rng.unit() * 0.2f); }
+// Captions for sounds worth knowing about (accessibility: subtitles).
+static const char* captionFor(const std::string& n) {
+    static const std::pair<const char*, const char*> table[] = {
+        {"grazer_call", "Grazer calls"}, {"puffbird_call", "Puffbird chirps"}, {"gloomling_call", "Gloomling growls"}, {"rockmite_call", "Rockmite clicks"},
+        {"settler_call", "Settler hums"}, {"cinderwisp_call", "Cinderwisp crackles"}, {"mob_hurt", "Creature hurt"}, {"mob_death", "Creature dies"},
+        {"hurt", "You are hurt"}, {"splash", "Splash"}, {"click_circuit", "Click"}, {"piston", "Piston moves"}, {"eat", "Eating"},
+        {"rain", "Rain"}, {"cave_drone", "Cave rumbles"}, {"drip", "Water drips"}, {"pickup", "Item picked up"}};
+    for (auto& [k, v] : table) if (n == k) return v;
+    if (n.rfind("break_", 0) == 0) return "Block breaks";
+    if (n.rfind("place_", 0) == 0) return "Block placed";
+    return nullptr;
+}
+static void caption(const std::string& n, int side) {
+    if (!G->options.subtitles) return;
+    const char* c = captionFor(n);
+    if (!c) return;
+    for (auto& e : G->captions) if (e.text == c) { e.until = G->now + 3; e.side = side; return; }
+    G->captions.push_back({c, G->now + 3, side});
+    if (G->captions.size() > 6) G->captions.erase(G->captions.begin());
+}
+void sfx(const std::string& n, float gain) { if (G->mixer) G->mixer->play(n, SoundCat::Ui, gain); caption(n, 0); }
+void sfx3d(const std::string& n, Vec3 at, SoundCat cat, float gain) {
+    if (G->mixer) G->mixer->play3d(n, cat, at, gain, 0.9f + G->rng.unit() * 0.2f);
+    Vec3 d = at - G->player.pos; if (dot(d, d) > 16 * 16) return;
+    Vec3 right{std::cos(G->player.yaw), 0, std::sin(G->player.yaw)};
+    float s = dot(normalize(d), right);
+    caption(n, s > 0.3f ? 1 : s < -0.3f ? -1 : 0);
+}
 
 bool startSession(const std::string& worldName, const NewWorld* create, std::string* err) {
     G->opt.world = worldName;
@@ -398,10 +424,14 @@ void simulateTick() {
     bool inScreen = G->screen != Screen::None;
     PlayerInput in = G->input;
     if (!inScreen) {
-        in.forward += (G->keys[SAPP_KEYCODE_W] ? 1.f : 0.f) - (G->keys[SAPP_KEYCODE_S] ? 1.f : 0.f);
-        in.strafe = (G->keys[SAPP_KEYCODE_D] ? 1.f : 0.f) - (G->keys[SAPP_KEYCODE_A] ? 1.f : 0.f);
-        in.jump = G->keys[SAPP_KEYCODE_SPACE]; in.sneak = G->keys[SAPP_KEYCODE_LEFT_SHIFT];
-        in.sprint = (G->keys[SAPP_KEYCODE_LEFT_CONTROL] || G->keys[SAPP_KEYCODE_R]) && (G->creative() || G->stats.food > 6);
+        const UserOptions& o = G->options;
+        auto down = [&](int a) { return G->keys[o.keys[a]]; };
+        in.forward += (down(UserOptions::Forward) ? 1.f : 0.f) - (down(UserOptions::Back) ? 1.f : 0.f);
+        in.strafe = (down(UserOptions::Right) ? 1.f : 0.f) - (down(UserOptions::Left) ? 1.f : 0.f);
+        in.jump = down(UserOptions::Jump);
+        in.sneak = o.toggleSneak ? G->sneakLatched : down(UserOptions::Sneak);
+        in.sprint = (o.toggleSprint ? G->sprintLatched : (down(UserOptions::Sprint) || G->keys[SAPP_KEYCODE_R])) && (G->creative() || G->stats.food > 6);
+        if (G->sprintLatched && in.forward <= 0) G->sprintLatched = false;   // toggled sprint ends when you stop
     }
     bool wasGround = p.onGround;
     Vec3 before = p.pos;
@@ -462,7 +492,7 @@ void simulateTick() {
                 G->particles.precipitation({x, y, z}, snow, G->rng);
             }
             bool exposed = G->world->skyLight({(int)std::floor(e.x), (int)std::floor(e.y), (int)std::floor(e.z)}) > 10;
-            if (wm.tick % 80 == 0 && G->mixer) G->mixer->play("rain", SoundCat::Ambient, exposed ? 0.5f : 0.2f);
+            if (wm.tick % 80 == 0 && G->mixer) { G->mixer->play("rain", SoundCat::Ambient, exposed ? 0.5f : 0.2f); caption("rain", 0); }
         }
     }
 
@@ -665,7 +695,7 @@ void clickUse() {
             return;
         }
     }
-    if (G->target.hit && !G->keys[SAPP_KEYCODE_LEFT_SHIFT]) {
+    if (G->target.hit && !G->keys[G->options.keys[UserOptions::Sneak]] && !G->sneakLatched) {
         BlockState s = G->world->getBlock(G->target.block);
         const BlockDef& d = G->reg.def(s);
         if (d.has(BF_INTERACT_CRAFT)) { openScreen(Screen::Workbench); return; }

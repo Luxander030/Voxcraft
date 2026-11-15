@@ -76,6 +76,38 @@ std::string folderFor(const std::string& name) {
     return cand;
 }
 
+std::string keyName(int k) {
+    if (k >= SAPP_KEYCODE_A && k <= SAPP_KEYCODE_Z) return std::string(1, (char)('A' + (k - SAPP_KEYCODE_A)));
+    if (k >= SAPP_KEYCODE_0 && k <= SAPP_KEYCODE_9) return std::string(1, (char)('0' + (k - SAPP_KEYCODE_0)));
+    switch (k) {
+        case SAPP_KEYCODE_SPACE: return "Space"; case SAPP_KEYCODE_LEFT_SHIFT: return "L-Shift"; case SAPP_KEYCODE_RIGHT_SHIFT: return "R-Shift";
+        case SAPP_KEYCODE_LEFT_CONTROL: return "L-Ctrl"; case SAPP_KEYCODE_RIGHT_CONTROL: return "R-Ctrl"; case SAPP_KEYCODE_LEFT_ALT: return "L-Alt";
+        case SAPP_KEYCODE_TAB: return "Tab"; case SAPP_KEYCODE_UP: return "Up"; case SAPP_KEYCODE_DOWN: return "Down";
+        case SAPP_KEYCODE_LEFT: return "Left"; case SAPP_KEYCODE_RIGHT: return "Right"; case SAPP_KEYCODE_ENTER: return "Enter";
+        default: return "Key " + std::to_string(k);
+    }
+}
+
+void controlsPanel(float W, float H, bool inGame) {
+    UserOptions& o = G->options;
+    float x = W / 2 - 155, y = std::max(24.0f, H / 2 - 120);
+    G->ui.text(W / 2 - Ui::textWidth("Controls and accessibility") / 2, y - 14, "Controls and accessibility", C(255, 255, 255));
+    for (int i = 0; i < UserOptions::ActionCount; i++) {
+        float bx = x + (i % 2) * 160, by = y + (i / 2) * 22;
+        std::string label = std::string(ACTION_NAMES[i]) + ": " + (G->rebinding == i ? "> press a key <" : keyName(o.keys[i]));
+        if (button(bx, by, 150, label)) G->rebinding = i;
+    }
+    float ty = y + 5 * 22 + 6;
+    if (button(x, ty, 150, o.invertMouse ? "Invert mouse: On" : "Invert mouse: Off")) o.invertMouse = !o.invertMouse;
+    if (button(x + 160, ty, 150, o.subtitles ? "Subtitles: On" : "Subtitles: Off")) o.subtitles = !o.subtitles;
+    if (button(x, ty + 22, 150, o.toggleSneak ? "Sneak: Toggle" : "Sneak: Hold")) o.toggleSneak = !o.toggleSneak;
+    if (button(x + 160, ty + 22, 150, o.toggleSprint ? "Sprint: Toggle" : "Sprint: Hold")) o.toggleSprint = !o.toggleSprint;
+    if (button(x + 80, ty + 50, 150, "Done")) {
+        G->rebinding = -1; o.save();
+        if (inGame) G->screen = Screen::Settings; else G->app = AppState::Settings;
+    }
+}
+
 void settingsPanel(float W, float H, bool inGame) {
     UserOptions& o = G->options;
     float x = W / 2 - 155, y = std::max(30.0f, H / 2 - 110);
@@ -90,7 +122,8 @@ void settingsPanel(float W, float H, bool inGame) {
         snprintf(b, sizeof b, "%s: %d%%", VOLUME_NAMES[i], (int)(o.volume[i] * 100));
         slider(x + (i % 2) * 160, y + 56 + (i / 2) * 24, 150, b, o.volume[i], 0, 1, 0.05f);
     }
-    if (button(x + 80, y + 128, 150, o.distantTerrain ? "Distant terrain: On" : "Distant terrain: Off")) o.distantTerrain = !o.distantTerrain;
+    if (button(x, y + 128, 150, o.distantTerrain ? "Distant terrain: On" : "Distant terrain: Off")) o.distantTerrain = !o.distantTerrain;
+    if (button(x + 160, y + 128, 150, "Controls...")) { if (inGame) G->screen = Screen::Controls; else G->app = AppState::Controls; }
     if (button(x + 80, y + 152, 150, "Done")) {
         o.save(); applyOptions();
         if (inGame) G->screen = Screen::Pause; else G->app = G->settingsReturn;
@@ -111,6 +144,9 @@ bool UserOptions::load() {
     sensitivity = clamp((float)j["sensitivity"].asNumber(sensitivity), 0.2f, 3.0f);
     for (int i = 0; i < 6; i++) volume[i] = clamp((float)j["volume"][i].asNumber(volume[i]), 0.0f, 1.0f);
     distantTerrain = j["distant_terrain"].asBool(true);
+    invertMouse = j["invert_mouse"].asBool(false); toggleSneak = j["toggle_sneak"].asBool(false);
+    toggleSprint = j["toggle_sprint"].asBool(false); subtitles = j["subtitles"].asBool(false);
+    if (const Json* k = j.find("keys")) for (int i = 0; i < ActionCount && i < (int)k->size(); i++) keys[i] = clamp((*k)[i].asInt(keys[i]), 1, 511);
     return true;
 }
 void UserOptions::save() const {
@@ -119,6 +155,9 @@ void UserOptions::save() const {
     j.set("fov", Json::of((double)fov)); j.set("sensitivity", Json::of((double)sensitivity));
     Json v = Json::makeArray(); for (float f : volume) v.push(Json::of((double)f)); j.set("volume", v);
     j.set("distant_terrain", Json::of(distantTerrain));
+    j.set("invert_mouse", Json::of(invertMouse)); j.set("toggle_sneak", Json::of(toggleSneak));
+    j.set("toggle_sprint", Json::of(toggleSprint)); j.set("subtitles", Json::of(subtitles));
+    Json k = Json::makeArray(); for (int key : keys) k.push(Json::of((double)key)); j.set("keys", k);
     std::string s = j.dump(2);
     if (!writeFileAtomic(userDataDir("Voxcraft") / "options.json", s.data(), s.size())) VX_WARN("could not save options");
 }
@@ -244,6 +283,9 @@ void drawMenus(int w, int h) {
         ui.text(W / 2 - Ui::textWidth("Settings") / 2, 12, "Settings", C(255, 255, 255));
         settingsPanel(W, H, false);
         break;
+    case AppState::Controls:
+        controlsPanel(W, H, false);
+        break;
     default: break;
     }
     G->clicked = false;
@@ -253,6 +295,7 @@ void drawPauseOrSettingsOverlay() {
     Ui& ui = G->ui; float W = ui.width / ui.scale, H = ui.height / ui.scale;
     ui.rect(0, 0, W, H, C(0, 0, 0, 120));
     if (G->screen == Screen::Settings) { settingsPanel(W, H, true); G->clicked = false; return; }
+    if (G->screen == Screen::Controls) { controlsPanel(W, H, true); G->clicked = false; return; }
     ui.text(W / 2 - Ui::textWidth("Game paused") / 2, H / 2 - 60, "Game paused", C(255, 255, 255));
     float x = W / 2 - 100;
     if (button(x, H / 2 - 40, 200, "Back to game")) closeScreen();
@@ -273,6 +316,11 @@ void menuChar(u32 c) {
 }
 
 void menuKey(int key) {
+    if (G->rebinding >= 0) {   // assign the pressed key (Esc cancels)
+        if (key != SAPP_KEYCODE_ESCAPE) G->options.keys[G->rebinding] = key;
+        G->rebinding = -1;
+        return;
+    }
     std::string* s = nullptr;
     if (G->app == AppState::Playing && G->screen == Screen::Chat) s = &G->chatLine;
     else if (G->app == AppState::CreateWorld) s = G->focusField == 1 ? &G->fieldName : G->focusField == 2 ? &G->fieldSeed : nullptr;

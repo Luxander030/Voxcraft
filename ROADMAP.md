@@ -80,6 +80,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Title screen, world list (play/create/delete-to-trash), world creation (name, seed, mode, type), settings (render distance, FOV, sensitivity, GUI scale, 6 volume categories) persisted in `options.json`, pause menu with save & quit to title.
 - ✅ Chat with commands: /help /gamemode /time /tp /give /seed /spawnpoint /kill /summon.
 - ✅ Font descenders.
+- ✅ Controls & accessibility: remappable keys (10 actions), invert mouse, toggle sneak/sprint, sound subtitles with direction markers; persisted in options.json.
 - ✅ Audio: 51 original sounds synthesized at startup (1.6 MiB, 18 ms; no audio files), own mixer with 32 voices, positional attenuation + equal-power panning, 6 volume categories, generative ambient music, cave ambience; footsteps/dig/break/place per material, creature calls, UI, pickup, hurt, eat, splash, circuit clicks.
 - ✅ Particles (pooled, fixed capacity): block debris on dig/break, creature death puffs, torch flames + smoke, water splashes; crack overlay showing break progress; outline fits the block's shape.
 - ✅ Sky: sun and moon following the day cycle, stars at night, drifting block clouds (unlit/unfogged sky objects occluded by terrain via depth).

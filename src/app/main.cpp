@@ -186,7 +186,7 @@ void frame() {
         p.prevPos = p.pos;
         G->playerReady = true;
     }
-    bool simulate = G->playerReady && G->world->isReady(pc) && G->screen != Screen::Pause && G->screen != Screen::Settings;
+    bool simulate = G->playerReady && G->world->isReady(pc) && G->screen != Screen::Pause && G->screen != Screen::Settings && G->screen != Screen::Controls;
     G->accumulator += dt;
     int steps = 0;
     while (G->accumulator >= 0.05 && steps < 5) {
@@ -280,7 +280,7 @@ void cleanup() {
 void event(const sapp_event* e) {
     if (G->initFailed) return;
     // ---- menus (title, worlds, create, settings) and in-game menu overlays
-    bool overlay = G->app == AppState::Playing && (G->screen == Screen::Pause || G->screen == Screen::Settings);
+    bool overlay = G->app == AppState::Playing && (G->screen == Screen::Pause || G->screen == Screen::Settings || G->screen == Screen::Controls);
     if (G->app != AppState::Playing || overlay || (G->app == AppState::Playing && G->screen == Screen::Chat)) {
         switch (e->type) {
         case SAPP_EVENTTYPE_MOUSE_MOVE: G->mouseX = e->mouse_x; G->mouseY = e->mouse_y; return;
@@ -291,7 +291,9 @@ void event(const sapp_event* e) {
         case SAPP_EVENTTYPE_KEY_DOWN:
             menuKey(e->key_code);
             if (e->key_code == SAPP_KEYCODE_ESCAPE) {
-                if (G->app == AppState::Playing) { if (G->screen == Screen::Settings) { G->options.save(); applyOptions(); G->screen = Screen::Pause; } else closeScreen(); }
+                if (G->rebinding >= 0) { /* handled by menuKey: cancels the rebind */ }
+                else if (G->app == AppState::Playing) { if (G->screen == Screen::Settings) { G->options.save(); applyOptions(); G->screen = Screen::Pause; } else if (G->screen == Screen::Controls) { G->options.save(); G->screen = Screen::Settings; } else closeScreen(); }
+                else if (G->app == AppState::Controls) { G->options.save(); G->app = AppState::Settings; }
                 else if (G->app == AppState::Worlds || G->app == AppState::Settings) { G->options.save(); applyOptions(); G->app = AppState::Title; }
                 else if (G->app == AppState::CreateWorld || G->app == AppState::ConfirmDelete) G->app = AppState::Worlds;
             }
@@ -311,10 +313,14 @@ void event(const sapp_event* e) {
             if (G->screen == Screen::None) { G->screen = Screen::Pause; G->mouseLocked = false; sapp_lock_mouse(false); for (bool& kk : G->keys) kk = false; }
             else if (G->screen != Screen::Dead) closeScreen();
         }
-        if ((k == SAPP_KEYCODE_T || k == SAPP_KEYCODE_SLASH) && G->screen == Screen::None && !e->key_repeat) {
+        if (((int)k == G->options.keys[UserOptions::Chat] || k == SAPP_KEYCODE_SLASH) && G->screen == Screen::None && !e->key_repeat) {
             openScreen(Screen::Chat); G->chatLine = k == SAPP_KEYCODE_SLASH ? "/" : ""; G->ignoreChar = true; break;
         }
-        if (k == SAPP_KEYCODE_E && !e->key_repeat) {
+        if (G->screen == Screen::None && !e->key_repeat) {
+            if (G->options.toggleSneak && (int)k == G->options.keys[UserOptions::Sneak]) G->sneakLatched = !G->sneakLatched;
+            if (G->options.toggleSprint && (int)k == G->options.keys[UserOptions::Sprint]) G->sprintLatched = !G->sprintLatched;
+        }
+        if ((int)k == G->options.keys[UserOptions::InventoryKey] && !e->key_repeat) {
             if (G->screen == Screen::None) openScreen(Screen::Inventory);
             else if (G->screen != Screen::Pause && G->screen != Screen::Dead) closeScreen();
         }
@@ -329,7 +335,7 @@ void event(const sapp_event* e) {
         }
         if (inScreen) break;
         if (k == SAPP_KEYCODE_F && !e->key_repeat) G->input.toggleFly = true;
-        if (k == SAPP_KEYCODE_Q && !e->key_repeat) dropSelected((e->modifiers & SAPP_MODIFIER_CTRL) != 0);
+        if ((int)k == G->options.keys[UserOptions::Drop] && !e->key_repeat) dropSelected((e->modifiers & SAPP_MODIFIER_CTRL) != 0);
         if (k >= SAPP_KEYCODE_1 && k <= SAPP_KEYCODE_9) G->hotbarSel = k - SAPP_KEYCODE_1;
         break;
     }
@@ -355,7 +361,7 @@ void event(const sapp_event* e) {
         if (G->mouseLocked && !inScreen) {
             const float sens = 0.0025f * G->options.sensitivity;
             G->player.yaw += e->mouse_dx * sens;
-            G->player.pitch = clamp(G->player.pitch - e->mouse_dy * sens, -1.55f, 1.55f);
+            G->player.pitch = clamp(G->player.pitch - e->mouse_dy * sens * (G->options.invertMouse ? -1.0f : 1.0f), -1.55f, 1.55f);
         }
         break;
     case SAPP_EVENTTYPE_MOUSE_SCROLL:
