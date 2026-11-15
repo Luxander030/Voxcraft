@@ -20,8 +20,27 @@ public:
     static constexpr int WATER_DELAY = 5, LAVA_DELAY = 30, FALL_DELAY = 2;
     // Places a fluid source and schedules its first flow (used by buckets later, and tests).
     void placeFluidSource(const BlockPos& p, bool lava);
+    // Circuits: lever/button use, and the game's "is an entity standing on this plate" query.
+    void toggleLever(const BlockPos& p);
+    void pressButton(const BlockPos& p);
+    void pressPlate(const BlockPos& p);
+    std::function<bool(const BlockPos&)> entityOnPlate;
+    // Signal strength (0..15) arriving at p from all six neighbours (exposed for tests/debug).
+    int inputPower(const BlockPos& p) const;
 private:
-    void neighborChanged(const BlockPos& p);
+    void neighborChanged(const BlockPos& p, const BlockPos& from);
+    void processUpdate(const BlockPos& p, const BlockPos& from);
+    // circuits.cpp
+    bool circuitUpdate(const BlockPos& p, BlockState s, const BlockPos& from);   // true if handled
+    bool circuitTick(const BlockPos& p, BlockState s);
+    int emitInto(const BlockPos& src, const BlockPos& dst, bool forWire) const;
+    int strongPower(const BlockPos& b) const;       // solid block powered by a source/relay into it
+    bool weaklyPowered(const BlockPos& b) const;    // solid block under a powered wire
+    void notifyAround(const BlockPos& p);
+    void pistonSet(const BlockPos& p, BlockState s, bool extend);
+    bool inUpdate_ = false;
+    std::vector<std::pair<BlockPos, BlockPos>> queue_;
+    u16 wireIdx_, torchIdx_, leverIdx_, buttonIdx_, plateIdx_, lampIdx_, relayIdx_, watcherIdx_, pistonIdx_, headIdx_;
     void scheduled(const BlockPos& p, BlockState s);
     void randomTick(const BlockPos& p, BlockState s);
     void fluidTick(const BlockPos& p, BlockState s);

@@ -49,9 +49,14 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Buckets (scoop and pour sources).
 - ⬜ Structures (ruins, villages), more biome features, smooth fluid surfaces.
 
-## Phases 8–11 ⬜
-Circuits, mobs and AI, dimensions, audio, menus, particles, animation, packaging, stabilization
-(CLAUDE.md §25).
+## Phase 8 — Advanced gameplay 🔶
+- ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).
+- ✅ Strong/weak block powering, iterative FIFO update queue (no recursion), deterministic timing verified by tests including a torch clock that resumes identically after reload.
+- ✅ Lit texture variants (lamp, kiln).
+- ⬜ Mobs and AI, pathfinding, combat; dimensions; sticky pistons, comparators, hoppers, dispensers.
+
+## Phases 9–11 ⬜
+Audio, menus, particles, animation, packaging, stabilization (CLAUDE.md §25).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

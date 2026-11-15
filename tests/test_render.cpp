@@ -41,6 +41,16 @@ TEST(render_pack_loads_and_resolves_all_block_textures) {
     CHECK_EQ(mips.size(), expect);
 }
 
+TEST(render_lit_blocks_use_on_texture_variant) {
+    BlockState lamp = blocks().stateOf("lamp");
+    BlockState lit = blocks().withProp(lamp, "lit", 1);
+    CHECK_EQ((int)btex().face(lamp, FACE_PY), pack().layer("lamp_off"));
+    CHECK_EQ((int)btex().face(lit, FACE_PY), pack().layer("lamp_on"));
+    BlockState kiln = blocks().withProp(blocks().stateOf("kiln"), "facing", 1);   // front faces +Z
+    CHECK_EQ((int)btex().face(blocks().withProp(kiln, "lit", 1), FACE_PZ), pack().layer("kiln_front_on"));
+    CHECK_EQ((int)btex().face(kiln, FACE_PZ), pack().layer("kiln_front"));
+}
+
 TEST(render_single_block_has_six_faces_ccw) {
     auto s = emptySnap();
     s->sec[MeshSnapshot::idx(0, 0)][4].set(Section::idx(5, 5, 5), blocks().stateOf("stone"));

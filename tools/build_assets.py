@@ -99,6 +99,8 @@ def main():
     itxt = re.sub(r"^\s*//.*$", "", open(ITEMS).read(), flags=re.M)
     refs |= {v["tex"] for v in json.loads(itxt).values() if "tex" in v}
     for m in sorted(refs - have): errors.append(f"missing texture '{m}' referenced by blocks.json")
+    # implicit "lit" variants: "<x>_on" is used by blocks referencing "<x>_off" or "<x>"
+    refs |= {n for n in have if n.endswith("_on") and (n[:-3] + "_off" in refs or n[:-3] in refs)}
     for u in sorted(have - refs): warnings.append(f"unused texture '{u}'")
     for wmsg in warnings: print("warning:", wmsg)
     if errors:

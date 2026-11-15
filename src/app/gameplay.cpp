@@ -204,6 +204,12 @@ bool startSession(std::string* err) {
         VX_INFO("created world %s (seed %llu)", G->saveDir.string().c_str(), (unsigned long long)m.gen.seed);
     }
     G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
+    G->behaviors->entityOnPlate = [](const BlockPos& b) {
+        AABB plate{{(float)b.x, (float)b.y, (float)b.z}, {(float)b.x + 1, (float)b.y + 0.25f, (float)b.z + 1}};
+        if (plate.intersects(G->player.box())) return true;
+        for (auto& e : G->entities->items) if (plate.intersects({e.pos - Vec3(0.125f, 0, 0.125f), e.pos + Vec3(0.125f, 0.25f, 0.125f)})) return true;
+        return false;
+    };
     if (G->creative()) giveCreativeHotbar();
     G->player.canFly = G->creative();
     if (!G->creative()) G->player.flying = false;
@@ -283,6 +289,14 @@ void simulateTick() {
     if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && h->isFood())) { clickUse(); }
 
     G->entities->tick(*G->world, p, G->stats.dead ? nullptr : &G->inv);
+    {   // pressure plates under the player or dropped items
+        BlockPos feet{(int)std::floor(p.pos.x), (int)std::floor(p.pos.y + 0.05f), (int)std::floor(p.pos.z)};
+        if (G->reg.def(G->world->getBlock(feet)).shape == BlockShape::Plate) G->behaviors->pressPlate(feet);
+        for (auto& e : G->entities->items) {
+            BlockPos ep{(int)std::floor(e.pos.x), (int)std::floor(e.pos.y + 0.05f), (int)std::floor(e.pos.z)};
+            if (G->reg.def(G->world->getBlock(ep)).shape == BlockShape::Plate) G->behaviors->pressPlate(ep);
+        }
+    }
     tickKilns();
     G->world->tick();
 }
@@ -318,10 +332,9 @@ void clickUse() {
         if (d.has(BF_INTERACT_CRAFT)) { openScreen(Screen::Workbench); return; }
         if (d.has(BF_INTERACT_CHEST)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_CHEST)->items.resize(CHEST_SLOTS); openScreen(Screen::Chest); return; }
         if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
-        if (d.shape == BlockShape::Lever || d.shape == BlockShape::Button) {
-            G->world->setBlock(G->target.block, G->reg.withProp(s, "on", G->reg.getProp(s, "on") ? 0 : 1));
-            return;
-        }
+        if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); return; }
+        if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); return; }
+        if (d.name == "relay") { G->world->setBlock(G->target.block, G->reg.withProp(s, "delay", (G->reg.getProp(s, "delay") + 1) % 4)); return; }
     }
     // buckets: scoop a source or pour one
     if (const ItemDef* h = G->held()) {

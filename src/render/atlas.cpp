@@ -90,6 +90,16 @@ bool BlockTextures::build(const BlockRegistry& reg, const TexturePack& pack, std
                 }
                 t[ff] = (u16)front;
             }
+            if (pLit >= 0 && d.shape != BlockShape::Torch && reg.getProp(s, pLit)) {
+                // lit variant: "<name>_off" -> "<name>_on" (or "<name>" -> "<name>_on") when that texture exists
+                for (int f = 0; f < 6; f++) {
+                    std::string n = d.tex[f];
+                    if (front >= 0 && t[f] == (u16)front) n = d.texFront;
+                    std::string on = n.size() > 4 && n.compare(n.size() - 4, 4, "_off") == 0 ? n.substr(0, n.size() - 4) + "_on" : n + "_on";
+                    int l = pack.layer(on);
+                    if (l >= 0) t[f] = (u16)l;
+                }
+            }
             if (pLit >= 0 && d.shape == BlockShape::Torch) {   // torch-shaped: "top" = lit look, "side" = unlit
                 u16 l = reg.getProp(s, pLit) ? base[FACE_PY] : base[FACE_NX];
                 for (int f = 0; f < 6; f++) t[f] = l;

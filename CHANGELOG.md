@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Phase 8: circuits
+- Glimmer circuits: levers, buttons, pressure plates, wire, inverting spark torches, lamps,
+  relays with 4 delays, watchers and pistons.
+- Updates go through an iterative FIFO queue. Timing is verified by tests, including a torch
+  clock that resumes tick-for-tick after a save and reload.
+- Lit texture variants for lamps and kilns (`_off` → `_on`).
+
 ### Phase 7: block updates
 - Fluid flow (water and lava) on scheduled ticks: levels, falling columns, renewable water, lava
   hardening into slate or cobblestone. Deterministic, and resumes identically after a reload.

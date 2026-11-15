@@ -99,6 +99,17 @@ changes. Nothing scans the world per frame.
 - A flowing cell whose support weakens drains immediately. This avoids the slow
   "count-to-infinity" decay of mutually-feeding cells.
 
+## Circuits
+
+`game/circuits.cpp` defines which blocks emit power into which neighbours, and the rules for
+strong and weak powering of solid blocks. The file header documents the full rule set.
+
+- Wire strength is recomputed immediately on neighbour updates. This is bounded, because
+  strength strictly decreases along a wire.
+- Torches, lamps (turning off), relays, watchers, buttons, plates and pistons act through
+  scheduled ticks.
+- All updates go through a FIFO work queue rather than recursion.
+
 ## Memory management
 
 - Uniform sections (all air, all stone) cost nothing. Mixed sections are 8 KiB plus light

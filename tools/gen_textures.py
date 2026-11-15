@@ -276,6 +276,9 @@ RECIPES = {
                                            [put(px, x, y, hexc(c)) for (x, y, c) in ((7, 5, "ff3a6a"), (8, 5, "e82858"), (7, 4, "ff9ab8"), (8, 4, "ff3a6a"))])),
     "lever": plant(lambda px, r: [put(px, 8 + k // 3, 14 - k, OAK[0]) for k in range(9)]),
     "lamp_off": framed(lambda r: noisy(r, pal("6a4a30", "5a3e26", "7a5638"), 0.5, 4), hexc("3a2814")),
+    "lamp_on": framed(lambda r: [hexc(["fff0b0", "ffe080", "fff8d8", "f8d060"][(x * 5 + y * 3 + r.int(2)) % 4]) for y in range(N) for x in range(N)], hexc("8a6a2c")),
+    "kiln_front_on": overlay(bricks(hexc("3a3230"), pal("8a5040", "7a4436", "9a5a48"), 4, 8),
+                             lambda px, r: [put(px, x, y, hexc(["ff8a20", "ffc040", "e05010"][r.int(3)])) for x in range(4, 12) for y in range(7, 13)]),
     "relay_top": overlay("slate", lambda px, r: [put(px, x, y, hexc("8a2a3a")) for x in (4, 11) for y in (3, 4, 11, 12)]),
     "watcher_face": overlay("cobblestone", lambda px, r: [put(px, x, y, hexc("1a1a1a")) for x in range(3, 13) for y in (4, 5, 6)] +
                             [put(px, x, y, hexc("e83070")) for x in (5, 10) for y in (5,)]),

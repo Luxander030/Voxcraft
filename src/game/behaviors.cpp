@@ -11,7 +11,11 @@ BlockBehaviors::BlockBehaviors(World& w) : w_(w) {
     cb.resolve(w.reg);
     waterIdx_ = w.reg.def(cb.water).index; lavaIdx_ = w.reg.def(cb.lava).index;
     lvlProp_ = w.reg.def(cb.water).propIndex("level");
-    w.onNeighborChanged = [this](const BlockPos& p, const BlockPos&) { neighborChanged(p); };
+    auto idx = [&](const char* n) { const BlockDef* d = w.reg.byName(n); return d ? d->index : (u16)0xFFFF; };
+    wireIdx_ = idx("glimmer_wire"); torchIdx_ = idx("spark_torch"); leverIdx_ = idx("lever"); buttonIdx_ = idx("push_button");
+    plateIdx_ = idx("pressure_plate"); lampIdx_ = idx("lamp"); relayIdx_ = idx("relay"); watcherIdx_ = idx("watcher");
+    pistonIdx_ = idx("piston"); headIdx_ = idx("piston_head");
+    w.onNeighborChanged = [this](const BlockPos& p, const BlockPos& from) { neighborChanged(p, from); };
     w.onScheduledTick = [this](const BlockPos& p, BlockState s) { scheduled(p, s); };
     w.onRandomTick = [this](const BlockPos& p, BlockState s) { randomTick(p, s); };
 }
@@ -30,10 +34,26 @@ void BlockBehaviors::placeFluidSource(const BlockPos& p, bool lava) {
     if (w_.setBlock(p, s)) w_.scheduleTick(p, s, lava ? LAVA_DELAY : WATER_DELAY);
 }
 
-void BlockBehaviors::neighborChanged(const BlockPos& p) {
+void BlockBehaviors::neighborChanged(const BlockPos& p, const BlockPos& from) {
+    // Iterative FIFO instead of recursion: long circuits cannot overflow the stack, and the
+    // processing order is deterministic.
+    queue_.push_back({p, from});
+    if (inUpdate_) return;
+    inUpdate_ = true;
+    for (size_t i = 0; i < queue_.size(); i++) {
+        if (i > 200000) { VX_WARN("block update storm truncated"); break; }
+        auto [q, f] = queue_[i];
+        processUpdate(q, f);
+    }
+    queue_.clear();
+    inUpdate_ = false;
+}
+
+void BlockBehaviors::processUpdate(const BlockPos& p, const BlockPos& from) {
     BlockState s = w_.getBlock(p);
     if (s == AIR) return;
     const BlockDef& d = w_.reg.def(s);
+    if (d.has(BF_CIRCUIT) && circuitUpdate(p, s, from)) return;
     if (d.index == waterIdx_) w_.scheduleTick(p, s, WATER_DELAY);
     else if (d.index == lavaIdx_) w_.scheduleTick(p, s, LAVA_DELAY);
     else if (d.has(BF_GRAVITY)) w_.scheduleTick(p, s, FALL_DELAY);
@@ -45,6 +65,7 @@ void BlockBehaviors::neighborChanged(const BlockPos& p) {
 
 void BlockBehaviors::scheduled(const BlockPos& p, BlockState s) {
     const BlockDef& d = w_.reg.def(s);
+    if (d.has(BF_CIRCUIT)) { circuitTick(p, s); return; }
     if (d.index == waterIdx_ || d.index == lavaIdx_) fluidTick(p, s);
     else if (d.has(BF_GRAVITY)) fallTick(p, s);
 }
