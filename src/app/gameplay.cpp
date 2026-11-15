@@ -22,18 +22,19 @@ fs::path dataFile(const char* name) {
 }
 
 std::vector<u8> encodePlayer() {
-    ByteWriter w; w.u8_(2);
+    ByteWriter w; w.u8_(3);
     const Player& p = G->player;
     w.f64_(p.pos.x); w.f64_(p.pos.y); w.f64_(p.pos.z); w.f32_(p.yaw); w.f32_(p.pitch); w.u8_(p.flying ? 1 : 0); w.u8_((u8)G->hotbarSel);
     auto st = G->stats.encode(); w.var(st.size()); w.bytes(st.data(), st.size());
     w.var(G->inv.slots.size());
     for (auto& s : G->inv.slots) { w.str(s.empty() ? "" : G->items.def(s.item).name); w.u8_(s.empty() ? 0 : s.count); w.var(s.damage); }
+    w.str(G->dimension);
     return std::move(w.buf);
 }
 
 bool decodePlayer(const std::vector<u8>& b) {
     ByteReader r(b); u8 ver = r.u8_();
-    if (ver != 1 && ver != 2) return false;
+    if (ver < 1 || ver > 3) return false;
     Player& p = G->player;
     p.pos.x = (float)r.f64_(); p.pos.y = (float)r.f64_(); p.pos.z = (float)r.f64_(); p.yaw = r.f32_(); p.pitch = r.f32_();
     p.flying = r.u8_() != 0; G->hotbarSel = clamp((int)r.u8_(), 0, 8);
@@ -50,6 +51,8 @@ bool decodePlayer(const std::vector<u8>& b) {
             }
         }
     }
+    G->pendingDimension = "overworld";
+    if (ver >= 3) { std::string d = r.str(); if (r.ok() && !d.empty()) G->pendingDimension = d; }
     return r.ok();
 }
 
@@ -225,6 +228,7 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
     G->saveDir = userDataDir("Voxcraft") / "saves" / G->opt.world;
+    G->dimension = "overworld"; G->pendingDimension = "overworld"; G->riftTicks = 0;
     if (fs::exists(G->saveDir / "world.json") && !(create && create->mustBeNew)) {
         if (!G->world->open(G->saveDir, err)) return false;
         auto pd = G->world->storage().readExtra("player.dat");
@@ -258,13 +262,90 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
     if (!G->creative()) G->player.flying = false;
     G->player.prevPos = G->player.pos;
     G->renderer.attach(G->world.get());
+    if (G->pendingDimension != "overworld") {   // the player was saved in another dimension
+        if (!enterDimension(G->pendingDimension, G->player.pos, false, err)) return false;
+    }
     return true;
 }
 
 bool saveWorld(bool sync) {
     if (!G->world) return false;
     std::string err;
-    if (!G->world->save(sync, {{"player.dat", encodePlayer()}}, &err)) { VX_ERROR("save failed: %s", err.c_str()); return false; }
+    if (G->dimension == "overworld") {
+        if (!G->world->save(sync, {{"player.dat", encodePlayer()}}, &err)) { VX_ERROR("save failed: %s", err.c_str()); return false; }
+    } else {
+        // another dimension's folder: its chunks go there, the player file always lives in the main save
+        if (!G->world->save(sync, {}, &err)) { VX_ERROR("save failed: %s", err.c_str()); return false; }
+        auto pd = encodePlayer();
+        if (!writeFileAtomic(G->saveDir / "player.dat", pd)) { VX_ERROR("save failed: player.dat"); return false; }
+    }
+    return true;
+}
+
+bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* err) {
+    std::string mode = G->world ? G->world->meta.gameMode : "survival";
+    GenSettings baseGen = G->world ? G->world->meta.gen : GenSettings{};
+    if (G->world) {
+        G->renderer.detach();
+        G->dimension = dim;           // player.dat written below records the destination
+        saveWorld(true);
+        G->behaviors.reset();
+        G->world->close();
+        G->world.reset();
+    }
+    G->entities->items.clear(); G->mobs->mobs.clear(); G->particles.parts.clear();
+    fs::path dir = dim == "overworld" ? G->saveDir : G->saveDir / "dim" / dim;
+    G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
+    G->world->setEntityHost(G->entities.get());
+    if (fs::exists(dir / "world.json")) {
+        if (!G->world->open(dir, err)) return false;
+    } else {
+        WorldMeta m; m.name = dim; m.gen = baseGen; m.gen.dimension = dim; m.gen.preset = "default";
+        m.gen.version = std::max<u32>(2, LATEST_GENERATOR_VERSION);   // the Hollow exists from generator v2 on
+        m.gameMode = mode; m.createdUnix = (u64)time(nullptr); m.spawn = {0, 64, 0};
+        std::error_code ec; fs::create_directories(dir.parent_path(), ec);
+        if (!G->world->create(dir, m, err)) return false;
+    }
+    G->world->meta.gameMode = mode;
+    G->dimension = dim;
+    G->behaviors = std::make_unique<BlockBehaviors>(*G->world);
+    G->behaviors->entityOnPlate = [](const BlockPos& b) {
+        AABB plate{{(float)b.x, (float)b.y, (float)b.z}, {(float)b.x + 1, (float)b.y + 0.25f, (float)b.z + 1}};
+        return plate.intersects(G->player.box());
+    };
+    G->player.pos = pos; G->player.vel = {};
+    if (arrive) {
+        // find an existing rift near the target, or build a gate there
+        BlockPos t{(int)std::floor(pos.x), (int)std::floor(pos.y), (int)std::floor(pos.z)};
+        for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) G->world->loadChunkSync({(t.x >> 4) + dx, (t.z >> 4) + dz});
+        u16 riftIdx = G->reg.byName("rift")->index;
+        bool found = false; float best = 1e9f; BlockPos at;
+        for (int x = t.x - 14; x <= t.x + 14; x++) for (int z = t.z - 14; z <= t.z + 14; z++) for (int y = 1; y < WORLD_H - 1; y++) {
+            if (G->reg.def(G->world->getBlock(x, y, z)).index != riftIdx || G->reg.def(G->world->getBlock(x, y - 1, z)).index == riftIdx) continue;
+            float d = (float)((x - t.x) * (x - t.x) + (z - t.z) * (z - t.z) + (y - t.y) * (y - t.y));
+            if (d < best) { best = d; at = {x, y, z}; found = true; }
+        }
+        if (!found) {
+            int y;
+            if (dim == "overworld") y = std::max(G->world->surfaceY(t.x, t.z) + 1, SEA_LEVEL + 1);
+            else {
+                y = 64;
+                for (int yy = 40; yy < 118; yy++) {
+                    bool ok = G->reg.solid(G->world->getBlock(t.x, yy - 1, t.z));
+                    for (int k = 0; k < 4 && ok; k++) ok = G->world->getBlock(t.x, yy + k, t.z) == AIR;
+                    if (ok) { y = yy; break; }
+                }
+            }
+            at = {t.x, y, t.z};
+            G->behaviors->buildRiftGate(at, true);
+        }
+        G->player.pos = {at.x + 0.5f, (float)at.y, at.z + 0.5f};
+        G->riftTicks = -1;   // must step out before the rift can take the player again
+    }
+    G->player.prevPos = G->player.pos;
+    G->playerReady = false;
+    G->renderer.attach(G->world.get());
+    saveWorld(true);
     return true;
 }
 
@@ -288,6 +369,7 @@ void endSession() {
 }
 
 void respawn() {
+    if (G->dimension != "overworld") { std::string err; enterDimension("overworld", surfaceSpawn(), false, &err); }
     G->stats.respawn();
     G->player.pos = surfaceSpawn(); G->player.vel = {}; G->player.prevPos = G->player.pos; G->player.fallDistance = 0;
     G->playerReady = false;   // re-run the "find surface" step once the spawn chunk is loaded
@@ -368,6 +450,21 @@ void simulateTick() {
     if (G->useCooldown > 0) G->useCooldown--;
     if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && h->isFood())) { clickUse(); }
 
+    // rift travel: stand in a rift for 4 s (0.5 s in creative)
+    {
+        u16 riftIdx = G->reg.byName("rift")->index;
+        bool inRift = false;
+        for (float yy : {0.2f, 1.2f}) inRift = inRift || G->reg.def(G->world->getBlock((int)std::floor(p.pos.x), (int)std::floor(p.pos.y + yy), (int)std::floor(p.pos.z))).index == riftIdx;
+        if (!inRift) G->riftTicks = 0;
+        else if (G->riftTicks >= 0 && ++G->riftTicks >= (G->creative() ? 10 : 80)) {
+            std::string to = G->dimension == "overworld" ? "hollow" : "overworld";
+            Vec3 target = to == "hollow" ? Vec3(std::floor(p.pos.x / 8), 64, std::floor(p.pos.z / 8)) : Vec3(std::floor(p.pos.x * 8), 64, std::floor(p.pos.z * 8));
+            std::string err;
+            sfx("splash", 0.4f);
+            if (!enterDimension(to, target, true, &err)) { VX_ERROR("dimension travel failed: %s", err.c_str()); showStatus("Travel failed"); }
+            return;   // the world changed: nothing else this tick
+        }
+    }
     G->entities->tick(*G->world, p, G->stats.dead ? nullptr : &G->inv);
     {   // pressure plates under the player or dropped items
         BlockPos feet{(int)std::floor(p.pos.x), (int)std::floor(p.pos.y + 0.05f), (int)std::floor(p.pos.z)};
@@ -400,6 +497,7 @@ void simulateTick() {
 MobContext mobContext() {
     float ang = (float)(G->world->meta.dayTime - 6000) / 24000.0f * 2 * PI;
     float daylight = clamp(0.5f + std::cos(ang) * 0.9f, 0.0f, 1.0f);
+    if (G->dimension == "hollow") daylight = 0;
     MobContext c{*G->world, G->player, !G->creative() && !G->stats.dead, daylight, nullptr, nullptr};
     c.attackPlayer = [](Mob& m, float dmg) {
         if (G->stats.damage(dmg, DamageSource::Attack) > 0) {
@@ -480,6 +578,14 @@ void clickUse() {
         if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.shape == BlockShape::Button) { G->behaviors->pressButton(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
         if (d.name == "relay") { G->world->setBlock(G->target.block, G->reg.withProp(s, "delay", (G->reg.getProp(s, "delay") + 1) % 4)); return; }
+    }
+    // ember striker: light a rift inside a slate frame
+    if (const ItemDef* h = G->held(); h && h->name == "ember_striker" && G->target.hit) {
+        if (G->behaviors->lightRift(G->target.block + G->target.normal) > 0) {
+            sfx3d("break_glass", {G->target.block.x + 0.5f, G->target.block.y + 1.0f, G->target.block.z + 0.5f}, SoundCat::Blocks);
+            damageHeldTool();
+        } else showStatus("Needs a closed slate frame");
+        return;
     }
     // buckets: scoop a source or pour one
     if (const ItemDef* h = G->held()) {

@@ -5,7 +5,7 @@ namespace vx {
 
 const char* biomeName(Biome b) {
     static const char* n[] = {"ocean", "deep_ocean", "beach", "plains", "forest", "birch_forest", "taiga", "tundra", "desert",
-                              "badlands", "savanna", "swamp", "mountains", "snowy_peaks", "river", "frozen_ocean"};
+                              "badlands", "savanna", "swamp", "mountains", "snowy_peaks", "river", "frozen_ocean", "hollow"};
     return (int)b < (int)Biome::Count ? n[(int)b] : "unknown";
 }
 
@@ -21,6 +21,7 @@ BiomeColors biomeColors(Biome b) {
         case Biome::Swamp: return {0x6A7039, 0x5B6A2B, 0x4C6559};
         case Biome::Mountains: return {0x8AB689, 0x6DA36B, 0x3F76E4};
         case Biome::Ocean: case Biome::DeepOcean: case Biome::River: return {0x8DB360, 0x6FA33C, 0x3F76E4};
+        case Biome::Hollow: return {0x8A6A50, 0x7A5A40, 0x5A4A8A};
         default: return {0x8DB360, 0x6FA33C, 0x3F76E4};
     }
 }
@@ -454,10 +455,85 @@ private:
 
 } // namespace
 
+namespace {
+// The Hollow: a sealed cavern dimension (added with generator version 2). Bedrock floor (y 0) and
+// ceiling (y 127), a lava sea below y 32, hollowrock caverns from 3D noise. Density is sampled on a
+// 4-block grid and trilinearly interpolated (5x33x5 samples per chunk instead of 32768).
+class HollowGenerator final : public WorldGenerator {
+public:
+    HollowGenerator(const GenSettings& s, const BlockRegistry& r) : st(s), dens(s.seed ^ 0x4011A), patch(s.seed ^ 0x4011B) {
+        cb.resolve(r);
+        rock = r.stateOf("hollowrock"); ore = r.stateOf("ember_ore"); ash = r.stateOf("ashsoil"); cap = r.stateOf("glowcap");
+    }
+    static constexpr int CEIL = 127, LAVA = 31;
+    void generate(Chunk& c) const override {
+        VX_TIME_US(Stat::GenTimeUs);
+        const int bx = c.pos.x * 16, bz = c.pos.z * 16;
+        float grid[5][33][5];
+        for (int gz = 0; gz < 5; gz++) for (int gy = 0; gy < 33; gy++) for (int gx = 0; gx < 5; gx++) {
+            float x = (float)(bx + gx * 4), y = (float)(gy * 4), z = (float)(bz + gz * 4);
+            float d = dens.fbm3(x / 40.0f, y / 28.0f, z / 40.0f, 3);
+            float floorB = clamp((26.0f - y) / 14.0f, 0.0f, 1.0f) * 0.9f, ceilB = clamp((y - 100.0f) / 20.0f, 0.0f, 1.0f) * 1.0f;
+            grid[gx][gy][gz] = d + floorB + ceilB - 0.12f;
+        }
+        for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
+            c.biome[x + z * 16] = (u8)Biome::Hollow;
+            int gx = x >> 2, gz = z >> 2; float fx = (x & 3) / 4.0f, fz = (z & 3) / 4.0f;
+            for (int y = 0; y <= CEIL; y++) {
+                BlockState s;
+                if (y == 0 || y == CEIL) s = cb.bedrock;
+                else if ((y < 4 || y > CEIL - 4) && (hashCoords(st.seed ^ 0xBED, bx + x, y, bz + z) & 3) == 0) s = cb.bedrock;
+                else {
+                    int gy = y >> 2; float fy = (y & 3) / 4.0f;
+                    auto L = [](float a, float b, float t) { return a + (b - a) * t; };
+                    float c00 = L(grid[gx][gy][gz], grid[gx + 1][gy][gz], fx), c10 = L(grid[gx][gy + 1][gz], grid[gx + 1][gy + 1][gz], fx);
+                    float c01 = L(grid[gx][gy][gz + 1], grid[gx + 1][gy][gz + 1], fx), c11 = L(grid[gx][gy + 1][gz + 1], grid[gx + 1][gy + 1][gz + 1], fx);
+                    float v = L(L(c00, c10, fy), L(c01, c11, fy), fz);
+                    s = v > 0 ? rock : (y <= LAVA ? cb.lava : AIR);
+                }
+                c.setGen(x, y, z, s);
+            }
+        }
+        // ember ore veins
+        Rng rng(hashCoords(st.seed ^ 0xE3BE, c.pos.x, c.pos.z));
+        for (int v = 0; v < 10; v++) {
+            int x = rng.range(16), y = 10 + rng.range(110), z = rng.range(16), n = 3 + rng.range(5);
+            for (int k = 0; k < n; k++) {
+                if (c.get(x, y, z) == rock) c.setGen(x, y, z, ore);
+                x = clamp(x + rng.range(3) - 1, 0, 15); y = clamp(y + rng.range(3) - 1, 1, CEIL - 1); z = clamp(z + rng.range(3) - 1, 0, 15);
+            }
+        }
+        // floors: ash patches and glowcaps; ceilings: hanging glowcrystal
+        for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
+            float pn = patch.fbm2((bx + x) / 24.0f, (bz + z) / 24.0f, 2);
+            for (int y = LAVA + 1; y < CEIL - 1; y++) {
+                BlockState s = c.get(x, y, z), above = c.get(x, y + 1, z), below = c.get(x, y - 1, z);
+                u64 h = hashCoords(st.seed ^ 0x6C4, bx + x, y, bz + z);
+                if (s == rock && above == AIR) {
+                    if (pn > 0.1f) c.setGen(x, y, z, ash);
+                    if (pn > 0.1f && (h % 100) < 7) c.setGen(x, y + 1, z, cap);
+                } else if (s == AIR && above == rock && (h % 1000) < 6) {
+                    for (int k = 0; k < 1 + (int)(h >> 20) % 3 && y - k > LAVA; k++) if (c.get(x, y - k, z) == AIR) c.setGen(x, y - k, z, cb.glowcrystal);
+                }
+                (void)below;
+            }
+        }
+        c.compact();
+    }
+    ColumnInfo column(int, int) const override { return {64, Biome::Hollow, false}; }
+    u32 version() const override { return st.version; }
+private:
+    GenSettings st; CoreBlocks cb; Noise dens, patch;
+    BlockState rock, ore, ash, cap;
+};
+} // namespace
+
 std::unique_ptr<WorldGenerator> createGenerator(const GenSettings& s, const BlockRegistry& reg) {
     // Every released version stays available forever: worlds keep the terrain they were created with.
     if (s.version < 1 || s.version > LATEST_GENERATOR_VERSION) return nullptr;
     if (s.preset == "flat") return std::make_unique<FlatGenerator>(reg);
+    if (s.dimension == "hollow") return s.version >= 2 ? std::make_unique<HollowGenerator>(s, reg) : nullptr;   // introduced in v2
+    if (s.dimension != "overworld") return nullptr;
     return std::make_unique<GeneratorV1>(s, reg);   // v2 = v1 terrain + additional structures (see placeFeatures)
 }
 

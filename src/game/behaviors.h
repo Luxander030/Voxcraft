@@ -25,6 +25,11 @@ public:
     void pressButton(const BlockPos& p);
     void pressPlate(const BlockPos& p);
     std::function<bool(const BlockPos&)> entityOnPlate;
+    // Rifts (dimension gates): fill the slate frame around `inside` (either vertical plane).
+    // Returns the number of rift blocks created (0 = not a valid closed frame).
+    int lightRift(const BlockPos& inside);
+    // Builds a complete frame (interior 2 wide x 3 tall) with its rift, interior bottom-left at `base`.
+    void buildRiftGate(const BlockPos& base, bool alongX);
     // Signal strength (0..15) arriving at p from all six neighbours (exposed for tests/debug).
     int inputPower(const BlockPos& p) const;
 private:
@@ -40,6 +45,8 @@ private:
     void pistonSet(const BlockPos& p, BlockState s, bool extend);
     bool inUpdate_ = false;
     std::vector<std::pair<BlockPos, BlockPos>> queue_;
+    bool riftSupported(const BlockPos& p) const;
+    u16 riftIdx_ = 0xFFFF, slateIdx_ = 0xFFFF;
     u16 wireIdx_, torchIdx_, leverIdx_, buttonIdx_, plateIdx_, lampIdx_, relayIdx_, watcherIdx_, pistonIdx_, headIdx_;
     void scheduled(const BlockPos& p, BlockState s);
     void randomTick(const BlockPos& p, BlockState s);

@@ -279,6 +279,12 @@ RECIPES = {
     "lamp_on": framed(lambda r: [hexc(["fff0b0", "ffe080", "fff8d8", "f8d060"][(x * 5 + y * 3 + r.int(2)) % 4]) for y in range(N) for x in range(N)], hexc("8a6a2c")),
     "kiln_front_on": overlay(bricks(hexc("3a3230"), pal("8a5040", "7a4436", "9a5a48"), 4, 8),
                              lambda px, r: [put(px, x, y, hexc(["ff8a20", "ffc040", "e05010"][r.int(3)])) for x in range(4, 12) for y in range(7, 13)]),
+    "hollowrock": lambda r: noisy(r, pal("5a2a2a", "4e2424", "662f2f", "442020", "703636"), 0.55, 3),
+    "ember_ore": ore("hollowrock", pal("ff9a30", "ffd060", "e86a10"), 8),
+    "ashsoil": lambda r: noisy(r, pal("4a4440", "3e3834", "56504a", "34302c"), 0.4, 3),
+    "glowcap": plant(lambda px, r: (stem(px, 8, 9, 15, hexc("c8b8a0")), stem(px, 7, 11, 15, hexc("b8a890")),
+                                    [put(px, 8 + dx, 7 + dy, hexc(["60f0d0", "40d8b8", "a0fff0"][(dx * dx + dy) % 3])) for dx in range(-3, 4) for dy in range(-2, 2) if abs(dx) + max(0, dy) < 4])),
+    "rift": lambda r: [(*p[:3], 200) for p in [hexc(["5a2a9a", "7a3ac8", "3a1a6a", "9a60e8"][int((abs(((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5 * 1.3 + r.next() * 1.5)) % 4)]) for y in range(N) for x in range(N)]],
     "relay_top": overlay("slate", lambda px, r: [put(px, x, y, hexc("8a2a3a")) for x in (4, 11) for y in (3, 4, 11, 12)]),
     "watcher_face": overlay("cobblestone", lambda px, r: [put(px, x, y, hexc("1a1a1a")) for x in range(3, 13) for y in (4, 5, 6)] +
                             [put(px, x, y, hexc("e83070")) for x in (5, 10) for y in (5,)]),
@@ -440,6 +446,9 @@ ITEM_RECIPES.update({
     "hide": blob(pal("9a6a3a", "8a5e32", "a87844"), r=5.0, squash=0.8),
     "shadow_thread": item(lambda px, r: [put(px, x, int(8 + 3 * ((x * 7 % 5) - 2) / 2), hexc(["5a3a78", "7a5a98"][x % 2])) for x in range(2, 14)]),
     "flint": gem(pal("5a5a60", "3a3a40", "2a2a30")),
+    "ember_shard": gem(pal("ffd060", "ff9a30", "c85a10")),
+    "ember_striker": item(lambda px, r: ([put(px, 3 + k, 12 - k, hexc(["9a9a9a", "c8c8c8"][k % 2])) for k in range(6)],
+                                         [put(px, 9 + dx, 6 + dy, hexc(["ff9a30", "ffd060"][(dx + dy) & 1])) for dx in range(-1, 3) for dy in range(-2, 2)])),
 })
 
 for t in TIER:

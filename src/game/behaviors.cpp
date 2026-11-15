@@ -15,6 +15,7 @@ BlockBehaviors::BlockBehaviors(World& w) : w_(w) {
     wireIdx_ = idx("glimmer_wire"); torchIdx_ = idx("spark_torch"); leverIdx_ = idx("lever"); buttonIdx_ = idx("push_button");
     plateIdx_ = idx("pressure_plate"); lampIdx_ = idx("lamp"); relayIdx_ = idx("relay"); watcherIdx_ = idx("watcher");
     pistonIdx_ = idx("piston"); headIdx_ = idx("piston_head");
+    riftIdx_ = idx("rift"); slateIdx_ = idx("slate");
     w.onNeighborChanged = [this](const BlockPos& p, const BlockPos& from) { neighborChanged(p, from); };
     w.onScheduledTick = [this](const BlockPos& p, BlockState s) { scheduled(p, s); };
     w.onRandomTick = [this](const BlockPos& p, BlockState s) { randomTick(p, s); };
@@ -54,6 +55,7 @@ void BlockBehaviors::processUpdate(const BlockPos& p, const BlockPos& from) {
     if (s == AIR) return;
     const BlockDef& d = w_.reg.def(s);
     if (d.has(BF_CIRCUIT) && circuitUpdate(p, s, from)) return;
+    if (d.index == riftIdx_) { if (!riftSupported(p)) w_.setBlock(p, AIR); return; }   // frame broken: collapse (cascades)
     if (d.index == waterIdx_) w_.scheduleTick(p, s, WATER_DELAY);
     else if (d.index == lavaIdx_) w_.scheduleTick(p, s, LAVA_DELAY);
     else if (d.has(BF_GRAVITY)) w_.scheduleTick(p, s, FALL_DELAY);
@@ -149,6 +151,62 @@ void BlockBehaviors::fallTick(const BlockPos& p, BlockState s) {
     w_.setBlock(p, AIR);
     w_.setBlock(down, s);
     w_.scheduleTick(down, s, 1);   // keep falling one block per tick
+}
+
+bool BlockBehaviors::riftSupported(const BlockPos& p) const {
+    // valid if, in one vertical plane, every in-plane neighbour is rift or slate
+    for (int axis = 0; axis < 2; axis++) {
+        BlockPos h = axis == 0 ? BlockPos{1, 0, 0} : BlockPos{0, 0, 1};
+        bool ok = true;
+        for (BlockPos d : {h, BlockPos{-h.x, 0, -h.z}, BlockPos{0, 1, 0}, BlockPos{0, -1, 0}}) {
+            u16 i = w_.reg.def(w_.getBlock(p + d)).index;
+            if (i != riftIdx_ && i != slateIdx_) { ok = false; break; }
+        }
+        if (ok) return true;
+    }
+    return false;
+}
+
+int BlockBehaviors::lightRift(const BlockPos& inside) {
+    if (w_.getBlock(inside) != AIR) return 0;
+    for (int axis = 0; axis < 2; axis++) {
+        BlockPos h = axis == 0 ? BlockPos{1, 0, 0} : BlockPos{0, 0, 1};
+        std::vector<BlockPos> cells{inside}, stack{inside};
+        bool closed = true;
+        while (!stack.empty() && closed) {
+            BlockPos c = stack.back(); stack.pop_back();
+            for (BlockPos d : {h, BlockPos{-h.x, 0, -h.z}, BlockPos{0, 1, 0}, BlockPos{0, -1, 0}}) {
+                BlockPos n = c + d;
+                BlockState s = w_.getBlock(n);
+                if (w_.reg.def(s).index == slateIdx_) continue;
+                if (s != AIR) { closed = false; break; }
+                if (std::find(cells.begin(), cells.end(), n) != cells.end()) continue;
+                if (cells.size() >= 21) { closed = false; break; }   // too large: not a gate
+                cells.push_back(n); stack.push_back(n);
+            }
+        }
+        if (!closed) continue;
+        BlockState rift = w_.reg.stateOf("rift");
+        for (auto& c : cells) w_.setBlock(c, rift, SET_NOTIFY);   // no neighbour updates until complete
+        return (int)cells.size();
+    }
+    return 0;
+}
+
+void BlockBehaviors::buildRiftGate(const BlockPos& base, bool alongX) {
+    BlockPos h = alongX ? BlockPos{1, 0, 0} : BlockPos{0, 0, 1}, o = alongX ? BlockPos{0, 0, 1} : BlockPos{1, 0, 0};
+    BlockState slate = w_.reg.stateOf("slate");
+    for (int i = -1; i <= 2; i++) for (int j = -1; j <= 3; j++) {
+        BlockPos p{base.x + h.x * i, base.y + j, base.z + h.z * i};
+        bool frame = i == -1 || i == 2 || j == -1 || j == 3;
+        w_.setBlock(p, frame ? slate : AIR, SET_NOTIFY);
+        for (int k : {-1, 1}) {   // clear standing room on both sides, with a floor
+            BlockPos q{p.x + o.x * k, p.y, p.z + o.z * k};
+            if (j >= 0 && j <= 2) w_.setBlock(q, AIR, SET_NOTIFY);
+            if (j == -1 && !w_.reg.solid(w_.getBlock(q))) w_.setBlock(q, slate, SET_NOTIFY);
+        }
+    }
+    lightRift(base);
 }
 
 void BlockBehaviors::randomTick(const BlockPos& p, BlockState s) {

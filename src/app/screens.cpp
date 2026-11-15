@@ -200,7 +200,7 @@ void drawDebug() {
     ColumnInfo col = G->world->generator().column(bp.x, bp.z);
     line("biome %s   light sky %d block %d   %s %s%s", biomeName(col.biome), G->world->skyLight(bp), G->world->blockLight(bp), G->world->meta.gameMode.c_str(), p.flying ? "flying " : "", p.onGround ? "ground" : "");
     i64 dt = G->world->meta.dayTime; int hh = (int)((dt / 1000 + 6) % 24), mm = (int)(dt % 1000 * 60 / 1000);
-    line("day %lld  %02d:%02d   seed %llu", (long long)(G->world->meta.tick / 24000), hh, mm, (unsigned long long)G->world->meta.gen.seed);
+    line("dimension %s   day %lld  %02d:%02d   seed %llu", G->dimension.c_str(), (long long)(G->world->meta.tick / 24000), hh, mm, (unsigned long long)G->world->meta.gen.seed);
     line("chunks ready %d  gen %d  cached %d  modified %d  pending writes %d", ws.ready, ws.generating + ws.requested, ws.cached, ws.withData, ws.pendingWrites);
     line("jobs queued %d  running %d/%d  mesh in flight %d  dirty %d  items %zu  mobs %zu", js.queued, js.running, js.workers, rs.meshJobsInFlight, rs.dirtyChunks, G->entities->count(), G->mobs->mobs.size());
     line("render %d/%d sections  %d draws  %llu tris  mesh VRAM %.1f MiB", rs.visibleSections, rs.sections, rs.drawCalls, (unsigned long long)(rs.quads * 2), rs.gpuBytes / 1048576.0);

@@ -17,6 +17,7 @@ struct Env {
         b = std::make_unique<BlockBehaviors>(w);
     }
     void run(int ticks) { for (int i = 0; i < ticks; i++) w.tick(); }
+    void put(int x, int y, int z, BlockState s) { w.setBlock({x, y, z}, s); }
     bool water(int x, int y, int z) { return blocks().def(w.getBlock({x, y, z})).name == "water"; }
     int level(int x, int y, int z) { return blocks().getProp(w.getBlock({x, y, z}), "level"); }
     std::string snapshot() {   // water layout around the origin
@@ -111,4 +112,42 @@ TEST(particles_fall_settle_expire_and_cap) {
     CHECK(ps.parts.empty());                                    // all expired
     for (int i = 0; i < 300; i++) ps.blockDebris({0, 8, 0}, 1, 0, 20, rng);
     CHECK_EQ(ps.parts.size(), ParticleSystem::CAPACITY);         // bounded
+}
+
+TEST(rifts_light_inside_closed_slate_frames_and_collapse) {
+    Env e(vxtest::tempDir("rift"));
+    BlockState slate = blocks().stateOf("slate");
+    // 4x5 frame in the x-y plane at z = 0 (interior 2x3 at x 1..2, y 6..8)
+    for (int x = 0; x <= 3; x++) for (int y = 5; y <= 9; y++) if (x == 0 || x == 3 || y == 5 || y == 9) e.put(x, y, 0, slate);
+    CHECK_EQ(e.b->lightRift({1, 6, 0}), 6);
+    CHECK(blocks().def(e.w.getBlock({2, 8, 0})).name == "rift");
+    // open frame: nothing happens
+    Env f(vxtest::tempDir("rift2"));
+    for (int x = 0; x <= 3; x++) for (int y = 5; y <= 9; y++) if ((x == 0 || x == 3 || y == 5 || y == 9) && !(x == 3 && y == 7)) f.put(x, y, 0, slate);
+    CHECK_EQ(f.b->lightRift({1, 6, 0}), 0);
+    // breaking the frame collapses the whole rift
+    e.w.setBlock({3, 7, 0}, AIR);
+    for (int x = 1; x <= 2; x++) for (int y = 6; y <= 8; y++) CHECK(e.w.getBlock({x, y, 0}) == AIR);
+    // built gates are valid and lit
+    e.b->buildRiftGate({10, 6, 10}, false);
+    CHECK(blocks().def(e.w.getBlock({10, 7, 11})).name == "rift");
+}
+
+TEST(hollow_dimension_generates_sealed_caverns) {
+    GenSettings s; s.seed = 5; s.version = 2; s.dimension = "hollow";
+    auto g = createGenerator(s, blocks());
+    REQUIRE(g);
+    GenSettings old = s; old.version = 1;
+    CHECK(!createGenerator(old, blocks()));   // the Hollow did not exist in v1
+    Chunk c({2, -3}); g->generate(c);
+    int air = 0, lava = 0, rock = 0;
+    for (int y = 1; y < 127; y++) for (int z = 0; z < 16; z++) for (int x = 0; x < 16; x++) {
+        std::string n = blocks().def(c.get(x, y, z)).name;
+        air += n == "air"; lava += n == "lava"; rock += n == "hollowrock" || n == "ashsoil" || n == "ember_ore";
+    }
+    CHECK(blocks().def(c.get(5, 0, 5)).name == "bedrock" && blocks().def(c.get(5, 127, 5)).name == "bedrock");
+    CHECK(air > 1000 && rock > 1000);
+    printf("    hollow chunk: air %d, lava %d, rock %d\n", air, lava, rock);
+    Chunk d({2, -3}); g->generate(d);
+    for (int s2 = 0; s2 < SECTIONS; s2++) for (int i = 0; i < 4096; i++) if (c.sec[s2].get(i) != d.sec[s2].get(i)) { CHECK(false); s2 = SECTIONS; break; }
 }

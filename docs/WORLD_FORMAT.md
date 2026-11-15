@@ -12,6 +12,8 @@ All integers are little-endian. `var` = unsigned LEB128 varint, `svar` = zigzag 
   player.dat          player state blob (game layer)
   region/r.<rx>.<rz>.vxr   region containers, 32x32 chunks each; only regions holding records exist
   save.journal        present only while a save is being applied (see "Saving")
+  dim/<name>/         other dimensions (e.g. dim/hollow): same layout (world.json + region/), own
+                      generator settings (dimension = "<name>"); player.dat stays in the main folder
 ```
 
 ## world.json
@@ -24,6 +26,7 @@ All integers are little-endian. `var` = unsigned LEB128 varint, `svar` = zigzag 
   "created": 0, "last_played": 0 }
 ```
 
+`generator.dimension` is `overworld` or `hollow`. The Hollow requires generator version ≥ 2.
 `seed` and `tick` are strings because 64-bit integers do not fit a JSON double. `generator.version`
 selects the generator implementation; a world whose version the game does not know is refused,
 never regenerated with a newer generator.

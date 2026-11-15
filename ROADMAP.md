@@ -59,7 +59,9 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).
 - ✅ Strong/weak block powering, iterative FIFO update queue (no recursion), deterministic timing verified by tests including a torch clock that resumes identically after reload.
 - ✅ Lit texture variants (lamp, kiln).
-- ⬜ Dimensions; sticky pistons, comparators, hoppers, dispensers; ranged combat.
+- ✅ Second dimension, the Hollow: sealed lava-sea caverns (hollowrock, ember ore, ash soil, glowcaps, hanging glowcrystal), generator from v2, 4-block-grid interpolated density.
+- ✅ Rift gates: slate frame lit with a crafted ember striker (flood fill in either plane, max 21 cells), collapse when the frame breaks, 1:8 travel with find-or-build arrival gates, per-dimension save folders, player file records the dimension.
+- ⬜ Sticky pistons, comparators, hoppers, dispensers; ranged combat; Hollow-specific creatures.
 
 ## Phase 9 — Presentation 🔶
 - ✅ Title screen, world list (play/create/delete-to-trash), world creation (name, seed, mode, type), settings (render distance, FOV, sensitivity, GUI scale, 6 volume categories) persisted in `options.json`, pause menu with save & quit to title.

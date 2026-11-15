@@ -27,6 +27,8 @@
   "hide":           {"tex": "hide"},
   "shadow_thread":  {"tex": "shadow_thread"},
   "flint":          {"tex": "flint"},
+  "ember_shard":    {"tex": "ember_shard", "fuel": 3200},
+  "ember_striker":  {"tex": "ember_striker", "stack": 1, "durability": 64},
   "apple":          {"tex": "apple", "food": {"hunger": 4, "saturation": 2.4}},
   "wild_root":      {"tex": "wild_root", "food": {"hunger": 1, "saturation": 0.6}},
   "baked_root":     {"tex": "baked_root", "food": {"hunger": 6, "saturation": 6.0}},

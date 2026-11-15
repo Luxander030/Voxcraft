@@ -6,6 +6,7 @@ and macOS from one codebase.
 **Status:** early development. You can explore an endless generated world, fly, walk, swim, and
 break and place blocks. Survival mode adds tools, crafting, smelting, chests, health, hunger and
 item drops. Glimmer circuits (wire, torches, relays, watchers, pistons) work with exact timing.
+Slate rift gates lead to the Hollow, a sealed cavern dimension above a lava sea.
 Original creatures roam the world: grazers and puffbirds by day, gloomlings at night, rockmites
 in caves. Saves are sparse and crash-safe. See [ROADMAP.md](ROADMAP.md).
 

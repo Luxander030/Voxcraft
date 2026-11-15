@@ -16,7 +16,7 @@
 namespace vx {
 
 enum class Biome : u8 {
-    Ocean, DeepOcean, Beach, Plains, Forest, BirchForest, Taiga, Tundra, Desert, Badlands, Savanna, Swamp, Mountains, SnowyPeaks, River, FrozenOcean,
+    Ocean, DeepOcean, Beach, Plains, Forest, BirchForest, Taiga, Tundra, Desert, Badlands, Savanna, Swamp, Mountains, SnowyPeaks, River, FrozenOcean, Hollow,
     Count
 };
 const char* biomeName(Biome b);

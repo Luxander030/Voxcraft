@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Dimensions
+- The Hollow: a cavern dimension with a lava sea, new blocks (hollowrock, ember ore, ash soil,
+  glowcaps) and items (ember shard, ember striker).
+- Rift gates: light a closed slate frame with an ember striker. Travel uses 1:8 coordinates and
+  arrival gates are found or built. Each dimension saves in its own folder.
+
 ### Generator v2: structures
 - New worlds get watchtowers, buried caches and desert wells. Existing worlds keep generator v1
   unchanged.

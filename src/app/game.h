@@ -53,7 +53,9 @@ struct Game {
     AppState settingsReturn = AppState::Title;
     bool clicked = false, mouseHeld = false;      // menu input for this frame
     std::string chatLine; std::vector<std::pair<std::string, double>> chatLog;
-    fs::path assetDir, saveDir;
+    fs::path assetDir, saveDir;                 // saveDir = main save folder (overworld)
+    std::string dimension = "overworld", pendingDimension = "overworld";
+    int riftTicks = 0;
     BlockRegistry reg;
     TexturePack pack;
     ItemRegistry items;
@@ -131,6 +133,7 @@ void dropSelected(bool wholeStack);
 void showStatus(const std::string& s);
 void giveOrDropInv(ItemStack s);
 void respawn();
+bool enterDimension(const std::string& dim, Vec3 pos, bool arriveThroughRift, std::string* err);
 
 bool attackMob();               // left click: melee the creature under the crosshair
 MobContext mobContext();

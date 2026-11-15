@@ -33,6 +33,8 @@
     {"pattern": ["#"], "key": {"#": "gold_block"}, "result": "gold_ingot", "count": 9},
     {"pattern": ["#"], "key": {"#": "azurite_block"}, "result": "azurite", "count": 9},
     {"pattern": ["# #", " # "], "key": {"#": "iron_ingot"}, "result": "bucket"},
+    {"pattern": ["I ", " E"], "key": {"I": "iron_ingot", "E": "ember_shard"}, "result": "ember_striker"},
+    {"pattern": ["E", "F"], "key": {"E": "ember_shard", "F": "flint"}, "result": "ember_striker"},
     {"pattern": ["PPP", "BBB", "PPP"], "key": {"P": "#planks", "B": "clay_lump"}, "result": "bookshelf"}
   ],
   "tools": {
