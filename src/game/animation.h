@@ -62,7 +62,7 @@ private:
     const Model* model_ = nullptr;
     const std::unordered_map<std::string, Clip>* clips_ = nullptr;
     AnimState state_ = AnimState::Idle, prev_ = AnimState::Idle;
-    float stateTime_ = 0, fade_ = 1, walkPhase_ = 0, walkAmp_ = 0, flap_ = 0;
+    float stateTime_ = 0, fade_ = 1, walkPhase_ = 0, walkAmp_ = 0, flap_ = 0, orbit_ = 0;
     const Clip* clipFor(AnimState s) const;
 };
 

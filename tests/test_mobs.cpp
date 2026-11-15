@@ -22,7 +22,7 @@ struct Flat {
 } // namespace
 
 TEST(anim_models_load_and_pivots_are_fixed_points) {
-    REQUIRE(mobs().size() == 4);
+    REQUIRE(mobs().size() == 5);
     const Model& m = mobs().model(mobs().def(mobs().id("grazer")).model);
     CHECK(m.bone("head") > 0); CHECK(m.boxes.size() >= 8);
     Animator a; a.bind(&m, &mobs().clips(mobs().id("grazer")));
@@ -126,4 +126,51 @@ TEST(mobs_spawn_rules_and_persist_with_chunk) {
         CHECK_EQ(ms.mobs.size(), n);
         w2.close();
     }
+}
+
+#include "game/projectiles.h"
+TEST(projectiles_hit_mobs_stick_in_blocks_and_hit_player) {
+    Flat f("proj");
+    MobSystem ms(mobs()); Rng rng(1);
+    ProjectileSystem ps;
+    Player pl; pl.pos = {0.5f, 5, 0.5f};
+    float mobDmg = 0, playerDmg = 0; int picked = 0;
+    ProjectileHooks h;
+    h.hitMob = [&](Mob& m, float d, Vec3 dir) { mobDmg += d; ms.hurt(m, d, dir, rng, nullptr); };
+    h.hitPlayer = [&](float d, Vec3) { playerDmg += d; };
+    h.pickupArrow = [&] { picked++; return true; };
+    ms.spawn(mobs().id("grazer"), {10.5f, 5, 0.5f}, rng);
+    ps.shoot(ProjKind::Arrow, {0.5f, 6.0f, 0.5f}, {2.5f, 0.05f, 0}, 2, true);
+    for (int i = 0; i < 20; i++) ps.tick(f.w, ms, pl, h);
+    CHECK(mobDmg >= 4);                         // fast arrow, high damage
+    CHECK(ps.list.empty());
+    // arrow into a wall sticks, then is picked up when the player walks over
+    f.w.setBlock({0, 6, 6}, blocks().stateOf("stone"));
+    ps.shoot(ProjKind::Arrow, {0.5f, 6.5f, 2.0f}, {0, 0, 1.5f}, 2, true);
+    for (int i = 0; i < 10; i++) ps.tick(f.w, ms, pl, h);
+    REQUIRE(ps.list.size() == 1); CHECK(ps.list[0].stuck);
+    CHECK(ps.list[0].pos.z < 6.0f && ps.list[0].pos.z > 5.5f);
+    pl.pos = {0.5f, 5, 5.0f}; ps.tick(f.w, ms, pl, h);
+    CHECK_EQ(picked, 1); CHECK(ps.list.empty());
+    // creature bolt hits the player
+    pl.pos = {0.5f, 5, 0.5f};
+    ps.shoot(ProjKind::EmberBolt, {0.5f, 6.0f, -8.0f}, {0, 0, 0.9f}, 4, false);
+    for (int i = 0; i < 20; i++) ps.tick(f.w, ms, pl, h);
+    CHECK_EQ(playerDmg, 4.0f);
+}
+
+TEST(cinderwisps_spawn_only_in_the_hollow_and_shoot_with_sight) {
+    Flat f("wisp");
+    MobSystem ms(mobs()); Rng rng(3);
+    Player pl; pl.pos = {0.5f, 5, 0.5f};
+    for (int i = 0; i < 300; i++) ms.spawnTick(f.w, pl, 0.0f, rng, 10, 12, "overworld");
+    for (auto& m : ms.mobs) CHECK(mobs().def(m.type).name != "cinderwisp");
+    ms.mobs.clear();
+    int shots = 0;
+    MobContext ctx{f.w, pl, true, 0, nullptr, nullptr};
+    ctx.shoot = [&](Mob&, Vec3, Vec3 v) { shots++; CHECK(length(v) > 0.5f); };
+    ms.spawn(mobs().id("cinderwisp"), {0.5f, 9, 8.5f}, rng);
+    for (int i = 0; i < 200; i++) ms.tick(ctx, rng);
+    CHECK(shots >= 2);
+    CHECK(ms.mobs[0].pos.y > 6);   // still airborne
 }

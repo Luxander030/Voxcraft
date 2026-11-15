@@ -96,6 +96,8 @@ void Animator::update(float dt, const AnimInput& in) {
     add("leg_l", {sw, 0, 0}); add("leg_r", {-sw, 0, 0});
     add("arm_l", {-sw * 0.8f, 0, 0}); add("arm_r", {sw * 0.8f, 0, 0});
     add("tail", {0, std::sin(walkPhase_ * 0.5f) * 0.3f, 0});
+    orbit_ += dt * 2.2f;   // free-floating parts (cinderwisp shards) orbit the body
+    add("shard_a", {0, orbit_, 0}); add("shard_b", {0, orbit_ * 1.3f, 0.3f}); add("shard_c", {0.4f, -orbit_ * 0.8f, 0});
     flap_ += dt * (in.onGround ? 2.0f : 25.0f);
     float fl = in.onGround ? std::sin(flap_) * 0.05f : std::sin(flap_) * 0.9f;
     add("wing_l", {0, 0, -fl}); add("wing_r", {0, 0, fl});

@@ -20,6 +20,8 @@ bool MobRegistry::load(const Json& mobs, const Json& models, const Json& anims, 
         d.height = (float)j["height"].asNumber(1.8); d.damage = (float)j["damage"].asNumber(0);
         d.behavior = j["behavior"].asString() == "hostile" ? MobBehavior::Hostile : MobBehavior::Passive;
         d.burnsInDaylight = j["burns_in_daylight"].asBool(false);
+        d.flying = j["flying"].asBool(false); d.ranged = j["ranged"].asBool(false); d.emissive = j["emissive"].asBool(false);
+        if (const Json* dims = j.find("dimensions")) { d.dimensions.clear(); for (auto& x : dims->arr) d.dimensions.push_back(x.asString()); }
         for (auto& dr : j["drops"].arr) {
             u16 it = items.id(dr["item"].asString());
             if (!it) { if (err) *err = "mob " + name + ": unknown drop " + dr["item"].asString(); return false; }
@@ -27,7 +29,7 @@ bool MobRegistry::load(const Json& mobs, const Json& models, const Json& anims, 
         }
         const Json& sp = j["spawn"];
         std::string w = sp["where"].asString("surface");
-        d.where = w == "dark" ? SpawnWhere::Dark : w == "underground" ? SpawnWhere::Underground : SpawnWhere::Surface;
+        d.where = w == "dark" ? SpawnWhere::Dark : w == "underground" ? SpawnWhere::Underground : w == "air" ? SpawnWhere::Air : SpawnWhere::Surface;
         d.groupMin = sp["group"][0].asInt(1); d.groupMax = sp["group"][1].asInt(1); d.weight = sp["weight"].asInt(1);
         std::unordered_map<std::string, Clip> clips;
         if (const Json* rig = anims.find(d.rig)) if (!loadClips(*rig, models_[d.model], clips, err)) return false;
@@ -110,7 +112,8 @@ Mob& MobSystem::spawn(u16 type, Vec3 pos, Rng& rng) {
 
 void MobSystem::move(const World& w, Mob& m, const MobDef& d) {
     bool inFluid = w.reg.fluid(w.getBlock((int)std::floor(m.pos.x), (int)std::floor(m.pos.y + 0.2f), (int)std::floor(m.pos.z)));
-    m.vel.y = inFluid ? std::min(m.vel.y * 0.8f + 0.03f, 0.08f) : std::max((m.vel.y - 0.078f) * 0.98f, -3.0f);
+    if (d.flying && m.alive()) m.vel.y *= 0.85f;   // fliers hold altitude (vertical intent set by the AI)
+    else m.vel.y = inFluid ? std::min(m.vel.y * 0.8f + 0.03f, 0.08f) : std::max((m.vel.y - 0.078f) * 0.98f, -3.0f);
     float hw = d.width * 0.5f;
     bool hitX = false, hitZ = false, hitY;
     auto boxAt = [&]() { return AABB{{m.pos.x - hw, m.pos.y, m.pos.z - hw}, {m.pos.x + hw, m.pos.y + d.height, m.pos.z + hw}}; };
@@ -119,8 +122,8 @@ void MobSystem::move(const World& w, Mob& m, const MobDef& d) {
     if (hitY) m.vel.y = 0;
     float dx = sweepAxis(w, boxAt(), 0, m.vel.x, hitX); m.pos.x += dx;
     float dz = sweepAxis(w, boxAt(), 2, m.vel.z, hitZ); m.pos.z += dz;
-    if ((hitX || hitZ) && m.onGround) m.vel.y = 0.42f;   // auto-jump over 1-block steps
-    float fr = m.onGround ? 0.55f : 0.91f;
+    if ((hitX || hitZ) && m.onGround && !d.flying) m.vel.y = 0.42f;   // auto-jump over 1-block steps
+    float fr = d.flying ? 0.85f : m.onGround ? 0.55f : 0.91f;
     m.vel.x *= fr; m.vel.z *= fr;
 }
 
@@ -170,6 +173,33 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
         // daylight burn
         if (d.burnsInDaylight && ctx.daylight > 0.6f && w.skyLight({(int)std::floor(m.pos.x), (int)std::floor(m.pos.y + d.height), (int)std::floor(m.pos.z)}) >= 12) {
             if (++m.burnTimer >= 20) { m.burnTimer = 0; m.hurtTicks = 0; hurt(m, 2, Vec3(0, 0, 0.001f), rng, &ctx); }
+        }
+
+        // ---- flying ranged attackers: hover at range, strafe, shoot with line of sight
+        if (d.flying) {
+            Vec3 eye = m.pos + Vec3(0, d.height * 0.6f, 0), target = pp + Vec3(0, 1.3f, 0);
+            Vec3 to = target - eye; float dist = length(to);
+            Vec3 want{0, 0, 0};
+            bool engaged = ctx.playerTargetable && dist < 24;
+            if (engaged) {
+                Vec3 flat = normalize(Vec3(to.x, 0, to.z)), side{-flat.z, 0, flat.x};
+                want = dist > 10 ? flat : dist < 5 ? flat * -1.0f : side * (std::sin(m.age * 0.03f) > 0 ? 1.0f : -1.0f);
+                float altWant = pp.y + 3.0f;
+                m.vel.y += clamp((altWant - m.pos.y) * 0.02f, -0.04f, 0.04f);
+                if (++m.pathTimer >= 60 && d.ranged && ctx.shoot) {
+                    RayHit los = raycastBlocks(w, eye, to, dist);
+                    if (!los.hit) { m.pathTimer = 0; m.anim.play(AnimState::Attack); ctx.shoot(m, eye + normalize(to) * 0.6f, normalize(to) * 0.9f); }
+                }
+                m.yaw = std::atan2(to.x, -to.z);
+            } else {
+                if (--m.idleTimer <= 0) { m.idleTimer = 80 + rng.range(80); m.headYaw = rng.unit() * 2 * PI; }
+                want = Vec3(std::sin(m.headYaw), 0, -std::cos(m.headYaw)) * 0.5f;
+                m.vel.y += (rng.unit() - 0.5f) * 0.01f;
+                m.yaw += clamp((float)std::remainder(m.headYaw - m.yaw, 2 * PI), -0.1f, 0.1f);
+            }
+            m.vel.x += (want.x * d.speed - m.vel.x) * 0.3f; m.vel.z += (want.z * d.speed - m.vel.z) * 0.3f;
+            move(w, m, d);
+            continue;
         }
 
         // ---- decide a goal
@@ -233,14 +263,15 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
     mobs.erase(std::remove_if(mobs.begin(), mobs.end(), [](const Mob& m) { return m.removed; }), mobs.end());
 }
 
-void MobSystem::spawnTick(const World& w, const Player& p, float daylight, Rng& rng, int passiveCap, int hostileCap) {
+void MobSystem::spawnTick(const World& w, const Player& p, float daylight, Rng& rng, int passiveCap, int hostileCap, const std::string& dimension) {
     int passive = countNear(p.pos, 64, MobBehavior::Passive), hostile = countNear(p.pos, 64, MobBehavior::Hostile);
     for (int attempt = 0; attempt < 4; attempt++) {
         // weighted pick of a mob type
-        int total = 0; for (size_t i = 0; i < reg_.size(); i++) total += reg_.def((u16)i).weight;
+        auto allowed = [&](const MobDef& md) { return std::find(md.dimensions.begin(), md.dimensions.end(), dimension) != md.dimensions.end(); };
+        int total = 0; for (size_t i = 0; i < reg_.size(); i++) if (allowed(reg_.def((u16)i))) total += reg_.def((u16)i).weight;
         if (!total) return;
         int r = rng.range(total); u16 type = 0;
-        for (size_t i = 0; i < reg_.size(); i++) { r -= reg_.def((u16)i).weight; if (r < 0) { type = (u16)i; break; } }
+        for (size_t i = 0; i < reg_.size(); i++) { if (!allowed(reg_.def((u16)i))) continue; r -= reg_.def((u16)i).weight; if (r < 0) { type = (u16)i; break; } }
         const MobDef& d = reg_.def(type);
         if (d.behavior == MobBehavior::Passive && passive >= passiveCap) continue;
         if (d.behavior == MobBehavior::Hostile && hostile >= hostileCap) continue;
@@ -257,6 +288,12 @@ void MobSystem::spawnTick(const World& w, const Player& p, float daylight, Rng& 
         } else if (d.where == SpawnWhere::Dark) {
             if (light(top + 1) <= 7 && w.reg.solid(w.getBlock(x, top, z))) y = top + 1;
             else { int yy = 10 + rng.range(std::max(1, top - 10)); if (walkableCell(w, {x, yy, z}, hb) && light(yy) <= 7) y = yy; }
+        } else if (d.where == SpawnWhere::Air) {
+            int yy = 36 + rng.range(80);
+            bool open = true;
+            for (int k = -1; k <= 2 && open; k++) open = w.getBlock(x, yy + k, z) == AIR;
+            if (open) { spawn(type, {x + 0.5f, (float)yy, z + 0.5f}, rng); return; }
+            continue;
         } else {
             int yy = 6 + rng.range(44);
             if (yy < top - 4 && walkableCell(w, {x, yy, z}, hb) && w.skyLight({x, yy, z}) == 0 && w.blockLight({x, yy, z}) == 0) y = yy;

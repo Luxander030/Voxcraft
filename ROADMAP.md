@@ -62,7 +62,9 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Second dimension, the Hollow: sealed lava-sea caverns (hollowrock, ember ore, ash soil, glowcaps, hanging glowcrystal), generator from v2, 4-block-grid interpolated density.
 - ✅ Rift gates: slate frame lit with a crafted ember striker (flood fill in either plane, max 21 cells), collapse when the frame breaks, 1:8 travel with find-or-build arrival gates, per-dimension save folders, player file records the dimension.
 - ✅ Sticky pistons (pull back), comparators (container fullness or signal compare/subtract, drives wire at its strength), hoppers (push/pull every 8 ticks, vacuum dropped items, feed kilns by face, locked while powered), droppers and dispensers (rising-edge, pour/scoop fluids, insert into containers), recipes for all circuit blocks.
-- ⬜ Ranged combat; Hollow-specific creatures.
+- ✅ Ranged combat: projectile system (swept segments vs blocks, creatures, player; arrows stick and can be picked up), bow with draw strength, arrows, dispensers fire arrows.
+- ✅ Cinderwisp: flying ranged Hollow creature (keeps range, strafes, shoots ember bolts only with line of sight); creatures restricted per dimension; "air" spawn rule; emissive rendering.
+- ✅ Per-dimension ambient light (the Hollow is dim but never pitch black).
 
 ## Phase 9 — Presentation 🔶
 - ✅ Title screen, world list (play/create/delete-to-trash), world creation (name, seed, mode, type), settings (render distance, FOV, sensitivity, GUI scale, 6 volume categories) persisted in `options.json`, pause menu with save & quit to title.

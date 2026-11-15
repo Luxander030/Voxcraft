@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Ranged combat and the cinderwisp
+- Projectiles (arrows, ember bolts), a bow with draw strength, and arrow recipes. Dispensers
+  shoot arrows.
+- Cinderwisp: a flying, ranged creature of the Hollow. Creature spawning is now restricted per
+  dimension.
+- Per-dimension ambient light in the terrain shader (Metal and HLSL).
+
 ### Circuits: automation
 - Sticky pistons, comparators, hoppers, droppers and dispensers, plus recipes for every circuit
   block. New container screen layouts.

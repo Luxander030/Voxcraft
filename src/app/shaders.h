@@ -3,7 +3,7 @@
 // Terrain vertex = uint3 (see render/mesher.h). Uniform blocks:
 //   slot 0 (VS) Frame { float4x4 vp; float4 cam; }          cam.xyz unused, cam.w = time
 //   slot 1 (VS) Draw  { float4 origin; }                     section origin relative to the camera
-//   slot 2 (FS) Fog   { float4 fogColor; float4 params; }    params: x daylight, y fog start, z fog end, w underwater
+//   slot 2 (FS) Fog   { float4 fogColor; float4 params; }    params: x daylight, y fog start, z fog end, w ambient light
 // Lines (block outline): float3 position, uniform colour.  UI: float2 pos, float4 (u, v, layer, mode), ubyte4n colour.
 #pragma once
 
@@ -42,6 +42,8 @@ static float curve(float l) { return l * l * (3.0 - 2.0 * l) * 0.92 + 0.04; }
 static float4 shadeTerrain(VOut in, float4 c, constant Fog& fg) {
     float sky = curve(in.light.x) * fg.params.x, blk = curve(in.light.y);
     float3 lit = float3(max(sky, blk * 1.0), max(sky, blk * 0.92), max(sky, blk * 0.78));
+    float amb = fg.params.w;   // per-dimension ambient (sky-less dimensions)
+    lit = max(lit, float3(amb, amb * 0.72, amb * 0.6));
     float3 rgb = c.rgb * in.tint * lit * in.shade;
     float fog = clamp((in.dist - fg.params.y) / max(1.0, fg.params.z - fg.params.y), 0.0, 1.0);
     return float4(mix(rgb, fg.fogColor.rgb, fog * fog), c.a);
@@ -139,6 +141,8 @@ float curve(float l) { return l * l * (3.0 - 2.0 * l) * 0.92 + 0.04; }
 float4 shadeTerrain(VOut i, float4 c) {
     float sky = curve(i.light.x) * params.x, blk = curve(i.light.y);
     float3 lit = float3(max(sky, blk * 1.0), max(sky, blk * 0.92), max(sky, blk * 0.78));
+    float amb = params.w;   // per-dimension ambient (sky-less dimensions)
+    lit = max(lit, float3(amb, amb * 0.72, amb * 0.6));
     float3 rgb = c.rgb * i.tint * lit * i.shade;
     float fog = saturate((i.dist - params.y) / max(1.0, params.z - params.y));
     return float4(lerp(rgb, fogColor.rgb, fog * fog), c.a);

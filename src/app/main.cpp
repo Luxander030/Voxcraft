@@ -58,7 +58,7 @@ void environment(FrameEnv& env, const Vec3& eye) {
     env.skyColor = night + (day - night) * ((daylight - 0.12f) / 0.88f);
     env.fogEnd = (float)(G->opt.radius * 16); env.fogStart = env.fogEnd * 0.6f;
     if (G->dimension == "hollow") {   // sealed caverns: no sky, warm haze
-        env.daylight = 0; env.skyColor = {0.16f, 0.05f, 0.04f};
+        env.daylight = 0; env.skyColor = {0.16f, 0.05f, 0.04f}; env.ambient = 0.32f;
         env.fogStart = 16; env.fogEnd = std::min(env.fogEnd, 96.0f);
     }
     BlockState headBlock = G->world->getBlock((int)std::floor(eye.x), (int)std::floor(eye.y), (int)std::floor(eye.z));
@@ -267,7 +267,7 @@ void event(const sapp_event* e) {
         if (inScreen) { screenMouseDown(e->mouse_button == SAPP_MOUSEBUTTON_RIGHT, shift); break; }
         if (!G->mouseLocked) { G->mouseLocked = true; sapp_lock_mouse(true); break; }
         if (e->mouse_button == SAPP_MOUSEBUTTON_LEFT) { if (!attackMob()) G->mouseDown[0] = true; }
-        else if (e->mouse_button == SAPP_MOUSEBUTTON_RIGHT) { G->mouseDown[1] = true; const ItemDef* h = G->held(); if (!(h && h->isFood())) clickUse(); }
+        else if (e->mouse_button == SAPP_MOUSEBUTTON_RIGHT) { G->mouseDown[1] = true; const ItemDef* h = G->held(); if (!(h && (h->isFood() || h->name == "bow"))) clickUse(); }
         else if (e->mouse_button == SAPP_MOUSEBUTTON_MIDDLE) pickBlock();
         break;
     }

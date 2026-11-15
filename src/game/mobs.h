@@ -11,7 +11,7 @@
 namespace vx {
 
 enum class MobBehavior : u8 { Passive, Hostile };
-enum class SpawnWhere : u8 { Surface, Dark, Underground };
+enum class SpawnWhere : u8 { Surface, Dark, Underground, Air };
 
 struct MobDef {
     std::string name, rig;
@@ -19,7 +19,8 @@ struct MobDef {
     int model = -1;
     float health = 10, speed = 0.1f, width = 0.6f, height = 1.8f, damage = 0;
     MobBehavior behavior = MobBehavior::Passive;
-    bool burnsInDaylight = false;
+    bool burnsInDaylight = false, flying = false, ranged = false, emissive = false;
+    std::vector<std::string> dimensions{"overworld"};
     struct Drop { u16 item; int min, max; };
     std::vector<Drop> drops;
     SpawnWhere where = SpawnWhere::Surface;
@@ -63,6 +64,8 @@ struct MobContext {
     float daylight;                 // 0..1
     std::function<void(Mob&, float dmg)> attackPlayer;
     std::function<void(const Mob&, const std::vector<ItemStack>&)> dropLoot;
+    std::function<void(Mob&, Vec3 from, Vec3 vel)> shoot;   // ranged attackers
+    std::string dimension = "overworld";
 };
 
 class MobSystem {
@@ -71,7 +74,7 @@ public:
     std::vector<Mob> mobs;
     Mob& spawn(u16 type, Vec3 pos, Rng& rng);
     void tick(MobContext& ctx, Rng& rng);
-    void spawnTick(const World& w, const Player& p, float daylight, Rng& rng, int passiveCap = 10, int hostileCap = 12);
+    void spawnTick(const World& w, const Player& p, float daylight, Rng& rng, int passiveCap = 10, int hostileCap = 12, const std::string& dimension = "overworld");
     // Player melee. Returns true if the mob took damage.
     bool hurt(Mob& m, float dmg, Vec3 knockDir, Rng& rng, MobContext* ctx);
     Mob* raycast(Vec3 origin, Vec3 dir, float reach, float* dist = nullptr);

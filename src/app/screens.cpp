@@ -350,6 +350,10 @@ void drawFrameUi(int w, int h) {
         iconRow(bx + bw - 80, by - 10, FOOD, G->stats.food, C(205, 135, 60), C(70, 50, 30, 255), true);
         if (G->stats.air < 300) iconRow(bx + bw - 80, by - 19, BUBBLE, std::ceil(G->stats.air / 15.0f), C(140, 200, 255), C(0, 0, 0, 0), true);
     }
+    if (G->bowCharge > 0) {
+        ui.rect(W / 2 - 10, H / 2 + 8, 20, 3, C(0, 0, 0, 160));
+        ui.rect(W / 2 - 10, H / 2 + 8, 20 * std::min(1.0f, G->bowCharge / 20.0f), 3, C(255, 220, 120, 230));
+    }
     if (G->breakProgress > 0 && !creative) {
         ui.rect(W / 2 - 10, H / 2 + 8, 20, 3, C(0, 0, 0, 160));
         ui.rect(W / 2 - 10, H / 2 + 8, 20 * std::min(1.0f, G->breakProgress), 3, C(240, 240, 240, 220));

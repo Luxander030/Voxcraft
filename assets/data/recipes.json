@@ -42,6 +42,8 @@
     {"pattern": ["CCC", "C C", "CGC"], "key": {"C": "cobblestone", "G": "glimmer_dust"}, "result": "dropper"},
     {"pattern": ["CCC", "CFC", "CGC"], "key": {"C": "cobblestone", "F": "flint", "G": "glimmer_dust"}, "result": "dispenser"},
     {"pattern": ["I ", " E"], "key": {"I": "iron_ingot", "E": "ember_shard"}, "result": "ember_striker"},
+    {"pattern": [" ST", "S T", " ST"], "key": {"S": "stick", "T": "shadow_thread"}, "result": "bow"},
+    {"pattern": ["F", "S", "E"], "key": {"F": "flint", "S": "stick", "E": "feather"}, "result": "arrow", "count": 4},
     {"pattern": ["E", "F"], "key": {"E": "ember_shard", "F": "flint"}, "result": "ember_striker"},
     {"pattern": ["PPP", "BBB", "PPP"], "key": {"P": "#planks", "B": "clay_lump"}, "result": "bookshelf"}
   ],

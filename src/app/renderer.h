@@ -28,6 +28,7 @@ struct FrameEnv {
     Vec3 skyColor{0.62f, 0.78f, 1.0f};
     float fogStart = 100, fogEnd = 160;
     float fovY = 70.0f * PI / 180.0f;
+    float ambient = 0.0f;   // minimum light (dimensions without sky)
 };
 
 class Renderer final : public WorldListener {

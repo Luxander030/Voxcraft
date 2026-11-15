@@ -161,6 +161,7 @@ bool placeHeld() {
 ContainerContext containerCtx() {
     ContainerContext c{*G->world, G->items, G->recipes};
     c.behaviors = G->behaviors.get(); c.entities = G->entities.get(); c.rng = &G->rng;
+    c.shootArrow = [](Vec3 pos, Vec3 vel) { G->projectiles.shoot(ProjKind::Arrow, pos, vel, 2, true, true); };
     return c;
 }
 
@@ -294,7 +295,7 @@ bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* 
         G->world->close();
         G->world.reset();
     }
-    G->entities->items.clear(); G->mobs->mobs.clear(); G->particles.parts.clear();
+    G->entities->items.clear(); G->mobs->mobs.clear(); G->particles.parts.clear(); G->projectiles.list.clear();
     fs::path dir = dim == "overworld" ? G->saveDir : G->saveDir / "dim" / dim;
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
@@ -445,7 +446,7 @@ void simulateTick() {
         }
     } else G->eatTicks = 0;
     if (G->useCooldown > 0) G->useCooldown--;
-    if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && h->isFood())) { clickUse(); }
+    if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && (h->isFood() || h->name == "bow"))) { clickUse(); }
 
     // rift travel: stand in a rift for 4 s (0.5 s in creative)
     {
@@ -485,7 +486,44 @@ void simulateTick() {
             G->particles.flame({q.x + (b.min.x + b.max.x) / 2, q.y + b.max.y, q.z + (b.min.z + b.max.z) / 2}, G->renderer.textures().face(s, FACE_PY), G->rng);
         }
     }
-    if (G->world->meta.tick % 20 == 0) G->mobs->spawnTick(*G->world, p, ctx.daylight, G->rng);
+    if (G->world->meta.tick % 20 == 0) G->mobs->spawnTick(*G->world, p, ctx.daylight, G->rng, 10, 12, G->dimension);
+    // projectiles
+    {
+        ProjectileHooks h;
+        h.hitMob = [](Mob& m, float dmg, Vec3 dir) {
+            MobContext mc = mobContext();
+            if (G->mobs->hurt(m, dmg, dir, G->rng, &mc)) sfx3d(m.alive() ? "mob_hurt" : "mob_death", m.pos + Vec3(0, 0.8f, 0), SoundCat::Creatures);
+            if (!m.alive()) G->particles.puff(m.pos, 12, rgba(220, 220, 220, 220), G->rng);
+        };
+        h.hitPlayer = [](float dmg, Vec3 dir) {
+            if (G->creative()) return;
+            if (G->stats.damage(dmg, DamageSource::Attack) > 0) { G->player.vel.x += dir.x * 0.4f; G->player.vel.z += dir.z * 0.4f; G->player.vel.y = std::max(G->player.vel.y, 0.25f); }
+        };
+        h.pickupArrow = [] { if (G->creative()) return true; return G->inv.add({G->items.id("arrow"), 1, 0}, G->items) == 0; };
+        h.impact = [](const Projectile& pr) {
+            if (pr.kind == ProjKind::EmberBolt) { for (int i = 0; i < 4; i++) G->particles.flame(pr.pos, (u16)std::max(0, G->pack.layer("cinderwisp_core")), G->rng); sfx3d("break_stone", pr.pos, SoundCat::Creatures, 0.5f); }
+            else sfx3d("dig_wood", pr.pos, SoundCat::Blocks, 0.5f);
+        };
+        G->projectiles.tick(*G->world, *G->mobs, p, h);
+        for (auto& pr : G->projectiles.list) if (pr.kind == ProjKind::EmberBolt && G->rng.chance(0.5f)) G->particles.flame(pr.pos, (u16)std::max(0, G->pack.layer("cinderwisp_core")), G->rng);
+    }
+    // bow: hold use to draw, release to loose an arrow
+    {
+        const ItemDef* hb = G->held();
+        bool right = !inScreen && G->mouseDown[1];
+        bool isBow = hb && hb->name == "bow";
+        bool hasArrow = G->creative() || G->inv.count(G->items.id("arrow")) > 0;
+        if (isBow && right && hasArrow) G->bowCharge = std::min(G->bowCharge + 1, 20);
+        else if (isBow && G->prevRight && !right && G->bowCharge > 2) {
+            float t = G->bowCharge / 20.0f, power = (t * t + 2 * t) / 3;
+            Vec3 l = G->player.look();
+            G->projectiles.shoot(ProjKind::Arrow, G->player.eye() + l * 0.4f, l * (3.0f * power), 2, true, !G->creative());
+            if (!G->creative()) { G->inv.remove(G->items.id("arrow"), 1); damageHeldTool(); }
+            sfx3d("dig_wood", G->player.eye(), SoundCat::Blocks, 0.6f);
+            G->bowCharge = 0;
+        } else if (!right) G->bowCharge = 0;
+        G->prevRight = right;
+    }
     if (G->attackCooldown > 0) G->attackCooldown--;
     { ContainerContext cc = containerCtx(); tickContainers(cc, {(int)std::floor(p.pos.x) >> 4, (int)std::floor(p.pos.z) >> 4}, G->world->simulationRadius); }
     G->world->tick();
@@ -503,6 +541,11 @@ MobContext mobContext() {
         }
     };
     c.dropLoot = [](const Mob& m, const std::vector<ItemStack>& loot) { for (auto& s : loot) G->entities->spawnItem(m.pos + Vec3(0, 0.5f, 0), s, G->rng); };
+    c.shoot = [](Mob& m, Vec3 from, Vec3 vel) {
+        G->projectiles.shoot(ProjKind::EmberBolt, from, vel, G->mobReg.def(m.type).damage, false, false);
+        sfx3d("mob_hurt", from, SoundCat::Creatures, 0.4f);
+    };
+    c.dimension = G->dimension;
     return c;
 }
 

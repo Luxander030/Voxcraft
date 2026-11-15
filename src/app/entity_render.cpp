@@ -88,9 +88,30 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
         float yaw = m.prevYaw + (float)std::remainder(m.yaw - m.prevYaw, 2 * PI) * alpha;
         Mat4 world = Mat4::translate(rel.x, rel.y, rel.z) * Mat4::rotateY(-yaw) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
         float sky, blk; lightAt(pos + Vec3(0, d.height * 0.5f, 0), sky, blk);
+        if (d.emissive) { sky = 1; blk = 1; }
         u32 tint = m.hurtTicks > 0 || !m.alive() ? rgba(255, 110, 110) : rgba(255, 255, 255);
         const Model& model = G->mobReg.model(d.model);
         for (auto& b : model.boxes) emitBox(out, world * bones[b.bone], b.min, b.size, b.tex, sky, blk, tint);
+    }
+    // projectiles: arrows as thin shafts along their velocity, bolts as glowing cubes
+    for (const Projectile& pr : G->projectiles.list) {
+        Vec3 pos = pr.prevPos + (pr.pos - pr.prevPos) * alpha, rel = pos - eye;
+        if (dot(rel, rel) > 64 * 64) continue;
+        if (pr.kind == ProjKind::EmberBolt) {
+            int l = std::max(0, G->pack.layer("cinderwisp_core"));
+            u16 t[6] = {(u16)l, (u16)l, (u16)l, (u16)l, (u16)l, (u16)l};
+            Mat4 m = Mat4::translate(rel.x, rel.y, rel.z) * Mat4::rotateY((G->now) * 6.0f) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
+            emitBox(out, m, {-2, -2, -2}, {4, 4, 4}, t, 1, 1, rgba(255, 255, 255));
+            continue;
+        }
+        Vec3 v = pr.vel; float hz = std::sqrt(v.x * v.x + v.z * v.z);
+        float yaw = std::atan2(v.x, -v.z), pitch = std::atan2(v.y, std::max(hz, 1e-5f));
+        Mat4 m = Mat4::translate(rel.x, rel.y, rel.z) * Mat4::rotateY(-yaw) * Mat4::rotateX(pitch) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
+        int shaft = std::max(0, G->pack.layer("oak_log")), tip = std::max(0, G->pack.layer("iron_block"));
+        u16 ts[6] = {(u16)shaft, (u16)shaft, (u16)shaft, (u16)shaft, (u16)shaft, (u16)shaft}, tt[6] = {(u16)tip, (u16)tip, (u16)tip, (u16)tip, (u16)tip, (u16)tip};
+        float sky, blk; lightAt(pos, sky, blk);
+        emitBox(out, m, {-0.5f, -0.5f, -5}, {1, 1, 9}, ts, sky, blk, rgba(255, 255, 255));
+        emitBox(out, m, {-1, -1, -7}, {2, 2, 2}, tt, sky, blk, rgba(255, 255, 255));
     }
     // dropped items: small spinning cubes (block items) or crossed sprites
     for (auto& e : G->entities->items) {

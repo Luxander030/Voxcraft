@@ -305,7 +305,7 @@ void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, c
     sg_begin_pass(&pass);
 
     struct { Mat4 vp; float cam[4]; } frameU{vp, {0, 0, 0, 0}};
-    struct { float fog[4]; float params[4]; } fogU{{env.skyColor.x, env.skyColor.y, env.skyColor.z, 1}, {env.daylight, env.fogStart, env.fogEnd, 0}};
+    struct { float fog[4]; float params[4]; } fogU{{env.skyColor.x, env.skyColor.y, env.skyColor.z, 1}, {env.daylight, env.fogStart, env.fogEnd, env.ambient}};
     auto drawLayer = [&](sg_pipeline pip, int layer, bool backToFront) {
         sg_apply_pipeline(pip);
         sg_apply_uniforms(0, SG_RANGE_REF(frameU));
