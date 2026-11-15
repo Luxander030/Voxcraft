@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Smooth fluids
+- Water and lava surfaces slope between levels (per-corner heights).
+
 ### Memory pressure
 - An adaptive budget policy lowers the render distance and chunk cache under memory pressure,
   then recovers. The debug overlay shows the budget state. Physical memory is queried on every

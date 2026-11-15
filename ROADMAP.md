@@ -62,7 +62,8 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Structure chests are generated empty and roll deterministic loot on first open, so structures never make untouched chunks persistent.
 - ✅ Generator v3 (new worlds): villages — plaza with well and lamp posts, 4-7 furnished cottages facing it, gravel paths; region-based layout so multi-chunk structures stay chunk-independent; `/locate village`.
 - ✅ Settlers: original villager creature (OpenSCAD model), spawned lazily the first time a player approaches a village (recorded in world.json so it happens once; generation stays entity-free), wander around their home plaza, trade 3 deterministic offers each using copper as currency.
-- ⬜ More biome features, smooth fluid surfaces.
+- ✅ Smooth fluid surfaces: per-corner heights averaged over neighbouring fluid cells, sloped top and side faces.
+- ⬜ More biome features.
 
 ## Phase 8 — Advanced gameplay 🔶
 - ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).

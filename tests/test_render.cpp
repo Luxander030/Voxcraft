@@ -134,3 +134,23 @@ TEST(render_section_connectivity_and_occlusion_traversal) {
     traverseVisible({0, 8, 0}, 4, [](const SectionKey&) { return ALL_CONNECTED; }, [](const SectionKey&) { return true; }, [&](const SectionKey&) { open++; });
     CHECK_EQ(open, 9 * 9 * 16);
 }
+
+TEST(render_fluid_surfaces_slope_between_levels) {
+    auto s = emptySnap();
+    Section& sec = s->sec[MeshSnapshot::idx(0, 0)][4];
+    BlockState water = blocks().stateOf("water");
+    sec.set(Section::idx(5, 1, 5), water);                                   // source (height 14)
+    sec.set(Section::idx(6, 1, 5), blocks().withProp(water, "level", 3));   // flowing (height 8)
+    SectionMesh m; meshSection(*s, 4, ctx(), m);
+    REQUIRE(m.quads(ML_TRANSLUCENT) > 0);
+    int minTop = 1000, maxTop = 0;
+    for (int q = 0; q < m.quads(ML_TRANSLUCENT); q++) {
+        auto v0 = unpackVertex(&m.data[ML_TRANSLUCENT][q * 12]);
+        if (v0.face != FACE_PY) continue;
+        for (int k = 0; k < 4; k++) { auto v = unpackVertex(&m.data[ML_TRANSLUCENT][q * 12 + k * 3]); int h = v.y - 16; minTop = std::min(minTop, h); maxTop = std::max(maxTop, h); }
+        CHECK(windingOk(&m.data[ML_TRANSLUCENT][q * 12]));
+    }
+    CHECK(maxTop == 14);          // outer corners of the source
+    CHECK(minTop == 8);           // outer corners of the flowing cell
+    for (int q = 0; q < m.quads(ML_TRANSLUCENT); q++) CHECK(windingOk(&m.data[ML_TRANSLUCENT][q * 12]));
+}

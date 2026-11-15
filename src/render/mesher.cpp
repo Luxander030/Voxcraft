@@ -220,29 +220,46 @@ void specialShapes(const MeshContext& ctx, const Padded& p, Emitter& em) {
             break;
         }
         case BlockShape::Fluid: {
-            int h = fluidHeight(reg, p, x, y, z);
+            // Smooth surface: each top corner takes the mean height of the fluid cells sharing it
+            // (full height if any of them has the same fluid above), so flows slope continuously.
             u32 tint = tintFor(d, p, x, z, FACE_PY);
-            for (int f = 0; f < 6; f++) {
-                int ni = pidx(x + DIR[f][0], y + DIR[f][1], z + DIR[f][2]);
-                BlockState nb = p.b[ni];
-                if (nb != AIR && reg.def(nb).index == d.index) continue;
-                if (p.opq[ni] && f != FACE_PY) continue;
-                if (f == FACE_PY && p.opq[ni] && h == 16) continue;
-                int mn[3] = {0, 0, 0}, mx[3] = {16, h, 16};
-                bool faces[6] = {false, false, false, false, false, false}; faces[f] = true;
-                int mnw[3] = {mn[0] + X, mn[1] + Y, mn[2] + Z}, mxw[3] = {mx[0] + X, mx[1] + Y, mx[2] + Z};
-                u8 fs = p.opq[ni] ? sky : p.sky[ni], fb = p.opq[ni] ? blk : p.blk[ni];
-                // box() derives uv from in-block coordinates; pass block-local box and offset positions after
-                SectionMesh tmp; Emitter te{tmp};
-                te.box(ml, mn, mx, tex, std::max(fs, sky), std::max(fb, blk), tint, faces);
-                for (size_t k = 0; k < tmp.data[ml].size(); k += 3) {
-                    u32 w0 = tmp.data[ml][k];
-                    u32 px = (w0 & 511) + X, py = ((w0 >> 9) & 511) + Y, pz = ((w0 >> 18) & 511) + Z;
-                    em.out.data[ml].push_back((w0 & ~0x7FFFFFFu) | px | (py << 9) | (pz << 18));
-                    em.out.data[ml].push_back(tmp.data[ml][k + 1]); em.out.data[ml].push_back(tmp.data[ml][k + 2]);
+            auto same = [&](int xx, int yy, int zz) { BlockState q = p.b[pidx(xx, yy, zz)]; return q != AIR && reg.def(q).index == d.index; };
+            int hc[4];   // corners: (x0,z0) (x1,z0) (x1,z1) (x0,z1)
+            const int ccx[4] = {0, 1, 1, 0}, ccz[4] = {0, 0, 1, 1};
+            for (int k = 0; k < 4; k++) {
+                int sum = 0, n = 0; bool full = false;
+                for (int dz = ccz[k] - 1; dz <= ccz[k]; dz++) for (int dx = ccx[k] - 1; dx <= ccx[k]; dx++) {
+                    int xx = x + dx, zz = z + dz;
+                    if (!same(xx, y, zz)) continue;
+                    if (same(xx, y + 1, zz)) full = true;
+                    sum += fluidHeight(reg, p, xx, y, zz); n++;
                 }
-                (void)mnw; (void)mxw;
+                hc[k] = full ? 16 : (n ? (sum + n / 2) / n : 14);
             }
+            int layer = tex[0];
+            auto lightOf = [&](int f, u8& s, u8& bl) {
+                int ni = pidx(x + DIR[f][0], y + DIR[f][1], z + DIR[f][2]);
+                s = std::max(sky, p.opq[ni] ? sky : p.sky[ni]); bl = std::max(blk, p.opq[ni] ? blk : p.blk[ni]);
+            };
+            auto emit = [&](int f, int (&q)[4][3], const int (&uv)[4][2]) {
+                for (auto& v : q) { v[0] += X; v[1] += Y; v[2] += Z; }
+                u8 fs, fb; lightOf(f, fs, fb);
+                em.flatQuad(ml, q, uv, f, layer, fs, fb, tint, false);
+            };
+            auto visible = [&](int f) {
+                int ni = pidx(x + DIR[f][0], y + DIR[f][1], z + DIR[f][2]);
+                return !same(x + DIR[f][0], y + DIR[f][1], z + DIR[f][2]) && (!p.opq[ni] || f == FACE_PY);
+            };
+            if (visible(FACE_PY) && !(hc[0] == 16 && hc[1] == 16 && hc[2] == 16 && hc[3] == 16 && p.opq[pidx(x, y + 1, z)])) {
+                int q[4][3] = {{0, hc[0], 0}, {0, hc[3], 16}, {16, hc[2], 16}, {16, hc[1], 0}};
+                const int uv[4][2] = {{0, 0}, {0, 16}, {16, 16}, {16, 0}};
+                emit(FACE_PY, q, uv);
+            }
+            if (visible(FACE_NY)) { int q[4][3] = {{0, 0, 0}, {16, 0, 0}, {16, 0, 16}, {0, 0, 16}}; const int uv[4][2] = {{0, 0}, {16, 0}, {16, 16}, {0, 16}}; emit(FACE_NY, q, uv); }
+            if (visible(FACE_NX)) { int q[4][3] = {{0, 0, 0}, {0, 0, 16}, {0, hc[3], 16}, {0, hc[0], 0}}; const int uv[4][2] = {{0, 16}, {16, 16}, {16, 16 - hc[3]}, {0, 16 - hc[0]}}; emit(FACE_NX, q, uv); }
+            if (visible(FACE_PX)) { int q[4][3] = {{16, 0, 0}, {16, hc[1], 0}, {16, hc[2], 16}, {16, 0, 16}}; const int uv[4][2] = {{16, 16}, {16, 16 - hc[1]}, {0, 16 - hc[2]}, {0, 16}}; emit(FACE_PX, q, uv); }
+            if (visible(FACE_NZ)) { int q[4][3] = {{0, 0, 0}, {0, hc[0], 0}, {16, hc[1], 0}, {16, 0, 0}}; const int uv[4][2] = {{16, 16}, {16, 16 - hc[0]}, {0, 16 - hc[1]}, {0, 16}}; emit(FACE_NZ, q, uv); }
+            if (visible(FACE_PZ)) { int q[4][3] = {{0, 0, 16}, {16, 0, 16}, {16, hc[2], 16}, {0, hc[3], 16}}; const int uv[4][2] = {{0, 16}, {16, 16}, {16, 16 - hc[2]}, {0, 16 - hc[3]}}; emit(FACE_PZ, q, uv); }
             break;
         }
         default: {
