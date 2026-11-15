@@ -2,6 +2,8 @@
 
 namespace vx {
 
+static u32 rgbaPack(u8 r, u8 g, u8 b, u8 a) { return (u32)r | ((u32)g << 8) | ((u32)b << 16) | ((u32)a << 24); }
+
 void ParticleSystem::blockDebris(const BlockPos& b, u16 layer, u32 tint, int n, Rng& rng, Vec3 bias) {
     for (int i = 0; i < n; i++) {
         Particle p;
@@ -46,6 +48,13 @@ void ParticleSystem::splash(Vec3 at, u16 layer, u32 tint, Rng& rng) {
     }
 }
 
+void ParticleSystem::precipitation(Vec3 at, bool snow, Rng& rng) {
+    Particle p; p.pos = at; p.collide = true; p.dieOnHit = true; p.gravity = 0; p.layer = whiteLayer; p.u0 = p.v0 = 0.5f; p.uvSize = 0;
+    if (snow) { p.vel = {(rng.unit() - 0.5f) * 0.03f, -0.08f, (rng.unit() - 0.5f) * 0.03f}; p.size = 0.07f; p.tint = rgbaPack(250, 250, 255, 230); p.maxLife = p.life = 220; }
+    else { p.vel = {0, -0.9f, 0}; p.size = 0.04f; p.stretch = 12; p.tint = rgbaPack(150, 170, 230, 200); p.maxLife = p.life = 40; }
+    add(p);
+}
+
 void ParticleSystem::tick(const World& w) {
     size_t out = 0;
     for (size_t i = 0; i < parts.size(); i++) {
@@ -54,6 +63,7 @@ void ParticleSystem::tick(const World& w) {
         p.vel.y -= p.gravity; p.vel *= 0.98f;
         Vec3 np = p.pos + p.vel;
         if (p.collide && w.reg.solid(w.getBlock((int)std::floor(np.x), (int)std::floor(np.y), (int)std::floor(np.z)))) {
+            if (p.dieOnHit) continue;
             if (w.reg.solid(w.getBlock((int)std::floor(p.pos.x), (int)std::floor(np.y), (int)std::floor(p.pos.z)))) { p.vel.y = 0; np.y = p.pos.y; }
             p.vel.x *= 0.5f; p.vel.z *= 0.5f; np.x = p.pos.x; np.z = p.pos.z;
         }

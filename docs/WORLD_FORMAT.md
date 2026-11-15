@@ -22,7 +22,7 @@ All integers are little-endian. `var` = unsigned LEB128 varint, `svar` = zigzag 
 { "format": 1, "name": "...",
   "generator": { "seed": "123", "version": 1, "dimension": "overworld", "preset": "default",
                  "terrain_scale": 1, "caves": true, "ores": true, "trees": true, "structures": true },
-  "tick": "0", "day_time": 1000, "spawn": [x, y, z], "game_mode": "survival",
+  "tick": "0", "day_time": 1000, "raining": false, "weather_ticks": 12000, "spawn": [x, y, z], "game_mode": "survival",
   "created": 0, "last_played": 0 }
 ```
 

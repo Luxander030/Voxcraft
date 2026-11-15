@@ -40,6 +40,7 @@ struct Fog { float4 fogColor; float4 params; };
 struct VOut { float4 pos [[position]]; float3 uvl; float3 tint; float2 light; float shade; float dist; };
 static float curve(float l) { return l * l * (3.0 - 2.0 * l) * 0.92 + 0.04; }
 static float4 shadeTerrain(VOut in, float4 c, constant Fog& fg) {
+    if (in.shade > 1.5) return float4(c.rgb * in.tint, c.a);   // sky objects: unlit, unfogged
     float sky = curve(in.light.x) * fg.params.x, blk = curve(in.light.y);
     float3 lit = float3(max(sky, blk * 1.0), max(sky, blk * 0.92), max(sky, blk * 0.78));
     float amb = fg.params.w;   // per-dimension ambient (sky-less dimensions)
@@ -139,6 +140,7 @@ SamplerState smp : register(s0);
 struct VOut { float3 uvl : TEXCOORD0; float3 tint : TEXCOORD1; float2 light : TEXCOORD2; float shade : TEXCOORD3; float dist : TEXCOORD4; float4 pos : SV_Position; };
 float curve(float l) { return l * l * (3.0 - 2.0 * l) * 0.92 + 0.04; }
 float4 shadeTerrain(VOut i, float4 c) {
+    if (i.shade > 1.5) return float4(c.rgb * i.tint, c.a);   // sky objects: unlit, unfogged
     float sky = curve(i.light.x) * params.x, blk = curve(i.light.y);
     float3 lit = float3(max(sky, blk * 1.0), max(sky, blk * 0.92), max(sky, blk * 0.78));
     float amb = params.w;   // per-dimension ambient (sky-less dimensions)

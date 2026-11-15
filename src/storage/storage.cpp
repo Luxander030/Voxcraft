@@ -198,6 +198,7 @@ Json WorldMeta::toJson() const {
     Json sp = Json::makeArray(); sp.push(Json::of((double)spawn.x)); sp.push(Json::of((double)spawn.y)); sp.push(Json::of((double)spawn.z));
     j.set("spawn", sp);
     j.set("game_mode", Json::of(gameMode));
+    j.set("raining", Json::of(raining)); j.set("weather_ticks", Json::of((double)weatherTicks));
     j.set("created", Json::of((double)createdUnix));
     j.set("last_played", Json::of((double)lastPlayedUnix));
     return j;
@@ -220,6 +221,7 @@ bool WorldMeta::fromJson(const Json& j, WorldMeta& m, std::string* err) {
     const Json& sp = j["spawn"];
     if (sp.isArray() && sp.size() == 3) m.spawn = {sp[0].asInt(), sp[1].asInt(), sp[2].asInt()};
     m.gameMode = j["game_mode"].asString("survival");
+    m.raining = j["raining"].asBool(false); m.weatherTicks = (i64)j["weather_ticks"].asNumber(12000);
     m.createdUnix = (u64)j["created"].asNumber(0);
     m.lastPlayedUnix = (u64)j["last_played"].asNumber(0);
     return true;

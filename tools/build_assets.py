@@ -109,7 +109,7 @@ def main():
     if subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "scad_export.py"), "--check"], capture_output=True).returncode != 0:
         warnings.append("built models are stale relative to assets/models/src (run tools/scad_export.py)")
     for m in sorted(refs - have): errors.append(f"missing texture '{m}' referenced by blocks.json")
-    refs |= {f"crack_{i}" for i in range(8)}   # break-progress overlay (used by the renderer)
+    refs |= {f"crack_{i}" for i in range(8)} | {"sun", "moon", "cloud"}   # used directly by the renderer
     # implicit "lit" variants: "<x>_on" is used by blocks referencing "<x>_off" or "<x>"
     refs |= {n for n in have if n.endswith("_on") and (n[:-3] + "_off" in refs or n[:-3] in refs)}
     for u in sorted(have - refs): warnings.append(f"unused texture '{u}'")

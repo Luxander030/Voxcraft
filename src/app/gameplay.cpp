@@ -408,6 +408,24 @@ void simulateTick() {
         closeScreen(); G->screen = Screen::Dead; G->mouseLocked = false; sapp_lock_mouse(false);
     }
 
+    // ---- weather (overworld): rain/snow spells with persistent timers
+    if (G->dimension == "overworld") {
+        WorldMeta& wm = G->world->meta;
+        if (--wm.weatherTicks <= 0) { wm.raining = !wm.raining; wm.weatherTicks = wm.raining ? 6000 + G->rng.range(6000) : 12000 + G->rng.range(24000); }
+        if (wm.raining) {
+            Vec3 e = p.eye();
+            for (int i = 0; i < 40; i++) {
+                float x = e.x + (G->rng.unit() - 0.5f) * 28, z = e.z + (G->rng.unit() - 0.5f) * 28, y = e.y + 6 + G->rng.unit() * 8;
+                if (G->world->surfaceY((int)std::floor(x), (int)std::floor(z)) >= y) continue;   // roofed or underground: dry
+                Biome bi = G->world->generator().column((int)std::floor(x), (int)std::floor(z)).biome;
+                bool snow = bi == Biome::Tundra || bi == Biome::SnowyPeaks || bi == Biome::FrozenOcean;
+                G->particles.precipitation({x, y, z}, snow, G->rng);
+            }
+            bool exposed = G->world->skyLight({(int)std::floor(e.x), (int)std::floor(e.y), (int)std::floor(e.z)}) > 10;
+            if (wm.tick % 80 == 0 && G->mixer) G->mixer->play("rain", SoundCat::Ambient, exposed ? 0.5f : 0.2f);
+        }
+    }
+
     // ---- audio events
     if (!G->stats.dead) {
         float dx = p.pos.x - before.x, dz = p.pos.z - before.z;

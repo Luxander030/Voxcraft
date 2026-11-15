@@ -90,6 +90,7 @@ void SoundBank::generate() {
     { Gen g("mob_death", 0.6f); g.fm(0, 0.55f, 300, 80, 1.3f, 2.5f, 0.8f); g.burst(0.05f, 0.4f, 2000, 100, 0.3f, 6); sounds_["mob_death"] = g.done(); }
     // ambient
     { Gen g("cave_drone", 4.0f); g.fm(0, 4.0f, 55, 52, 0.5f, 0.8f, 0.5f, 0.5f); g.burst(0, 4.0f, 300, 30, 0.3f, 0.2f); sounds_["cave_drone"] = g.done(); }
+    { Gen g("rain", 4.0f); g.burst(0, 4.0f, 5000, 900, 0.5f, 0.05f); for (int k = 0; k < 60; k++) g.burst(k * 0.066f, 0.03f, 7000, 2500, 0.25f, 90); sounds_["rain"] = g.done(); }
     { Gen g("drip", 0.3f); g.fm(0, 0.12f, 1600, 2600, 1, 0.2f, 0.8f); sounds_["drip"] = g.done(); }
 }
 

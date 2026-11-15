@@ -72,7 +72,8 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Font descenders.
 - ✅ Audio: 51 original sounds synthesized at startup (1.6 MiB, 18 ms; no audio files), own mixer with 32 voices, positional attenuation + equal-power panning, 6 volume categories, generative ambient music, cave ambience; footsteps/dig/break/place per material, creature calls, UI, pickup, hurt, eat, splash, circuit clicks.
 - ✅ Particles (pooled, fixed capacity): block debris on dig/break, creature death puffs, torch flames + smoke, water splashes; crack overlay showing break progress; outline fits the block's shape.
-- ⬜ Weather, clouds, sky bodies.
+- ✅ Sky: sun and moon following the day cycle, stars at night, drifting block clouds (unlit/unfogged sky objects occluded by terrain via depth).
+- ✅ Weather: persistent rain/snow spells (world.json), precipitation only over sky-exposed ground, overcast lighting and fog, rain ambience, /weather.
 
 ## Phase 10 — Cross-platform stabilization 🔶
 - ✅ CI on macOS arm64, macOS x64 and Windows x64: asset validation (model staleness, texture sizes, references), build, tests incl. cross-platform golden, HLSL shader compilation (`vxshadercheck`), benchmark, packaging, artifact upload.

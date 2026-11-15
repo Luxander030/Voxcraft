@@ -57,6 +57,12 @@ void environment(FrameEnv& env, const Vec3& eye) {
     Vec3 day{0.62f, 0.78f, 1.0f}, night{0.02f, 0.03f, 0.07f};
     env.skyColor = night + (day - night) * ((daylight - 0.12f) / 0.88f);
     env.fogEnd = (float)(G->opt.radius * 16); env.fogStart = env.fogEnd * 0.6f;
+    if (G->dimension == "overworld" && G->world->meta.raining) {   // overcast
+        env.daylight *= 0.6f;
+        Vec3 grey{0.45f, 0.48f, 0.52f};
+        env.skyColor = grey * (0.2f + env.daylight);
+        env.fogEnd *= 0.8f; env.fogStart *= 0.6f;
+    }
     if (G->dimension == "hollow") {   // sealed caverns: no sky, warm haze
         env.daylight = 0; env.skyColor = {0.16f, 0.05f, 0.04f}; env.ambient = 0.32f;
         env.fogStart = 16; env.fogEnd = std::min(env.fogEnd, 96.0f);
@@ -109,6 +115,11 @@ void frame() {
         // focus changes while the window activates would pause the game; the script stays in control
         if (G->screen == Screen::Pause && (int)G->frame < last - 30) G->screen = Screen::None;
         if (G->opt.menuState == 4 && (int)G->frame == last - 30) { G->screen = Screen::Pause; G->mouseLocked = false; }
+        if ((G->opt.menuState == 6 || G->opt.menuState == 7 || G->opt.menuState == 8) && G->frame == 5) {
+            G->world->meta.raining = G->opt.menuState == 6;
+            G->world->meta.dayTime = G->opt.menuState == 7 ? 18000 : G->opt.menuState == 8 ? 4500 : 6000;
+        }
+        if (G->opt.menuState >= 6 && (int)G->frame >= last - 20) { G->player.pitch = G->opt.menuState == 7 ? 0.9f : G->opt.menuState == 8 ? 1.2f : 0.3f; if (G->opt.menuState == 8) G->player.yaw = PI * 0.5f; }
         if (G->opt.menuState == 5 && (int)G->frame == 30 && G->playerReady) {   // travel to the Hollow through a gate
             std::string err;
             Vec3 t{std::floor(G->player.pos.x / 8), 64, std::floor(G->player.pos.z / 8)};
@@ -312,7 +323,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
-        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : 0; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));

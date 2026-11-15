@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Sky and weather
+- Sun, moon, stars and clouds.
+- Rain and snow with persistent timers, overcast lighting, a rain sound and the `/weather`
+  command.
+
 ### Ranged combat and the cinderwisp
 - Projectiles (arrows, ember bolts), a bow with draw strength, and arrow recipes. Dispensers
   shoot arrows.

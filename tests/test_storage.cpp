@@ -333,3 +333,13 @@ TEST(worldgen_v2_adds_structures_without_changing_v1_or_storage) {
     Chunk x({3, 3}), y({3, 3}); g2->generate(x); g2->generate(y);
     for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) if (x.sec[s].get(i) != y.sec[s].get(i)) { CHECK(false); s = SECTIONS; break; }
 }
+
+TEST(world_meta_round_trips_weather_and_generator_fields) {
+    WorldMeta m; m.name = "w"; m.gen.seed = 18446744073709551000ull; m.gen.version = 2; m.gen.dimension = "hollow";
+    m.raining = true; m.weatherTicks = 4321; m.tick = 9876543210ll; m.gameMode = "creative";
+    WorldMeta r; std::string err;
+    REQUIRE(WorldMeta::fromJson(Json::parse(m.toJson().dump(), &err), r, &err));
+    CHECK(r.raining); CHECK_EQ(r.weatherTicks, (i64)4321);
+    CHECK(r.gen.seed == m.gen.seed); CHECK_EQ(r.gen.version, 2u); CHECK(r.gen.dimension == std::string("hollow"));
+    CHECK_EQ(r.tick, m.tick); CHECK(r.gameMode == std::string("creative"));
+}

@@ -11,7 +11,8 @@ struct Particle {
     float life = 0, maxLife = 1, size = 0.1f, gravity = 0.04f;
     u16 layer = 0; float u0 = 0, v0 = 0, uvSize = 0.25f;   // sub-rectangle of the tile (tile units)
     u32 tint = 0xFFFFFFFFu;
-    bool collide = true, emissive = false;
+    bool collide = true, emissive = false, dieOnHit = false;
+    float stretch = 1;   // vertical elongation (rain streaks)
 };
 
 class ParticleSystem {
@@ -26,6 +27,7 @@ public:
     void puff(Vec3 at, int n, u32 tint, Rng& rng);
     void flame(Vec3 at, u16 layer, Rng& rng);
     void splash(Vec3 at, u16 layer, u32 tint, Rng& rng);
+    void precipitation(Vec3 at, bool snow, Rng& rng);
     void tick(const World& w);   // 20 Hz
 };
 

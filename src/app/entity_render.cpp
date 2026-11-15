@@ -37,8 +37,65 @@ void lightAt(Vec3 p, float& sky, float& blk) {
 }
 } // namespace
 
+// Sky objects use shade 2.0: the shader skips lighting and fog for them. They are far away, so
+// terrain in front occludes them through the normal depth test.
+static void skyQuad(std::vector<EntityVertex>& out, Vec3 center, Vec3 right, Vec3 up, int layer, u32 tint) {
+    Vec3 q[4] = {center - right - up, center + right - up, center + right + up, center - right + up};
+    const float uv[4][2] = {{0, 1}, {1, 1}, {1, 0}, {0, 0}};
+    for (int k = 0; k < 4; k++) out.push_back({q[k].x, q[k].y, q[k].z, uv[k][0], uv[k][1], (float)layer, 2.0f, 1, 1, tint});
+    for (int k = 3; k >= 0; k--) out.push_back({q[k].x, q[k].y, q[k].z, uv[k][0], uv[k][1], (float)layer, 2.0f, 1, 1, tint});   // double-sided
+}
+
+static void buildSky(std::vector<EntityVertex>& out, Vec3 eye) {
+    if (G->dimension != "overworld") return;
+    float ang = (float)(G->world->meta.dayTime - 6000) / 24000.0f * 2 * PI;
+    Vec3 sunDir{-std::sin(ang), std::cos(ang), 0.15f};
+    sunDir = normalize(sunDir);
+    float day = clamp(0.5f + std::cos(ang) * 0.9f, 0.0f, 1.0f), night = 1 - day;
+    if (G->world->meta.raining) day *= 0.6f;
+    auto billboard = [&](Vec3 dir, float dist, float size, int layer, u32 tint) {
+        Vec3 r = normalize(cross(dir, {0, 0, 1})); if (length(r) < 0.1f) r = {1, 0, 0};
+        Vec3 u = normalize(cross(r, dir));
+        Vec3 c = dir * dist;
+        // facing the camera: winding must be CCW as seen from the origin
+        skyQuad(out, c, r * -size, u * size, layer, tint);
+    };
+    if (!G->world->meta.raining) {
+        billboard(sunDir, 300, 30, G->pack.layer("sun"), rgba(255, 255, 255));
+        billboard(sunDir * -1.0f, 300, 22, G->pack.layer("moon"), rgba(255, 255, 255));
+        if (night > 0.3f) {   // stars: fixed pattern, brighter as the night deepens
+            Rng sr(0x57A75);
+            u8 b = (u8)(255 * clamp((night - 0.3f) * 1.6f, 0.0f, 1.0f));
+            int snow = std::max(0, G->pack.layer("snow"));
+            for (int i = 0; i < 260; i++) {
+                Vec3 d = normalize(Vec3(sr.unit() * 2 - 1, sr.unit() * 0.9f + 0.1f, sr.unit() * 2 - 1));
+                billboard(d, 340, 0.6f + sr.unit() * 0.5f, snow, rgba(b, b, b));
+            }
+        }
+    }
+    // clouds: 12-block cells from a fixed noise field drifting east
+    static Noise cn(0xC10D);
+    int cl = G->pack.layer("cloud");
+    float drift = (float)G->world->meta.tick * 0.03f;
+    const float cell = 12, cy = 180;
+    int cx0 = (int)std::floor((eye.x - drift) / cell), cz0 = (int)std::floor(eye.z / cell);
+    u8 cb = (u8)(25 + 225 * day); u32 tint = G->world->meta.raining ? rgba((u8)(cb * 0.7f), (u8)(cb * 0.7f), (u8)(cb * 0.75f)) : rgba(cb, cb, cb);
+    u16 t[6] = {(u16)cl, (u16)cl, (u16)cl, (u16)cl, (u16)cl, (u16)cl};
+    for (int dz = -14; dz <= 14; dz++) for (int dx = -14; dx <= 14; dx++) {
+        if (dx * dx + dz * dz > 196) continue;
+        int gx = cx0 + dx, gz = cz0 + dz;
+        float n = cn.noise2(gx * 0.18f, gz * 0.18f) + (G->world->meta.raining ? 0.35f : 0);
+        if (n < 0.25f) continue;
+        Vec3 o{gx * cell + drift - eye.x, cy - eye.y, gz * cell - eye.z};
+        size_t before = out.size();
+        emitBox(out, Mat4::translate(o.x, o.y, o.z), {0, 0, 0}, {cell, 4, cell}, t, 1, 1, tint);
+        for (size_t k = before; k < out.size(); k++) out[k].shade = 2.0f;
+    }
+}
+
 void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, float dt) {
     out.clear();
+    buildSky(out, eye);
     // crack overlay on the block being broken: a decal box 0.05 px outside its faces
     if (G->breakProgress > 0 && !G->creative() && G->target.hit) {
         int stage = clamp((int)(G->breakProgress * 8), 0, 7);
@@ -63,8 +120,9 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
             if (dot(c, c) > 64 * 64 || dot(c, f) < 0) continue;
             float sky, blk;
             if (p.emissive) { sky = 1; blk = 1; } else lightAt(p.pos, sky, blk);
-            float h = p.size * 0.5f;
-            Vec3 q[4] = {c - r * h - u * h, c + r * h - u * h, c + r * h + u * h, c - r * h + u * h};
+            float h = p.size * 0.5f, hv = h * p.stretch;
+            Vec3 vu = p.stretch > 1 ? Vec3(0, 1, 0) : u;   // stretched particles (rain) stay vertical
+            Vec3 q[4] = {c - r * h - vu * hv, c + r * h - vu * hv, c + r * h + vu * hv, c - r * h + vu * hv};
             float u0 = p.u0, v0 = p.v0, us = p.uvSize;
             const float uv[4][2] = {{u0, v0 + us}, {u0 + us, v0 + us}, {u0 + us, v0}, {u0, v0}};
             for (int k = 0; k < 4; k++) out.push_back({q[k].x, q[k].y, q[k].z, uv[k][0], uv[k][1], (float)p.layer, 1.0f, sky, blk, p.tint});

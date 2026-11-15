@@ -54,6 +54,7 @@ struct WorldMeta {
     i64 dayTime = 1000;      // time of day in ticks
     BlockPos spawn{0, 80, 0};
     std::string gameMode = "survival";
+    bool raining = false; i64 weatherTicks = 12000;   // ticks until the weather changes
     u64 createdUnix = 0, lastPlayedUnix = 0;
     Json toJson() const;
     static bool fromJson(const Json& j, WorldMeta& out, std::string* err);
