@@ -156,6 +156,9 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
 }
 
 void Renderer::detach() {
+    // New epoch: mesh jobs still in flight for the old world are dropped when they complete.
+    alive_->store(false);
+    alive_ = std::make_shared<std::atomic<bool>>(true);
     for (auto& [p, c] : chunks_) for (auto& s : c.sec) freeSection(s);
     chunks_.clear();
     if (world_) world_->setListener(nullptr);

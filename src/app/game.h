@@ -13,7 +13,20 @@
 
 namespace vx {
 
-enum class Screen { None, Pause, Inventory, Workbench, Chest, Kiln, Dead };
+enum class Screen { None, Pause, Inventory, Workbench, Chest, Kiln, Dead, Chat, Settings };
+enum class AppState { Title, Worlds, CreateWorld, ConfirmDelete, Settings, Playing };
+
+// Persistent user options (<user data>/Voxcraft/options.json).
+struct UserOptions {
+    int renderDistance = 10, guiScale = 0;           // 0 = automatic
+    float fov = 70, sensitivity = 1.0f;
+    float volume[6] = {0.8f, 0.5f, 1.0f, 1.0f, 0.7f, 0.8f};   // master, music, blocks, creatures, ambient, ui
+    bool load();
+    void save() const;
+};
+static const char* const VOLUME_NAMES[6] = {"Master", "Music", "Blocks", "Creatures", "Ambient", "Interface"};
+
+struct WorldEntry { std::string folder, name, mode; u64 seed = 0, lastPlayed = 0; };
 
 struct Options {
     std::string world = "World1";
@@ -21,6 +34,8 @@ struct Options {
     int radius = 10;
     int smokeFrames = 0;
     std::string screenshot;
+    bool directWorld = false;
+    int menuState = 0;          // --menu: which menu --title-smoke shows   // --world/--smoke: start in a world instead of the title screen
 };
 
 // Slot shown on a container screen. `ptr` points into the inventory, a grid or a block entity.
@@ -28,6 +43,13 @@ struct UiSlot { float x, y; ItemStack* ptr; enum Kind : u8 { Normal, CraftResult
 
 struct Game {
     Options opt;
+    UserOptions options;
+    AppState app = AppState::Title;
+    std::vector<WorldEntry> worldList; int worldSel = -1, worldScroll = 0;
+    std::string fieldName = "New World", fieldSeed; int focusField = 0; bool newCreative = false, newFlat = false;
+    AppState settingsReturn = AppState::Title;
+    bool clicked = false, mouseHeld = false;      // menu input for this frame
+    std::string chatLine; std::vector<std::pair<std::string, double>> chatLog;
     fs::path assetDir, saveDir;
     BlockRegistry reg;
     TexturePack pack;
@@ -56,7 +78,7 @@ struct Game {
     bool keys[512] = {};
     bool mouseDown[3] = {};
     float mouseX = 0, mouseY = 0;
-    bool mouseLocked = false, debug = false, quitting = false;
+    bool mouseLocked = false, debug = false, quitting = false, initFailed = false, ignoreChar = false, quitToTitle = false;
 
     // interaction state
     RayHit target;
@@ -84,8 +106,14 @@ struct Game {
 
 extern Game* G;
 
+struct NewWorld {
+    std::string displayName; u64 seed = 0; bool seedSet = false, flat = false, creative = false, mustBeNew = false;
+};
+
 // gameplay.cpp
-bool startSession(std::string* err);
+bool appInit(std::string* err);                                                         // once: registries, GPU, jobs
+bool startSession(const std::string& folder, const NewWorld* create, std::string* err); // open or create a world
+void resetPlayerState();
 void endSession();
 bool saveWorld(bool sync);
 void simulateTick();             // one 20 Hz step: player, survival, entities, kilns, world
@@ -102,6 +130,16 @@ MobContext mobContext();
 
 // entity_render.cpp
 void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, float dt);
+
+// menus.cpp
+void drawMenus(int w, int h);                     // title / worlds / create / settings (not in game)
+void drawPauseOrSettingsOverlay();                // in-game pause menu and settings
+void menuChar(u32 c);
+void menuKey(int key);
+void refreshWorldList();
+void chatSubmit(const std::string& line);
+void chatPrint(const std::string& line);
+void applyOptions();
 
 // screens.cpp
 void drawFrameUi(int w, int h);

@@ -257,7 +257,7 @@ void screenScroll(float dy) {
 }
 
 void screenMouseDown(bool right, bool shift) {
-    if (G->screen == Screen::Pause) { closeScreen(); return; }
+    if (G->screen == Screen::Pause || G->screen == Screen::Settings || G->screen == Screen::Chat) return;   // handled by menus
     if (G->screen == Screen::Dead) { respawn(); closeScreen(); G->screen = Screen::None; return; }
     buildSlots();
     float mx = G->mouseX / G->ui.scale, my = G->mouseY / G->ui.scale;
@@ -307,10 +307,26 @@ void screenMouseDown(bool right, bool shift) {
 }
 
 void drawFrameUi(int w, int h) {
-    float gs = std::max(1.0f, std::floor(std::min(w / 320.0f, h / 240.0f)));
+    float gs = G->options.guiScale ? (float)G->options.guiScale : std::max(1.0f, std::floor(std::min(w / 320.0f, h / 240.0f)));
     Ui& ui = G->ui; ui.begin((float)w, (float)h, gs);
     float W = w / gs, H = h / gs;
     bool creative = G->creative();
+    // chat log (fades after 10 s unless chat is open) and input line
+    {
+        bool open = G->screen == Screen::Chat;
+        float y = H - 40;
+        int shown = 0;
+        for (auto it = G->chatLog.rbegin(); it != G->chatLog.rend() && shown < 10; ++it) {
+            if (!open && G->now - it->second > 10) break;
+            y -= 9; shown++;
+            ui.rect(2, y - 1, Ui::textWidth(it->first) + 4, 9, C(0, 0, 0, 110));
+            ui.text(4, y, it->first, C(240, 240, 240));
+        }
+        if (open) {
+            ui.rect(2, H - 14, W - 4, 11, C(0, 0, 0, 160));
+            ui.text(4, H - 12, G->chatLine + (((int)(G->now * 2) & 1) ? "_" : ""), C(255, 255, 255));
+        }
+    }
 
     if (G->screen == Screen::None || G->screen == Screen::Pause) {
         ui.rect(W / 2 - 4.5f, H / 2 - 0.5f, 9, 1, C(240, 240, 240, 200));
@@ -340,13 +356,9 @@ void drawFrameUi(int w, int h) {
     if (G->debug) drawDebug();
 
     switch (G->screen) {
-    case Screen::Pause: {
-        ui.rect(0, 0, W, H, C(0, 0, 0, 110));
-        const char* t1 = "Paused"; const char* t2 = "Click to resume - Esc again to save and quit";
-        ui.text(W / 2 - Ui::textWidth(t1) / 2, H / 2 - 20, t1, C(255, 255, 255));
-        ui.text(W / 2 - Ui::textWidth(t2) / 2, H / 2 - 6, t2, C(200, 200, 200));
+    case Screen::Pause: case Screen::Settings:
+        drawPauseOrSettingsOverlay();
         break;
-    }
     case Screen::Dead: {
         ui.rect(0, 0, W, H, C(120, 0, 0, 110));
         const char* t1 = "You died"; const char* t2 = "Click to respawn";

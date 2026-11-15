@@ -14,7 +14,7 @@ in caves. Saves are sparse and crash-safe. See [ROADMAP.md](ROADMAP.md).
 ```sh
 open build/Voxcraft.app                       # macOS
 build\Release\voxcraft.exe                    # Windows
-./build/Voxcraft.app/Contents/MacOS/Voxcraft --world MyWorld --seed 42 --radius 12
+./build/Voxcraft.app/Contents/MacOS/Voxcraft --world MyWorld --seed 42   # skip the menus
 ```
 
 | Control | Action |
@@ -28,10 +28,11 @@ build\Release\voxcraft.exe                    # Windows
 | Q (Ctrl+Q) | drop one (the whole stack) |
 | F4 | switch survival / creative |
 | 1–9, wheel | hotbar |
+| T or / | chat and commands (`/help`) |
 | F3 | debug overlay |
 | F5 | save now |
 | F11 | fullscreen |
-| Esc | pause; Esc again saves and quits |
+| Esc | pause menu (settings, save and quit to title) |
 
 Worlds are stored in `~/Library/Application Support/Voxcraft/saves` on macOS and
 `%APPDATA%\Voxcraft\saves` on Windows. The world is also autosaved every 45 s.

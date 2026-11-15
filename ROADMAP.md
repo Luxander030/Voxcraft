@@ -59,11 +59,16 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Lit texture variants (lamp, kiln).
 - ⬜ Dimensions; sticky pistons, comparators, hoppers, dispensers; ranged combat.
 
-## Phases 9–11 ⬜
-Audio, menus, particles, animation, packaging, stabilization (CLAUDE.md §25).
+## Phase 9 — Presentation 🔶
+- ✅ Title screen, world list (play/create/delete-to-trash), world creation (name, seed, mode, type), settings (render distance, FOV, sensitivity, GUI scale, 6 volume categories) persisted in `options.json`, pause menu with save & quit to title.
+- ✅ Chat with commands: /help /gamemode /time /tp /give /seed /spawnpoint /kill /summon.
+- ✅ Font descenders.
+- ⬜ Audio, particles, crack overlay, environmental effects.
+
+## Phases 10–11 ⬜
+Packaging, stabilization, long-term expansion (CLAUDE.md §25).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.
 - Generator golden hash pinned on arm64; CI checks x64.
 - Block outline is always a full cube (plants, torches show the unit box).
-- Font has no descenders (g, p, q, y sit on the baseline).

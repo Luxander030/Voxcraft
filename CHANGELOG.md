@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Phase 9: menus
+- Title screen and world list: play, create, and delete (moved to `saves/.trash`, so it can be
+  recovered). World creation takes a name, seed, game mode and world type.
+- Settings: render distance, FOV, mouse sensitivity, GUI scale and six volume categories, saved
+  in `options.json`. Pause menu.
+- Chat and commands.
+- The app now switches between worlds: one-time GPU setup, per-world sessions, and a renderer
+  epoch so stale mesh jobs from a closed world are dropped.
+- Font descenders.
+
 ### Creatures
 - OpenSCAD box-model pipeline, plus four original creature models and their skins.
 - Animation system: bone hierarchy, keyframed clips, crossfades, state machine, procedural

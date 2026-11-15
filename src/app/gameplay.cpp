@@ -172,7 +172,7 @@ void giveOrDropInv(ItemStack s) {
 
 void showStatus(const std::string& s) { G->status = s; G->statusUntil = G->now + 3; }
 
-bool startSession(std::string* err) {
+bool appInit(std::string* err) {
     if (!G->reg.loadFile(dataFile("blocks.json").string(), err)) return false;
     if (!G->pack.load((G->assetDir / "voxcraft.pak").string(), err)) return false;
     PackNames pn(G->pack);
@@ -190,6 +190,12 @@ bool startSession(std::string* err) {
     }
     G->jobs = std::make_unique<JobSystem>(0);
     if (!G->renderer.init(G->reg, G->pack, *G->jobs, err)) return false;
+    return true;
+}
+
+bool startSession(const std::string& worldName, const NewWorld* create, std::string* err) {
+    G->opt.world = worldName;
+    resetPlayerState();
     G->entities = std::make_unique<EntityManager>(G->items);
     G->mobs = std::make_unique<MobSystem>(G->mobReg);
     G->entities->mobs = G->mobs.get();
@@ -197,16 +203,17 @@ bool startSession(std::string* err) {
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
     G->saveDir = userDataDir("Voxcraft") / "saves" / G->opt.world;
-    if (fs::exists(G->saveDir / "world.json")) {
+    if (fs::exists(G->saveDir / "world.json") && !(create && create->mustBeNew)) {
         if (!G->world->open(G->saveDir, err)) return false;
         auto pd = G->world->storage().readExtra("player.dat");
         if (!pd || !decodePlayer(*pd)) G->player.pos = surfaceSpawn();
         VX_INFO("opened world %s", G->saveDir.string().c_str());
     } else {
-        WorldMeta m; m.name = G->opt.world;
-        m.gen.seed = G->opt.seedSet ? G->opt.seed : (u64)time(nullptr) * 0x9E3779B97F4A7C15ull;
-        if (G->opt.flat) m.gen.preset = "flat";
-        m.gameMode = G->opt.creative ? "creative" : "survival";
+        if (!create) { if (err) *err = "world does not exist: " + worldName; return false; }
+        WorldMeta m; m.name = create->displayName.empty() ? worldName : create->displayName;
+        m.gen.seed = create->seedSet ? create->seed : (u64)time(nullptr) * 0x9E3779B97F4A7C15ull;
+        if (create->flat) m.gen.preset = "flat";
+        m.gameMode = create->creative ? "creative" : "survival";
         m.createdUnix = (u64)time(nullptr);
         auto gen = createGenerator(m.gen, G->reg);
         ColumnInfo c = gen->column(8, 8);
@@ -237,10 +244,16 @@ bool saveWorld(bool sync) {
     return true;
 }
 
+void resetPlayerState() {
+    G->player = Player{}; G->stats = PlayerStats{}; G->inv.clear(); G->hotbarSel = 0;
+    G->cursor = {}; for (auto& c : G->craft) c = {}; G->craftResult = {};
+    G->playerReady = false; G->target = {}; G->breakProgress = 0; G->accumulator = 0;
+}
+
 void endSession() {
     if (!G->world) return;
     closeScreen();
-    G->renderer.shutdown();
+    G->renderer.detach();
     saveWorld(true);
     G->behaviors.reset();
     G->world->close();

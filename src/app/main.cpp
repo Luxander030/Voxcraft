@@ -35,9 +35,17 @@ void init() {
     sg_setup(&d);
     G->assetDir = findAssets();
     std::string err;
+    G->options.load(); applyOptions();
+    if (G->opt.radius != 10) G->options.renderDistance = G->opt.radius;   // command line override
     if (G->assetDir.empty()) err = "assets not found (voxcraft.pak)";
-    else if (!startSession(&err)) {}
-    if (!err.empty()) { VX_ERROR("startup failed: %s", err.c_str()); G->world.reset(); sapp_request_quit(); return; }
+    else if (!appInit(&err)) {}
+    if (!err.empty()) { VX_ERROR("startup failed: %s", err.c_str()); G->initFailed = true; sapp_request_quit(); return; }
+    fs::create_directories(userDataDir("Voxcraft") / "saves");
+    if (G->opt.directWorld) {   // --world / --smoke: skip the menus
+        NewWorld nw; nw.seed = G->opt.seed; nw.seedSet = G->opt.seedSet; nw.flat = G->opt.flat; nw.creative = G->opt.creative;
+        if (!startSession(G->opt.world, &nw, &err)) { VX_ERROR("world: %s", err.c_str()); sapp_request_quit(); return; }
+        G->app = AppState::Playing;
+    } else G->app = AppState::Title;
     G->lastSave = 0;
 }
 
@@ -57,9 +65,34 @@ void environment(FrameEnv& env, const Vec3& eye) {
 }
 
 void frame() {
-    if (!G->world) { sg_pass ps = {}; ps.swapchain = sglue_swapchain(); sg_begin_pass(&ps); sg_end_pass(); sg_commit(); return; }
+    if (G->initFailed) { sg_pass ps = {}; ps.swapchain = sglue_swapchain(); sg_begin_pass(&ps); sg_end_pass(); sg_commit(); return; }
     double dt = std::min(sapp_frame_duration(), 0.25);
     G->now += dt;
+    if (G->quitToTitle) {   // deferred from the pause menu: never tear down a world mid-frame
+        G->quitToTitle = false;
+        endSession(); refreshWorldList();
+        G->app = AppState::Title; G->screen = Screen::Pause; G->mouseLocked = false; sapp_lock_mouse(false);
+    }
+    if (G->app != AppState::Playing || !G->world) {
+        drawMenus(sapp_width(), sapp_height());
+        G->jobs->pumpMain(2.0);   // drain stale results from a closed world
+        FrameEnv env; env.skyColor = {0.05f, 0.05f, 0.07f};
+        G->renderer.render({0, 0, 0}, 0, 0, sapp_width(), sapp_height(), env, nullptr, G->ui, nullptr);
+        if (G->opt.smokeFrames) {   // --title-smoke: capture the menu and exit
+            G->frame++;
+            if (G->frame == 2) vx_platform_activate();
+            if (G->opt.menuState == 1 && G->frame == 5) { refreshWorldList(); G->app = AppState::Worlds; }
+            if (G->opt.menuState == 2 && G->frame == 5) { G->app = AppState::CreateWorld; G->focusField = 1; }
+            if (G->opt.menuState == 3 && G->frame == 5) { G->app = AppState::Settings; }
+            if ((int)G->frame == G->opt.smokeFrames - 5 && !G->opt.screenshot.empty()) {
+#if defined(__APPLE__)
+                if (int id = vx_platform_window_id()) { std::string cmd = "screencapture -x -o -l" + std::to_string(id) + " '" + G->opt.screenshot + "'"; if (std::system(cmd.c_str()) != 0) VX_WARN("screenshot failed"); }
+#endif
+            }
+            if ((int)G->frame >= G->opt.smokeFrames) { printf("title smoke: %llu frames ok\n", (unsigned long long)G->frame); sapp_request_quit(); }
+        }
+        return;
+    }
     float ms = (float)(dt * 1000.0);
     G->frameMsAvg = G->frameMsAvg * 0.95f + ms * 0.05f; G->fps = 1000.0f / std::max(0.1f, G->frameMsAvg);
     G->frameMsMax = std::max(G->frameMsMax * 0.995f, ms);
@@ -91,7 +124,7 @@ void frame() {
         p.prevPos = p.pos;
         G->playerReady = true;
     }
-    bool simulate = G->playerReady && G->world->isReady(pc) && G->screen != Screen::Pause;
+    bool simulate = G->playerReady && G->world->isReady(pc) && G->screen != Screen::Pause && G->screen != Screen::Settings;
     G->accumulator += dt;
     int steps = 0;
     while (G->accumulator >= 0.05 && steps < 5) {
@@ -112,6 +145,7 @@ void frame() {
     if (G->now - G->lastSave > 45.0) { saveWorld(false); G->lastSave = G->now; }
 
     FrameEnv env; environment(env, eye);
+    env.fovY = G->options.fov * PI / 180.0f;
     drawFrameUi(sapp_width(), sapp_height());
     buildEntityMesh(G->entityVerts, eye, alpha, (float)dt);
     G->renderer.render(eye, p.yaw, p.pitch, sapp_width(), sapp_height(), env, G->screen == Screen::None ? &G->target : nullptr, G->ui, &G->entityVerts);
@@ -141,6 +175,29 @@ void cleanup() {
 }
 
 void event(const sapp_event* e) {
+    if (G->initFailed) return;
+    // ---- menus (title, worlds, create, settings) and in-game menu overlays
+    bool overlay = G->app == AppState::Playing && (G->screen == Screen::Pause || G->screen == Screen::Settings);
+    if (G->app != AppState::Playing || overlay || (G->app == AppState::Playing && G->screen == Screen::Chat)) {
+        switch (e->type) {
+        case SAPP_EVENTTYPE_MOUSE_MOVE: G->mouseX = e->mouse_x; G->mouseY = e->mouse_y; return;
+        case SAPP_EVENTTYPE_MOUSE_DOWN: G->mouseX = e->mouse_x; G->mouseY = e->mouse_y; if (e->mouse_button == SAPP_MOUSEBUTTON_LEFT) { G->clicked = true; G->mouseHeld = true; } return;
+        case SAPP_EVENTTYPE_MOUSE_UP: if (e->mouse_button == SAPP_MOUSEBUTTON_LEFT) G->mouseHeld = false; return;
+        case SAPP_EVENTTYPE_MOUSE_SCROLL: if (G->app == AppState::Worlds) G->worldScroll += e->scroll_y < 0 ? 1 : -1; return;
+        case SAPP_EVENTTYPE_CHAR: if (G->ignoreChar) { G->ignoreChar = false; return; } menuChar(e->char_code); return;
+        case SAPP_EVENTTYPE_KEY_DOWN:
+            menuKey(e->key_code);
+            if (e->key_code == SAPP_KEYCODE_ESCAPE) {
+                if (G->app == AppState::Playing) { if (G->screen == Screen::Settings) { G->options.save(); applyOptions(); G->screen = Screen::Pause; } else closeScreen(); }
+                else if (G->app == AppState::Worlds || G->app == AppState::Settings) { G->options.save(); applyOptions(); G->app = AppState::Title; }
+                else if (G->app == AppState::CreateWorld || G->app == AppState::ConfirmDelete) G->app = AppState::Worlds;
+            }
+            return;
+        case SAPP_EVENTTYPE_QUIT_REQUESTED: return;
+        default: if (!overlay && G->app != AppState::Playing) return; break;
+        }
+        if (G->app != AppState::Playing) return;
+    }
     if (!G->world) return;
     bool inScreen = G->screen != Screen::None;
     switch (e->type) {
@@ -149,8 +206,10 @@ void event(const sapp_event* e) {
         sapp_keycode k = e->key_code;
         if (k == SAPP_KEYCODE_ESCAPE) {
             if (G->screen == Screen::None) { G->screen = Screen::Pause; G->mouseLocked = false; sapp_lock_mouse(false); for (bool& kk : G->keys) kk = false; }
-            else if (G->screen == Screen::Pause) { if (G->playerReady) { G->quitting = true; sapp_request_quit(); } }
             else if (G->screen != Screen::Dead) closeScreen();
+        }
+        if ((k == SAPP_KEYCODE_T || k == SAPP_KEYCODE_SLASH) && G->screen == Screen::None && !e->key_repeat) {
+            openScreen(Screen::Chat); G->chatLine = k == SAPP_KEYCODE_SLASH ? "/" : ""; G->ignoreChar = true; break;
         }
         if (k == SAPP_KEYCODE_E && !e->key_repeat) {
             if (G->screen == Screen::None) openScreen(Screen::Inventory);
@@ -190,7 +249,7 @@ void event(const sapp_event* e) {
     case SAPP_EVENTTYPE_MOUSE_MOVE:
         G->mouseX = e->mouse_x; G->mouseY = e->mouse_y;
         if (G->mouseLocked && !inScreen) {
-            const float sens = 0.0025f;
+            const float sens = 0.0025f * G->options.sensitivity;
             G->player.yaw += e->mouse_dx * sens;
             G->player.pitch = clamp(G->player.pitch - e->mouse_dy * sens, -1.55f, 1.55f);
         }
@@ -216,13 +275,15 @@ sapp_desc sokol_main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
         auto next = [&]() -> const char* { return i + 1 < argc ? argv[++i] : ""; };
-        if (a == "--world") G->opt.world = next();
+        if (a == "--world") { G->opt.world = next(); G->opt.directWorld = true; }
         else if (a == "--seed") { G->opt.seed = std::strtoull(next(), nullptr, 10); G->opt.seedSet = true; }
         else if (a == "--flat") G->opt.flat = true;
         else if (a == "--creative") G->opt.creative = true;
         else if (a == "--radius") G->opt.radius = clamp(atoi(next()), 2, 32);
-        else if (a == "--smoke") G->opt.smokeFrames = atoi(next());
+        else if (a == "--smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = true; }
         else if (a == "--screenshot") G->opt.screenshot = next();
+        else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));
