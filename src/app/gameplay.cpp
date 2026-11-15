@@ -178,9 +178,21 @@ bool startSession(std::string* err) {
     PackNames pn(G->pack);
     if (!G->items.loadFile(dataFile("items.json").string(), G->reg, &pn, err)) return false;
     if (!G->recipes.loadFile(dataFile("recipes.json").string(), G->items, err)) return false;
+    {
+        auto readJson = [&](const fs::path& p, Json& out) {
+            auto t = readTextFile(p); if (!t) { if (err) *err = "cannot read " + p.string(); return false; }
+            std::string e; out = Json::parse(*t, &e); if (!e.empty()) { if (err) *err = p.string() + ": " + e; return false; } return true;
+        };
+        Json mobsJ, modelsJ, animJ;
+        fs::path models = G->assetDir / "models.json";
+        if (!readJson(dataFile("mobs.json"), mobsJ) || !readJson(models, modelsJ) || !readJson(dataFile("animations.json"), animJ)) return false;
+        if (!G->mobReg.load(mobsJ, modelsJ, animJ, G->items, &pn, err)) return false;
+    }
     G->jobs = std::make_unique<JobSystem>(0);
     if (!G->renderer.init(G->reg, G->pack, *G->jobs, err)) return false;
     G->entities = std::make_unique<EntityManager>(G->items);
+    G->mobs = std::make_unique<MobSystem>(G->mobReg);
+    G->entities->mobs = G->mobs.get();
     G->entities->onPickup = [](const ItemStack&) {};
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
@@ -198,7 +210,7 @@ bool startSession(std::string* err) {
         m.createdUnix = (u64)time(nullptr);
         auto gen = createGenerator(m.gen, G->reg);
         ColumnInfo c = gen->column(8, 8);
-        m.spawn = {8, std::max(c.height, SEA_LEVEL) + 1, 8};
+        m.spawn = {8, (m.gen.preset == "flat" ? c.height : std::max(c.height, SEA_LEVEL)) + 1, 8};   // above sea level, except flat worlds
         if (!G->world->create(G->saveDir, m, err)) return false;
         G->player.pos = surfaceSpawn();
         VX_INFO("created world %s (seed %llu)", G->saveDir.string().c_str(), (unsigned long long)m.gen.seed);
@@ -234,6 +246,7 @@ void endSession() {
     G->world->close();
     G->world.reset();
     G->entities.reset();
+    G->mobs.reset();
 }
 
 void respawn() {
@@ -297,8 +310,43 @@ void simulateTick() {
             if (G->reg.def(G->world->getBlock(ep)).shape == BlockShape::Plate) G->behaviors->pressPlate(ep);
         }
     }
+    MobContext ctx = mobContext();
+    G->mobs->tick(ctx, G->rng);
+    if (G->world->meta.tick % 20 == 0) G->mobs->spawnTick(*G->world, p, ctx.daylight, G->rng);
+    if (G->attackCooldown > 0) G->attackCooldown--;
     tickKilns();
     G->world->tick();
+}
+
+MobContext mobContext() {
+    float ang = (float)(G->world->meta.dayTime - 6000) / 24000.0f * 2 * PI;
+    float daylight = clamp(0.5f + std::cos(ang) * 0.9f, 0.0f, 1.0f);
+    MobContext c{*G->world, G->player, !G->creative() && !G->stats.dead, daylight, nullptr, nullptr};
+    c.attackPlayer = [](Mob& m, float dmg) {
+        if (G->stats.damage(dmg, DamageSource::Attack) > 0) {
+            Vec3 k = normalize(Vec3(G->player.pos.x - m.pos.x, 0, G->player.pos.z - m.pos.z));
+            G->player.vel.x += k.x * 0.5f; G->player.vel.z += k.z * 0.5f; G->player.vel.y = std::max(G->player.vel.y, 0.3f);
+        }
+    };
+    c.dropLoot = [](const Mob& m, const std::vector<ItemStack>& loot) { for (auto& s : loot) G->entities->spawnItem(m.pos + Vec3(0, 0.5f, 0), s, G->rng); };
+    return c;
+}
+
+bool attackMob() {
+    if (G->attackCooldown > 0) return false;
+    float md = 0;
+    Mob* m = G->mobs->raycast(G->player.eye(), G->player.look(), G->creative() ? 5.0f : 3.5f, &md);
+    if (!m) return false;
+    if (G->target.hit && G->target.distance < md) return false;   // a block is in the way
+    const ItemDef* h = G->held();
+    float dmg = h ? h->damage : 1.0f;
+    MobContext ctx = mobContext();
+    if (G->mobs->hurt(*m, dmg, G->player.look(), G->rng, &ctx)) {
+        G->stats.exhaust(0.1f);
+        if (h && h->durability > 0) { damageHeldTool(); if (h->tool != ToolType::Sword) damageHeldTool(); }
+    }
+    G->attackCooldown = 8;
+    return true;
 }
 
 void updateInteraction(float dt) {

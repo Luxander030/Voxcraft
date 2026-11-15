@@ -1,0 +1,18 @@
+// Creatures (all original). Units: blocks, ticks (20/s). behavior: passive | hostile.
+// spawn.where: surface (turf, daylight) | dark (light <= 7, surface at night or caves) | underground (y < 50, no light)
+{
+  "grazer":    {"model": "grazer", "rig": "quadruped", "health": 10, "speed": 0.09, "width": 0.9, "height": 1.4, "behavior": "passive",
+                "drops": [{"item": "raw_venison", "min": 1, "max": 3}, {"item": "hide", "min": 0, "max": 2}],
+                "spawn": {"where": "surface", "group": [2, 4], "weight": 10}},
+  "puffbird":  {"model": "puffbird", "rig": "bird", "health": 4, "speed": 0.07, "width": 0.45, "height": 0.7, "behavior": "passive",
+                "drops": [{"item": "raw_fowl", "min": 1, "max": 1}, {"item": "feather", "min": 0, "max": 2}],
+                "spawn": {"where": "surface", "group": [2, 3], "weight": 8}},
+  "gloomling": {"model": "gloomling", "rig": "biped", "health": 20, "speed": 0.12, "width": 0.6, "height": 1.9, "behavior": "hostile",
+                "damage": 3, "burns_in_daylight": true,
+                "drops": [{"item": "shadow_thread", "min": 0, "max": 2}],
+                "spawn": {"where": "dark", "group": [1, 2], "weight": 10}},
+  "rockmite":  {"model": "rockmite", "rig": "critter", "health": 8, "speed": 0.15, "width": 0.6, "height": 0.45, "behavior": "hostile",
+                "damage": 1,
+                "drops": [{"item": "flint", "min": 0, "max": 1}],
+                "spawn": {"where": "underground", "group": [2, 4], "weight": 8}}
+}

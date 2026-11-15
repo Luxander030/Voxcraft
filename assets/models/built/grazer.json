@@ -1,0 +1,206 @@
+{
+ "name": "grazer",
+ "source_hash": "6deb0b6c60aeb602",
+ "bones": [
+  {
+   "name": "body",
+   "parent": "",
+   "pivot": [
+    0.0,
+    14.0,
+    0.0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    19.0,
+    -8.0
+   ]
+  },
+  {
+   "name": "leg_fl",
+   "parent": "body",
+   "pivot": [
+    -3.0,
+    10.0,
+    -6.0
+   ]
+  },
+  {
+   "name": "leg_fr",
+   "parent": "body",
+   "pivot": [
+    3.0,
+    10.0,
+    -6.0
+   ]
+  },
+  {
+   "name": "leg_bl",
+   "parent": "body",
+   "pivot": [
+    -3.0,
+    10.0,
+    6.0
+   ]
+  },
+  {
+   "name": "leg_br",
+   "parent": "body",
+   "pivot": [
+    3.0,
+    10.0,
+    6.0
+   ]
+  },
+  {
+   "name": "tail",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    17.0,
+    8.0
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "bone": "body",
+   "min": [
+    -5.0,
+    10.0,
+    -8.0
+   ],
+   "size": [
+    10.0,
+    8.0,
+    16.0
+   ],
+   "tex": "grazer_hide",
+   "front": "grazer_hide"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -3.0,
+    17.0,
+    -15.0
+   ],
+   "size": [
+    6.0,
+    6.0,
+    7.0
+   ],
+   "tex": "grazer_hide",
+   "front": "grazer_face"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -3.0,
+    23.0,
+    -11.0
+   ],
+   "size": [
+    1.0,
+    3.0,
+    1.0
+   ],
+   "tex": "grazer_horn",
+   "front": "grazer_horn"
+  },
+  {
+   "bone": "head",
+   "min": [
+    2.0,
+    23.0,
+    -11.0
+   ],
+   "size": [
+    1.0,
+    3.0,
+    1.0
+   ],
+   "tex": "grazer_horn",
+   "front": "grazer_horn"
+  },
+  {
+   "bone": "leg_fl",
+   "min": [
+    -5.0,
+    0.0,
+    -7.5
+   ],
+   "size": [
+    3.0,
+    10.0,
+    3.0
+   ],
+   "tex": "grazer_leg",
+   "front": "grazer_leg"
+  },
+  {
+   "bone": "leg_fr",
+   "min": [
+    2.0,
+    0.0,
+    -7.5
+   ],
+   "size": [
+    3.0,
+    10.0,
+    3.0
+   ],
+   "tex": "grazer_leg",
+   "front": "grazer_leg"
+  },
+  {
+   "bone": "leg_bl",
+   "min": [
+    -5.0,
+    0.0,
+    4.5
+   ],
+   "size": [
+    3.0,
+    10.0,
+    3.0
+   ],
+   "tex": "grazer_leg",
+   "front": "grazer_leg"
+  },
+  {
+   "bone": "leg_br",
+   "min": [
+    2.0,
+    0.0,
+    4.5
+   ],
+   "size": [
+    3.0,
+    10.0,
+    3.0
+   ],
+   "tex": "grazer_leg",
+   "front": "grazer_leg"
+  },
+  {
+   "bone": "tail",
+   "min": [
+    -1.0,
+    13.0,
+    8.0
+   ],
+   "size": [
+    2.0,
+    5.0,
+    2.0
+   ],
+   "tex": "grazer_hide",
+   "front": "grazer_hide"
+  }
+ ]
+}

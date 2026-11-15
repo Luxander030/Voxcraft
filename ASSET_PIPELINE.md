@@ -42,4 +42,20 @@ All assets are original. Nothing is extracted from or traced over any other game
   writes a preview sheet with `--preview`.
 - **Done:** the original 5×7 UI font. It is compiled into `src/app/ui.cpp` and rendered into a
   texture at startup.
-- **Pending:** the OpenSCAD exporter and entity models (with mobs, Phase 6).
+- **Done:** the OpenSCAD model pipeline (below) and 4 original creature models. Their skins are
+  16×16 tiles in `assets/textures/entities` (documented exception: entity skins are tiled from
+  several 16×16 tiles rather than one atlas).
+
+## OpenSCAD workflow
+1. Edit `assets/models/src/<name>.scad`. Build it from `vx_bone(name, parent, pivot)` and
+   `vx_box(bone, min, size, tex, front)` in `lib.scad`.
+2. Run `python3 tools/scad_export.py`. For each model it:
+   - locates OpenSCAD (PATH, Homebrew, OpenSCAD.app, Program Files),
+   - renders the model to STL to prove the geometry builds,
+   - parses the echoed bone and box records,
+   - validates the hierarchy,
+   - writes `assets/models/built/<name>.json`, stamped with the source hash. It only rewrites
+     what changed.
+3. The built JSON is committed, so builds and CI never need OpenSCAD. `build_assets.py` warns if
+   a built model is stale (`scad_export.py --check`) and merges the models into
+   `assets/generated/models.json`.

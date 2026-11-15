@@ -1,0 +1,152 @@
+{
+ "name": "gloomling",
+ "source_hash": "e0c0c7fa12d9d55c",
+ "bones": [
+  {
+   "name": "body",
+   "parent": "",
+   "pivot": [
+    0.0,
+    12.0,
+    0.0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    22.0,
+    -1.0
+   ]
+  },
+  {
+   "name": "arm_l",
+   "parent": "body",
+   "pivot": [
+    -5.5,
+    21.0,
+    0.0
+   ]
+  },
+  {
+   "name": "arm_r",
+   "parent": "body",
+   "pivot": [
+    5.5,
+    21.0,
+    0.0
+   ]
+  },
+  {
+   "name": "leg_l",
+   "parent": "body",
+   "pivot": [
+    -2.0,
+    12.0,
+    0.0
+   ]
+  },
+  {
+   "name": "leg_r",
+   "parent": "body",
+   "pivot": [
+    2.0,
+    12.0,
+    0.0
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "bone": "body",
+   "min": [
+    -4.0,
+    12.0,
+    -2.5
+   ],
+   "size": [
+    8.0,
+    10.0,
+    5.0
+   ],
+   "tex": "gloomling_skin",
+   "front": "gloomling_skin"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -3.5,
+    22.0,
+    -4.5
+   ],
+   "size": [
+    7.0,
+    7.0,
+    7.0
+   ],
+   "tex": "gloomling_skin",
+   "front": "gloomling_face"
+  },
+  {
+   "bone": "arm_l",
+   "min": [
+    -7.0,
+    9.0,
+    -1.5
+   ],
+   "size": [
+    3.0,
+    13.0,
+    3.0
+   ],
+   "tex": "gloomling_skin",
+   "front": "gloomling_skin"
+  },
+  {
+   "bone": "arm_r",
+   "min": [
+    4.0,
+    9.0,
+    -1.5
+   ],
+   "size": [
+    3.0,
+    13.0,
+    3.0
+   ],
+   "tex": "gloomling_skin",
+   "front": "gloomling_skin"
+  },
+  {
+   "bone": "leg_l",
+   "min": [
+    -3.5,
+    0.0,
+    -1.5
+   ],
+   "size": [
+    3.0,
+    12.0,
+    3.0
+   ],
+   "tex": "gloomling_leg",
+   "front": "gloomling_leg"
+  },
+  {
+   "bone": "leg_r",
+   "min": [
+    0.5,
+    0.0,
+    -1.5
+   ],
+   "size": [
+    3.0,
+    12.0,
+    3.0
+   ],
+   "tex": "gloomling_leg",
+   "front": "gloomling_leg"
+  }
+ ]
+}

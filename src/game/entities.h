@@ -3,6 +3,7 @@
 // with it, so they never accumulate in memory for chunks far away).
 #pragma once
 #include "game/items.h"
+#include "game/mobs.h"
 #include "game/player.h"
 
 namespace vx {
@@ -29,6 +30,7 @@ public:
     std::vector<EntityRecord> collectEntities(ChunkPos p, bool removeFromWorld) override;
     void spawnEntities(ChunkPos p, std::vector<EntityRecord>&& recs) override;
     std::function<void(const ItemStack&)> onPickup;   // UI/audio hook
+    MobSystem* mobs = nullptr;                        // mobs persist through the same records
 private:
     const ItemRegistry& items_;
 };

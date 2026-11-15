@@ -21,6 +21,8 @@ import hashlib, json, os, re, struct, sys, zlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEX = os.path.join(ROOT, "assets", "textures", "blocks")
 ITEMS_TEX = os.path.join(ROOT, "assets", "textures", "items")
+ENT_TEX = os.path.join(ROOT, "assets", "textures", "entities")
+MODELS = os.path.join(ROOT, "assets", "models", "built")
 ITEMS = os.path.join(ROOT, "assets", "data", "items.json")
 GEN = os.path.join(ROOT, "assets", "generated")
 BLOCKS = os.path.join(ROOT, "assets", "data", "blocks.json")
@@ -72,10 +74,13 @@ def main():
     preview = sys.argv[sys.argv.index("--preview") + 1] if "--preview" in sys.argv else None
     os.makedirs(GEN, exist_ok=True)
     files = sorted([os.path.join(TEX, f) for f in os.listdir(TEX) if f.endswith(".png")] +
-                   [os.path.join(ITEMS_TEX, f) for f in os.listdir(ITEMS_TEX) if f.endswith(".png")])
+                   [os.path.join(ITEMS_TEX, f) for f in os.listdir(ITEMS_TEX) if f.endswith(".png")] +
+                   [os.path.join(ENT_TEX, f) for f in os.listdir(ENT_TEX) if f.endswith(".png")])
     h = hashlib.sha256(b"pak-v1")
     for f in files: h.update(os.path.basename(f).encode()); h.update(open(f, "rb").read())
     h.update(open(BLOCKS, "rb").read()); h.update(open(ITEMS, "rb").read())
+    model_files = sorted(f for f in os.listdir(MODELS) if f.endswith(".json"))
+    for f in model_files: h.update(open(os.path.join(MODELS, f), "rb").read())
     digest = h.hexdigest()
     pak = os.path.join(GEN, "voxcraft.pak"); hfile = os.path.join(GEN, "pak.hash")
     if not force and not preview and os.path.exists(pak) and os.path.exists(hfile) and open(hfile).read() == digest:
@@ -98,6 +103,11 @@ def main():
     refs = referenced_textures()
     itxt = re.sub(r"^\s*//.*$", "", open(ITEMS).read(), flags=re.M)
     refs |= {v["tex"] for v in json.loads(itxt).values() if "tex" in v}
+    for f in model_files:
+        for b in json.load(open(os.path.join(MODELS, f)))["boxes"]: refs |= {b["tex"], b["front"]}
+    import subprocess
+    if subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "scad_export.py"), "--check"], capture_output=True).returncode != 0:
+        warnings.append("built models are stale relative to assets/models/src (run tools/scad_export.py)")
     for m in sorted(refs - have): errors.append(f"missing texture '{m}' referenced by blocks.json")
     # implicit "lit" variants: "<x>_on" is used by blocks referencing "<x>_off" or "<x>"
     refs |= {n for n in have if n.endswith("_on") and (n[:-3] + "_off" in refs or n[:-3] in refs)}
@@ -117,6 +127,9 @@ def main():
     tmp = pak + ".tmp"; open(tmp, "wb").write(out); os.replace(tmp, pak)
     open(hfile, "w").write(digest)
     print(f"build_assets: {len(names)} textures -> {len(tiles)} unique tiles, {len(out)} bytes")
+    # all models in one runtime file (sorted, deterministic)
+    models = {f[:-5]: json.load(open(os.path.join(MODELS, f))) for f in model_files}
+    tmpm = os.path.join(GEN, "models.json.tmp"); json.dump(models, open(tmpm, "w"), separators=(",", ":")); os.replace(tmpm, os.path.join(GEN, "models.json"))
 
     if preview:
         cols, S = 10, 4; rows = (len(names) + cols - 1) // cols; W, H = cols * (TILE * S + 2), rows * (TILE * S + 2)

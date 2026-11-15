@@ -35,6 +35,13 @@ sg_shader makeShader(const char* vs, const char* fs, const char* fsEntry, int ki
         d.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
         d.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT; d.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
         d.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT; d.texture_sampler_pairs[0].view_slot = 0; d.texture_sampler_pairs[0].sampler_slot = 0;
+    } else if (kind == 3) {   // entities
+        for (int i = 0; i < 4; i++) { d.attrs[i].base_type = SG_SHADERATTRBASETYPE_FLOAT; d.attrs[i].hlsl_sem_name = "TEXCOORD"; d.attrs[i].hlsl_sem_index = (u8)i; }
+        ub(0, SG_SHADERSTAGE_VERTEX, 80, 0); ub(2, SG_SHADERSTAGE_FRAGMENT, 32, 0);
+        d.views[0].texture.stage = SG_SHADERSTAGE_FRAGMENT; d.views[0].texture.image_type = SG_IMAGETYPE_ARRAY;
+        d.views[0].texture.sample_type = SG_IMAGESAMPLETYPE_FLOAT;
+        d.samplers[0].stage = SG_SHADERSTAGE_FRAGMENT; d.samplers[0].sampler_type = SG_SAMPLERTYPE_FILTERING;
+        d.texture_sampler_pairs[0].stage = SG_SHADERSTAGE_FRAGMENT; d.texture_sampler_pairs[0].view_slot = 0; d.texture_sampler_pairs[0].sampler_slot = 0;
     } else if (kind == 1) {   // lines
         d.attrs[0].base_type = SG_SHADERATTRBASETYPE_FLOAT; d.attrs[0].hlsl_sem_name = "TEXCOORD";
         ub(0, SG_SHADERSTAGE_VERTEX, 80, 0); ub(1, SG_SHADERSTAGE_VERTEX, 16, 1); ub(2, SG_SHADERSTAGE_FRAGMENT, 16, 0);
@@ -93,6 +100,10 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
     sg_buffer_desc ub = {}; ub.usage.vertex_buffer = true; ub.usage.write_transient = true; ub.size = uiCapacity_ * sizeof(UiVertex); ub.label = "ui";
     uiBuf_ = sg_make_buffer(&ub);
 
+    entityCapacity_ = MAX_QUADS * 4;
+    sg_buffer_desc eb = {}; eb.usage.vertex_buffer = true; eb.usage.write_transient = true; eb.size = entityCapacity_ * sizeof(EntityVertex); eb.label = "entities";
+    entityBuf_ = sg_make_buffer(&eb);
+    entitySh_ = makeShader(shaders::entityVS, shaders::terrainFS, "fs_cutout", 3, "entity");
     terrainOpaqueSh_ = makeShader(shaders::terrainVS, shaders::terrainFS, "fs_opaque", 0, "terrain-opaque");
     terrainCutoutSh_ = makeShader(shaders::terrainVS, shaders::terrainFS, "fs_cutout", 0, "terrain-cutout");
     linesSh_ = makeShader(shaders::linesVS, shaders::linesFS, "fs_main", 1, "lines");
@@ -115,6 +126,14 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
     cutoutPip_ = terrainPip(terrainCutoutSh_, false, true, SG_CULLMODE_BACK, "cutout");
     translucentPip_ = terrainPip(terrainOpaqueSh_, true, false, SG_CULLMODE_BACK, "translucent");
 
+    sg_pipeline_desc ep = {};
+    ep.shader = entitySh_;
+    ep.layout.attrs[0].format = SG_VERTEXFORMAT_FLOAT3; ep.layout.attrs[1].format = SG_VERTEXFORMAT_FLOAT4;
+    ep.layout.attrs[2].format = SG_VERTEXFORMAT_FLOAT2; ep.layout.attrs[3].format = SG_VERTEXFORMAT_UBYTE4N;
+    ep.index_type = SG_INDEXTYPE_UINT16; ep.cull_mode = SG_CULLMODE_BACK; ep.face_winding = SG_FACEWINDING_CCW;
+    ep.depth.compare = SG_COMPAREFUNC_GREATER_EQUAL; ep.depth.write_enabled = true; ep.label = "entities";
+    entityPip_ = sg_make_pipeline(&ep);
+
     sg_pipeline_desc lp = {};
     lp.shader = linesSh_; lp.layout.attrs[0].format = SG_VERTEXFORMAT_FLOAT3; lp.primitive_type = SG_PRIMITIVETYPE_LINES;
     lp.depth.compare = SG_COMPAREFUNC_GREATER_EQUAL; lp.depth.write_enabled = false;
@@ -131,7 +150,7 @@ bool Renderer::init(const BlockRegistry& reg, const TexturePack& pack, JobSystem
     up.label = "ui";
     uiPip_ = sg_make_pipeline(&up);
 
-    for (sg_pipeline pp : {opaquePip_, cutoutPip_, translucentPip_, linesPip_, uiPip_})
+    for (sg_pipeline pp : {opaquePip_, cutoutPip_, translucentPip_, linesPip_, uiPip_, entityPip_})
         if (sg_query_pipeline_state(pp) != SG_RESOURCESTATE_VALID) { if (err) *err = "pipeline/shader creation failed (see log)"; return false; }
     return true;
 }
@@ -248,11 +267,13 @@ void Renderer::updateMeshes(Vec3 cam, int radius) {
     }
 }
 
-void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, const FrameEnv& env, const RayHit* outline, const Ui& ui) {
+void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, const FrameEnv& env, const RayHit* outline, const Ui& ui,
+                      const std::vector<EntityVertex>* entities) {
     stats_.drawCalls = 0; stats_.quads = 0; stats_.visibleSections = 0; stats_.sections = 0; stats_.gpuBytes = 0;
     Mat4 proj = Mat4::perspectiveRevZ(env.fovY, (float)width / (float)std::max(1, height), 0.05f);
     Mat4 vp = proj * viewMatrix(yaw, pitch);
     Frustum fr; fr.build(vp);
+    lastFrustum = fr;
 
     struct Item { const SectionGpu* s; Vec3 origin; float d; };
     std::vector<Item> items; items.reserve(chunks_.size() * 4);
@@ -304,6 +325,18 @@ void Renderer::render(Vec3 eye, float yaw, float pitch, int width, int height, c
     };
     drawLayer(opaquePip_, ML_OPAQUE, false);
     drawLayer(cutoutPip_, ML_CUTOUT, false);
+    if (entities && !entities->empty()) {
+        size_t n = std::min(entities->size() / 4 * 4, entityCapacity_);
+        sg_write_buffer_desc wd = {}; wd.src.data = {entities->data(), n * sizeof(EntityVertex)}; wd.dst.buffer = entityBuf_;
+        sg_write_buffer_transient(&wd);
+        sg_apply_pipeline(entityPip_);
+        sg_apply_uniforms(0, SG_RANGE_REF(frameU));
+        sg_apply_uniforms(2, SG_RANGE_REF(fogU));
+        sg_bindings b = {}; b.vertex_buffers[0] = entityBuf_; b.index_buffer = quadIdx_; b.views[0] = blockView_; b.samplers[0] = blockSmp_;
+        sg_apply_bindings(&b);
+        sg_draw(0, (int)(n / 4 * 6), 1);
+        stats_.drawCalls++; stats_.quads += n / 4;
+    }
     drawLayer(translucentPip_, ML_TRANSLUCENT, true);
 
     if (outline && outline->hit) {

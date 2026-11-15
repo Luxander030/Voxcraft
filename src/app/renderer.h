@@ -21,6 +21,8 @@
 
 namespace vx {
 
+struct EntityVertex { float x, y, z; float u, v, layer, shade; float sky, block; u32 tint; };   // 40 bytes
+
 struct FrameEnv {
     float daylight = 1.0f;       // 0 night .. 1 noon (scales sky light)
     Vec3 skyColor{0.62f, 0.78f, 1.0f};
@@ -38,7 +40,9 @@ public:
     void detach();
     // Schedule mesh jobs for dirty sections near the camera.
     void updateMeshes(Vec3 cam, int renderRadius);
-    void render(Vec3 eye, float yaw, float pitch, int width, int height, const FrameEnv& env, const RayHit* outline, const Ui& ui);
+    void render(Vec3 eye, float yaw, float pitch, int width, int height, const FrameEnv& env, const RayHit* outline, const Ui& ui,
+                const std::vector<EntityVertex>* entities = nullptr);
+    Frustum lastFrustum;   // camera-relative, from the previous render (entity culling)
     const Stats& stats() const { return stats_; }
     const BlockTextures& textures() const { return tex_; }
     int renderRadius = 10;
@@ -66,10 +70,10 @@ private:
     sg_image blockImg_{}, fontImg_{};
     sg_view blockView_{}, fontView_{};
     sg_sampler blockSmp_{}, uiSmp_{};
-    sg_shader terrainOpaqueSh_{}, terrainCutoutSh_{}, linesSh_{}, uiSh_{};
-    sg_pipeline opaquePip_{}, cutoutPip_{}, translucentPip_{}, linesPip_{}, uiPip_{};
-    sg_buffer quadIdx_{}, outlineBuf_{}, uiBuf_{};
-    size_t uiCapacity_ = 0;
+    sg_shader terrainOpaqueSh_{}, terrainCutoutSh_{}, linesSh_{}, uiSh_{}, entitySh_{};
+    sg_pipeline opaquePip_{}, cutoutPip_{}, translucentPip_{}, linesPip_{}, uiPip_{}, entityPip_{};
+    sg_buffer quadIdx_{}, outlineBuf_{}, uiBuf_{}, entityBuf_{};
+    size_t uiCapacity_ = 0, entityCapacity_ = 0;
     Stats stats_;
 };
 

@@ -1,0 +1,167 @@
+{
+ "name": "puffbird",
+ "source_hash": "7c0adb5f051fa8c1",
+ "bones": [
+  {
+   "name": "body",
+   "parent": "",
+   "pivot": [
+    0.0,
+    5.0,
+    0.0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    9.0,
+    -2.0
+   ]
+  },
+  {
+   "name": "wing_l",
+   "parent": "body",
+   "pivot": [
+    -3.0,
+    8.0,
+    0.0
+   ]
+  },
+  {
+   "name": "wing_r",
+   "parent": "body",
+   "pivot": [
+    3.0,
+    8.0,
+    0.0
+   ]
+  },
+  {
+   "name": "leg_l",
+   "parent": "body",
+   "pivot": [
+    -1.5,
+    3.0,
+    0.0
+   ]
+  },
+  {
+   "name": "leg_r",
+   "parent": "body",
+   "pivot": [
+    1.5,
+    3.0,
+    0.0
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "bone": "body",
+   "min": [
+    -3.0,
+    3.0,
+    -3.0
+   ],
+   "size": [
+    6.0,
+    6.0,
+    7.0
+   ],
+   "tex": "puffbird_feathers",
+   "front": "puffbird_feathers"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -2.0,
+    8.0,
+    -5.0
+   ],
+   "size": [
+    4.0,
+    4.0,
+    4.0
+   ],
+   "tex": "puffbird_feathers",
+   "front": "puffbird_face"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -1.0,
+    9.0,
+    -7.0
+   ],
+   "size": [
+    2.0,
+    1.0,
+    2.0
+   ],
+   "tex": "puffbird_beak",
+   "front": "puffbird_beak"
+  },
+  {
+   "bone": "wing_l",
+   "min": [
+    -4.0,
+    4.0,
+    -2.0
+   ],
+   "size": [
+    1.0,
+    4.0,
+    5.0
+   ],
+   "tex": "puffbird_wing",
+   "front": "puffbird_wing"
+  },
+  {
+   "bone": "wing_r",
+   "min": [
+    3.0,
+    4.0,
+    -2.0
+   ],
+   "size": [
+    1.0,
+    4.0,
+    5.0
+   ],
+   "tex": "puffbird_wing",
+   "front": "puffbird_wing"
+  },
+  {
+   "bone": "leg_l",
+   "min": [
+    -2.0,
+    0.0,
+    -1.0
+   ],
+   "size": [
+    1.0,
+    3.0,
+    1.0
+   ],
+   "tex": "puffbird_beak",
+   "front": "puffbird_beak"
+  },
+  {
+   "bone": "leg_r",
+   "min": [
+    1.0,
+    0.0,
+    -1.0
+   ],
+   "size": [
+    1.0,
+    3.0,
+    1.0
+   ],
+   "tex": "puffbird_beak",
+   "front": "puffbird_beak"
+  }
+ ]
+}

@@ -94,6 +94,18 @@ fragment float4 fs_main(VOut in [[stage_in]], texture2d<float> font [[texture(0)
     return float4(c.rgb * in.c.rgb, in.c.a);
 }
 )";
+// Entities: float3 camera-relative position, float4 (u, v, layer, face shade), float2 (sky, block)
+// light 0..1, ubyte4n tint. Same lighting/fog maths as terrain.
+inline const char* entityVS = R"(
+#include <metal_stdlib>
+using namespace metal;
+struct Frame { float4x4 vp; float4 cam; };
+struct VIn { float3 p [[attribute(0)]]; float4 t [[attribute(1)]]; float2 l [[attribute(2)]]; float4 c [[attribute(3)]]; };
+struct VOut { float4 pos [[position]]; float3 uvl; float3 tint; float2 light; float shade; float dist; };
+vertex VOut vs_main(VIn in [[stage_in]], constant Frame& f [[buffer(0)]]) {
+    VOut o; o.pos = f.vp * float4(in.p, 1.0); o.uvl = in.t.xyz; o.tint = in.c.rgb; o.light = in.l; o.shade = in.t.w; o.dist = length(in.p); return o;
+}
+)";
 inline const char* vsEntry = "vs_main";
 inline const char* uiFSEntry = "fs_main";
 #else
@@ -161,6 +173,13 @@ float4 fs_main(VOut i) : SV_Target0 {
     float4 c = blocks.Sample(smp, i.t.xyz);
     if (c.a < 0.5) discard;
     return float4(c.rgb * i.c.rgb, i.c.a);
+}
+)";
+inline const char* entityVS = R"(
+cbuffer Frame : register(b0) { float4x4 vp; float4 cam; };
+struct VOut { float3 uvl : TEXCOORD0; float3 tint : TEXCOORD1; float2 light : TEXCOORD2; float shade : TEXCOORD3; float dist : TEXCOORD4; float4 pos : SV_Position; };
+VOut vs_main(float3 p : TEXCOORD0, float4 t : TEXCOORD1, float2 l : TEXCOORD2, float4 c : TEXCOORD3) {
+    VOut o; o.pos = mul(vp, float4(p, 1.0)); o.uvl = t.xyz; o.tint = c.rgb; o.light = l; o.shade = t.w; o.dist = length(p); return o;
 }
 )";
 inline const char* vsEntry = "vs_main";

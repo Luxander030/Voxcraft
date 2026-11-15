@@ -40,7 +40,11 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Health, hunger, saturation, exhaustion, regeneration, starvation, fall damage, drowning, lava, void; death drops items; respawn.
 - ✅ Dropped item entities: physics, merging, pickup, despawn, persisted with their chunk.
 - ✅ Game modes: survival / creative (F4 toggles; `--creative` for new worlds).
-- ⬜ Mobs (passive/hostile), AI, pathfinding, combat.
+- ✅ Creatures (all original): grazer and puffbird (passive), gloomling (hostile, burns in daylight), rockmite (hostile, underground).
+- ✅ OpenSCAD model pipeline (`assets/models/src/*.scad` → validated STL render + box-model JSON), hierarchical bones, keyframed clips with interpolation, crossfade blending, state machine, procedural walk/flap/head-look, animation LOD.
+- ✅ AI: wander, panic, chase, melee; deterministic A* pathfinding with node budget; spawning by light/biome/depth with population caps; despawning; per-chunk persistence.
+- ✅ Melee combat with weapon damage, knockback, invulnerability window, loot; creatures damage the player.
+- ✅ Dropped items rendered as spinning blocks/cards.
 
 ## Phase 7 — World generation & block updates 🔶
 - ✅ Generator v1: biomes, terrain, caves, ores, trees (Phase 3).
@@ -53,7 +57,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).
 - ✅ Strong/weak block powering, iterative FIFO update queue (no recursion), deterministic timing verified by tests including a torch clock that resumes identically after reload.
 - ✅ Lit texture variants (lamp, kiln).
-- ⬜ Mobs and AI, pathfinding, combat; dimensions; sticky pistons, comparators, hoppers, dispensers.
+- ⬜ Dimensions; sticky pistons, comparators, hoppers, dispensers; ranged combat.
 
 ## Phases 9–11 ⬜
 Audio, menus, particles, animation, packaging, stabilization (CLAUDE.md §25).

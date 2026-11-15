@@ -54,7 +54,9 @@
     {"input": "slate_cobble", "result": "slate"},
     {"input": "clay_lump", "result": "brick"},
     {"input": "#logs", "result": "coal"},
-    {"input": "wild_root", "result": "baked_root"}
+    {"input": "wild_root", "result": "baked_root"},
+    {"input": "raw_venison", "result": "cooked_venison"},
+    {"input": "raw_fowl", "result": "cooked_fowl"}
   ],
   "loot": {
     "oak_leaves": [{"item": "sapling", "chance": 0.05}, {"item": "apple", "chance": 0.01}],

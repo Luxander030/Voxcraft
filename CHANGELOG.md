@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Creatures
+- OpenSCAD box-model pipeline, plus four original creature models and their skins.
+- Animation system: bone hierarchy, keyframed clips, crossfades, state machine, procedural
+  layers and distance-based LOD.
+- AI: wandering, panicking, chasing, melee, deterministic A* pathfinding, spawning with caps,
+  despawning, daylight burning. Creatures persist with their chunk.
+- Melee combat, loot (venison, fowl, feathers, hide, shadow thread, flint), cooked foods.
+- Entity render pass (CPU-skinned boxes, transient buffer, one draw call). Dropped items are now
+  visible.
+- Fix: flat worlds spawned the player at sea level, high above the ground.
+
 ### Phase 8: circuits
 - Glimmer circuits: levers, buttons, pressure plates, wire, inverting spark torches, lamps,
   relays with 4 delays, watchers and pistons.

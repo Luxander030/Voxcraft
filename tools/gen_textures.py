@@ -384,6 +384,44 @@ ITEM_RECIPES = {
     "wild_root": blob(pal("d8c8a0", "b8a478", "e8dcbc"), r=4.6, squash=0.6),
     "baked_root": blob(pal("c87a3a", "a85e24", "e09858"), r=4.6, squash=0.6),
 }
+# ------------------------------------------------------------------ creature skins (16x16 tiles)
+def face(base, eye, extra=None):
+    def f(rng):
+        px = noisy(rng, base, 0.5, 4)
+        for (x, y) in ((4, 6), (5, 6), (10, 6), (11, 6)): put(px, x, y, eye[0])
+        for (x, y) in ((4, 5), (11, 5)): put(px, x, y, eye[1])
+        if extra: extra(px, rng)
+        return px
+    return f
+
+ENTITY_RECIPES = {
+    "grazer_hide": lambda r: [p if r.next() > 0.06 else hexc("e8dcc0") for p in noisy(r, pal("9a6a3a", "8a5e32", "a87844", "7c5430"), 0.6, 4)],
+    "grazer_face": face(pal("9a6a3a", "8a5e32", "a87844"), pal("1a1210", "f0e8d8"), lambda px, r: [put(px, x, y, hexc("3a2418")) for x in (7, 8) for y in (11, 12)]),
+    "grazer_horn": lambda r: noisy(r, pal("e8dcc0", "d0c4a4", "f4ecd8"), 0.4, 4),
+    "grazer_leg": lambda r: [hexc("3a2418") if (i // N) > 12 else p for i, p in enumerate(noisy(r, pal("8a5e32", "7c5430", "9a6a3a"), 0.6, 4))],
+    "puffbird_feathers": lambda r: noisy(r, pal("b8d8f0", "a8c8e8", "c8e4f8", "98bce0"), 0.5, 3),
+    "puffbird_face": face(pal("b8d8f0", "a8c8e8", "c8e4f8"), pal("101820", "ffffff")),
+    "puffbird_beak": lambda r: noisy(r, pal("f0a830", "e09020", "f8c050"), 0.5, 4),
+    "puffbird_wing": lambda r: [hexc("6890c0") if (i % N) % 4 == 0 else p for i, p in enumerate(noisy(r, pal("88b0d8", "78a0c8"), 0.5, 4))],
+    "gloomling_skin": lambda r: noisy(r, pal("3a2a48", "322440", "443254", "2a1e36"), 0.5, 4),
+    "gloomling_face": face(pal("3a2a48", "322440", "443254"), pal("ffd040", "fff4a0"), lambda px, r: [put(px, x, 11, hexc("1a1020")) for x in range(5, 11)]),
+    "gloomling_leg": lambda r: noisy(r, pal("2a1e36", "241a30", "322440"), 0.5, 4),
+    "rockmite_shell": lambda r: [hexc("4a4844") if (i % N) % 5 == 0 or (i // N) % 6 == 0 else p for i, p in enumerate(noisy(r, pal("7a766e", "6c6862", "88847a"), 0.5, 4))],
+    "rockmite_face": face(pal("7a766e", "6c6862"), pal("c82020", "ff6060")),
+    "rockmite_leg": lambda r: noisy(r, pal("4a4844", "3c3a36"), 0.5, 4),
+}
+
+ITEM_RECIPES.update({
+    "raw_venison": blob(pal("c84a4a", "b03a3a", "e07070"), r=4.6, squash=0.7),
+    "cooked_venison": blob(pal("8a4a2a", "6e3a20", "a86040"), r=4.6, squash=0.7),
+    "raw_fowl": blob(pal("f0c0b0", "e0a898", "f8d8c8"), r=4.0, squash=0.8),
+    "cooked_fowl": blob(pal("c88a4a", "a86e34", "e0a868"), r=4.0, squash=0.8),
+    "feather": item(lambda px, r: ([put(px, 4 + k, 12 - k, hexc("e8e8f0")) for k in range(9)], [put(px, 4 + k + d, 12 - k - d2, hexc("c8d8f0")) for k in range(2, 9) for d, d2 in ((1, 0), (0, -1)) if r.next() < 0.8])),
+    "hide": blob(pal("9a6a3a", "8a5e32", "a87844"), r=5.0, squash=0.8),
+    "shadow_thread": item(lambda px, r: [put(px, x, int(8 + 3 * ((x * 7 % 5) - 2) / 2), hexc(["5a3a78", "7a5a98"][x % 2])) for x in range(2, 14)]),
+    "flint": gem(pal("5a5a60", "3a3a40", "2a2a30")),
+})
+
 for t in TIER:
     for k in ("pickaxe", "axe", "shovel", "sword"):
         ITEM_RECIPES[f"{t}_{k}"] = tool(k, t)
@@ -403,7 +441,12 @@ def main():
         path = os.path.join(items_dir, name + ".png")
         if os.path.exists(path) and not force: continue
         px = recipe(Rng(name)); write_png(path, [tuple(int(c) for c in p) for p in px]); made += 1
-    print(f"gen_textures: {made} written ({OUT}, {items_dir})")
+    ent_dir = os.path.join(ROOT, "assets", "textures", "entities"); os.makedirs(ent_dir, exist_ok=True)
+    for name, recipe in sorted(ENTITY_RECIPES.items()):
+        path = os.path.join(ent_dir, name + ".png")
+        if os.path.exists(path) and not force: continue
+        px = recipe(Rng(name)); write_png(path, [tuple(int(c) for c in p) for p in px]); made += 1
+    print(f"gen_textures: {made} written ({OUT}, {items_dir}, {ent_dir})")
 
 if __name__ == "__main__":
     main()

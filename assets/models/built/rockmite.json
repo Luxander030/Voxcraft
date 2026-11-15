@@ -1,0 +1,152 @@
+{
+ "name": "rockmite",
+ "source_hash": "bffc5ac067adfd36",
+ "bones": [
+  {
+   "name": "body",
+   "parent": "",
+   "pivot": [
+    0.0,
+    3.0,
+    0.0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    3.0,
+    -5.0
+   ]
+  },
+  {
+   "name": "leg_fl",
+   "parent": "body",
+   "pivot": [
+    -4.0,
+    2.0,
+    -3.0
+   ]
+  },
+  {
+   "name": "leg_fr",
+   "parent": "body",
+   "pivot": [
+    4.0,
+    2.0,
+    -3.0
+   ]
+  },
+  {
+   "name": "leg_bl",
+   "parent": "body",
+   "pivot": [
+    -4.0,
+    2.0,
+    3.0
+   ]
+  },
+  {
+   "name": "leg_br",
+   "parent": "body",
+   "pivot": [
+    4.0,
+    2.0,
+    3.0
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "bone": "body",
+   "min": [
+    -4.0,
+    1.0,
+    -5.0
+   ],
+   "size": [
+    8.0,
+    4.0,
+    10.0
+   ],
+   "tex": "rockmite_shell",
+   "front": "rockmite_shell"
+  },
+  {
+   "bone": "head",
+   "min": [
+    -2.5,
+    1.0,
+    -9.0
+   ],
+   "size": [
+    5.0,
+    3.0,
+    4.0
+   ],
+   "tex": "rockmite_shell",
+   "front": "rockmite_face"
+  },
+  {
+   "bone": "leg_fl",
+   "min": [
+    -6.0,
+    0.0,
+    -3.5
+   ],
+   "size": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "tex": "rockmite_leg",
+   "front": "rockmite_leg"
+  },
+  {
+   "bone": "leg_fr",
+   "min": [
+    4.0,
+    0.0,
+    -3.5
+   ],
+   "size": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "tex": "rockmite_leg",
+   "front": "rockmite_leg"
+  },
+  {
+   "bone": "leg_bl",
+   "min": [
+    -6.0,
+    0.0,
+    2.5
+   ],
+   "size": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "tex": "rockmite_leg",
+   "front": "rockmite_leg"
+  },
+  {
+   "bone": "leg_br",
+   "min": [
+    4.0,
+    0.0,
+    2.5
+   ],
+   "size": [
+    2.0,
+    2.0,
+    1.0
+   ],
+   "tex": "rockmite_leg",
+   "front": "rockmite_leg"
+  }
+ ]
+}

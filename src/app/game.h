@@ -6,6 +6,7 @@
 #include "game/entities.h"
 #include "game/items.h"
 #include "game/kiln.h"
+#include "game/mobs.h"
 #include "game/player.h"
 #include "game/survival.h"
 #include "world/world.h"
@@ -32,6 +33,8 @@ struct Game {
     TexturePack pack;
     ItemRegistry items;
     RecipeBook recipes;
+    MobRegistry mobReg;
+    std::unique_ptr<MobSystem> mobs;   // owned before world (persisted through entities)
     std::unique_ptr<JobSystem> jobs;
     std::unique_ptr<EntityManager> entities;   // declared before world: must outlive it
     std::unique_ptr<World> world;
@@ -59,7 +62,8 @@ struct Game {
     RayHit target;
     BlockPos breaking{0, -1, 0};
     float breakProgress = 0;     // 0..1
-    int useCooldown = 0, eatTicks = 0;
+    int useCooldown = 0, eatTicks = 0, attackCooldown = 0;
+    std::vector<EntityVertex> entityVerts;
 
     // screens
     Screen screen = Screen::Pause;
@@ -92,6 +96,12 @@ void dropSelected(bool wholeStack);
 void showStatus(const std::string& s);
 void giveOrDropInv(ItemStack s);
 void respawn();
+
+bool attackMob();               // left click: melee the creature under the crosshair
+MobContext mobContext();
+
+// entity_render.cpp
+void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, float dt);
 
 // screens.cpp
 void drawFrameUi(int w, int h);

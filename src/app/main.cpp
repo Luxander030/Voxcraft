@@ -65,11 +65,23 @@ void frame() {
     G->frameMsMax = std::max(G->frameMsMax * 0.995f, ms);
     G->frame++;
 
-    if (G->opt.smokeFrames) {   // scripted: look around, fly forward, open the inventory near the end
+    if (G->opt.smokeFrames) {   // scripted: look around, fly forward, then pose creatures and open the inventory
+        int last = G->opt.smokeFrames;
         if (G->frame == 2) { vx_platform_activate(); G->screen = Screen::None; }
-        G->player.yaw += 0.01f; G->input.forward = G->frame > 120 && G->frame < 400 ? 1.0f : 0.0f;
-        if (G->creative()) G->player.flying = true;
-        if ((int)G->frame == G->opt.smokeFrames - 30) openScreen(Screen::Inventory);
+        bool posing = (int)G->frame > last - 90;
+        if (!posing) { G->player.yaw += 0.01f; G->input.forward = G->frame > 120 && G->frame < 400 ? 1.0f : 0.0f; }
+        else G->input.forward = 0;
+        G->player.flying = G->creative() && !posing;
+        if ((int)G->frame == last - 90 && G->playerReady) {   // one of each creature in front of the camera
+            Vec3 l = G->player.look(); Vec3 f = normalize(Vec3(l.x, 0, l.z)), r{-f.z, 0, f.x};
+            G->player.pitch = -0.25f;
+            for (u16 t = 0; t < G->mobReg.size(); t++) {
+                Vec3 at = G->player.pos + f * 5.0f + r * ((t - 1.5f) * 1.6f);
+                at.y = (float)(G->world->surfaceY((int)std::floor(at.x), (int)std::floor(at.z)) + 1);
+                G->mobs->spawn(t, at, G->rng).yaw = G->player.yaw + PI;
+            }
+        }
+        if (!G->opt.screenshot.empty() && G->opt.screenshot.find("inv") != std::string::npos && (int)G->frame == last - 30) openScreen(Screen::Inventory);
     }
 
     Player& p = G->player;
@@ -101,7 +113,8 @@ void frame() {
 
     FrameEnv env; environment(env, eye);
     drawFrameUi(sapp_width(), sapp_height());
-    G->renderer.render(eye, p.yaw, p.pitch, sapp_width(), sapp_height(), env, G->screen == Screen::None ? &G->target : nullptr, G->ui);
+    buildEntityMesh(G->entityVerts, eye, alpha, (float)dt);
+    G->renderer.render(eye, p.yaw, p.pitch, sapp_width(), sapp_height(), env, G->screen == Screen::None ? &G->target : nullptr, G->ui, &G->entityVerts);
 
     if (!G->opt.screenshot.empty() && (int)G->frame == G->opt.smokeFrames - 5) {
 #if defined(__APPLE__)
@@ -165,7 +178,7 @@ void event(const sapp_event* e) {
         bool shift = (e->modifiers & SAPP_MODIFIER_SHIFT) != 0;
         if (inScreen) { screenMouseDown(e->mouse_button == SAPP_MOUSEBUTTON_RIGHT, shift); break; }
         if (!G->mouseLocked) { G->mouseLocked = true; sapp_lock_mouse(true); break; }
-        if (e->mouse_button == SAPP_MOUSEBUTTON_LEFT) G->mouseDown[0] = true;
+        if (e->mouse_button == SAPP_MOUSEBUTTON_LEFT) { if (!attackMob()) G->mouseDown[0] = true; }
         else if (e->mouse_button == SAPP_MOUSEBUTTON_RIGHT) { G->mouseDown[1] = true; const ItemDef* h = G->held(); if (!(h && h->isFood())) clickUse(); }
         else if (e->mouse_button == SAPP_MOUSEBUTTON_MIDDLE) pickBlock();
         break;

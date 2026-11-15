@@ -127,5 +127,5 @@ if(VX_BUILD_GAME AND EXISTS ${CMAKE_SOURCE_DIR}/src/app/main.cpp)
   add_custom_command(TARGET voxcraft POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${VX_DATA_DEST}
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak ${VX_DATA_DEST}/voxcraft.pak
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${CMAKE_SOURCE_DIR}/assets/data/items.json ${CMAKE_SOURCE_DIR}/assets/data/recipes.json ${VX_DATA_DEST})
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${CMAKE_SOURCE_DIR}/assets/data/items.json ${CMAKE_SOURCE_DIR}/assets/data/recipes.json ${CMAKE_SOURCE_DIR}/assets/data/mobs.json ${CMAKE_SOURCE_DIR}/assets/data/animations.json ${CMAKE_SOURCE_DIR}/assets/generated/models.json ${VX_DATA_DEST})
 endif()
