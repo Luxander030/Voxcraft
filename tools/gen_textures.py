@@ -401,6 +401,69 @@ def bucket(fill):
         for k in range(3): put(px, 4 + k, 3 - k, hexc("9a9a9a")); put(px, 11 - k, 3 - k, hexc("9a9a9a"))
     return item(d)
 
+# ------------------------------------------------------------------ doors and trapdoors
+def door_half(frame, boards, upper, window=False):
+    """Plank door: frame round the edge, vertical boards, a cross rail; optional glazed window."""
+    def f(rng):
+        px = []
+        for y in range(N):
+            for x in range(N):
+                edge = x in (0, 15) or (y == 0 and upper) or (y == 15 and not upper)
+                rail = (not upper and y in (7, 8)) or (upper and y in (10, 11))
+                if edge or rail: px.append(frame[rng.int(len(frame))])
+                else: px.append(boards[(x // 3) % len(boards)] if rng.next() > 0.12 else frame[0])
+        if window:
+            for y in range(3, 9):
+                for x in range(3, 13):
+                    if x in (7, 8) or y == 5: put(px, x, y, frame[0])
+                    else: px[y * N + x] = CLEAR
+        if not upper: put(px, 12, 2, hexc("2a2a2a")); put(px, 12, 3, hexc("4a4a4a"))   # handle (top of lower half)
+        return px
+    return f
+
+def iron_half(upper):
+    def f(rng):
+        base = pal("c8c8c8", "bcbcbc", "d4d4d4")
+        px = [base[rng.int(3)] for _ in range(N * N)]
+        for i in range(N):
+            put(px, 0, i, hexc("8a8a8a")); put(px, 15, i, hexc("8a8a8a"))
+        for (x, y) in ((2, 2), (13, 2), (2, 13), (13, 13)): put(px, x, y, hexc("7a7a7a"))
+        if upper:
+            for y in range(4, 9):
+                for x in range(4, 12): px[y * N + x] = CLEAR if (x + y) % 5 else hexc("9a9a9a")
+        else: put(px, 12, 1, hexc("3a3a3a")); put(px, 12, 2, hexc("5a5a5a"))
+        return px
+    return f
+
+def trapdoor(frame, boards):
+    def f(rng):
+        px = []
+        for y in range(N):
+            for x in range(N):
+                if x in (0, 15) or y in (0, 15) or x in (5, 10) or y in (5, 10): px.append(frame[rng.int(len(frame))])
+                elif (x % 5 in (2, 3)) and (y % 5 in (2, 3)): px.append(CLEAR)
+                else: px.append(boards[rng.int(len(boards))])
+        return px
+    return f
+
+RECIPES.update({
+    "oak_door_lower": door_half(pal("6e5131", "634426"), pal("a8854f", "b48f58", "9c7a47"), False),
+    "oak_door_upper": door_half(pal("6e5131", "634426"), pal("a8854f", "b48f58", "9c7a47"), True, window=True),
+    "iron_door_lower": iron_half(False),
+    "iron_door_upper": iron_half(True),
+    "oak_trapdoor": trapdoor(pal("6e5131", "634426"), pal("a8854f", "b48f58", "9c7a47")),
+})
+
+def door_icon(frame, fill, glass):
+    def draw(px, rng):
+        for y in range(1, 15):
+            for x in range(4, 12):
+                c = frame if x in (4, 11) or y in (1, 14, 8) else fill
+                if 2 <= y <= 6 and 5 <= x <= 10 and glass is not None: c = glass if x not in (7, 8) and y != 4 else frame
+                put(px, x, y, c)
+        put(px, 9, 10, hexc("2a2a2a"))
+    return draw
+
 ITEM_RECIPES = {
     "bucket": bucket(None), "water_bucket": bucket(pal("3a68d8", "4a78e8")), "lava_bucket": bucket(pal("e8691e", "f8b040")),
     "stick": item(lambda px, r: [put(px, 3 + k, 12 - k, HANDLE[k % 2]) for k in range(10)]),
@@ -536,6 +599,10 @@ ARMOR_NAMES = {"hide": ("hide_cap", "hide_tunic", "hide_leggings", "hide_boots")
 for _m, _names in ARMOR_NAMES.items():
     for _slot, _n in zip(("head", "chest", "legs", "feet"), _names): ITEM_RECIPES[_n] = armor(_slot, ARMOR_MATS[_m])
 
+ITEM_RECIPES.update({
+    "oak_door_item": item(door_icon(hexc("6e5131"), hexc("a8854f"), hexc("b8dcf0"))),
+    "iron_door_item": item(door_icon(hexc("8a8a8a"), hexc("c8c8c8"), hexc("6a6a6a"))),
+})
 ITEM_RECIPES.update({
     "grain_seeds": item(lambda px, r: [put(px, 4 + r.int(8), 5 + r.int(7), hexc(["c8b060", "a89040"][r.int(2)])) for _ in range(9)]),
     "grain_item": item(lambda px, r: ([put(px, 4 + k // 2, 13 - k, hexc("b8a040")) for k in range(10)], [put(px, 6 + dx, 3 + dy, hexc("e0c860")) for dx in (-1, 0, 1) for dy in range(4)])),

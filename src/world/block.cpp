@@ -8,6 +8,8 @@ static BlockShape parseShape(const std::string& s) {
     if (s == "torch") return BlockShape::Torch; if (s == "flat_wall") return BlockShape::FlatWall; if (s == "wire") return BlockShape::Wire;
     if (s == "lever") return BlockShape::Lever; if (s == "button") return BlockShape::Button; if (s == "plate") return BlockShape::Plate;
     if (s == "slab_thin") return BlockShape::SlabThin; if (s == "piston_head") return BlockShape::PistonHead; if (s == "model") return BlockShape::Model;
+    if (s == "slab") return BlockShape::Slab; if (s == "stairs") return BlockShape::Stairs; if (s == "fence") return BlockShape::Fence;
+    if (s == "pane") return BlockShape::Pane; if (s == "door") return BlockShape::Door; if (s == "trapdoor") return BlockShape::Trapdoor;
     return BlockShape::Cube;
 }
 static ToolType parseTool(const std::string& s) {
@@ -98,7 +100,92 @@ bool BlockRegistry::load(const Json& root, std::string* err) {
         int pi = ph->propIndex("extended");
         for (int i = 0; i < ph->stateCount; i++) { BlockState s = (BlockState)(ph->base + i); if (getProp(s, pi)) { opacity_[s] = 0; } }
     }
+    buildShapes();
     return true;
+}
+
+namespace {
+ShapeBox sb(int x0, int y0, int z0, int x1, int y1, int z1) { return ShapeBox{{(u8)x0, (u8)y0, (u8)z0}, {(u8)x1, (u8)y1, (u8)z1}}; }
+// A full-height panel `t` pixels thick against side f.
+ShapeBox panel(int f, int t, int y0 = 0, int y1 = 16) {
+    switch (f & 3) {
+    case 0: return sb(0, y0, 0, 16, y1, t);
+    case 1: return sb(0, y0, 16 - t, 16, y1, 16);
+    case 2: return sb(0, y0, 0, t, y1, 16);
+    default: return sb(16 - t, y0, 0, 16, y1, 16);
+    }
+}
+// An arm from the centre strip [lo,hi) toward side f (from the edge to `reach` pixels in).
+ShapeBox arm(int f, int lo, int hi, int reach, int y0, int y1) {
+    switch (f & 3) {
+    case 0: return sb(lo, y0, 0, hi, y1, reach);
+    case 1: return sb(lo, y0, 16 - reach, hi, y1, 16);
+    case 2: return sb(0, y0, lo, reach, y1, hi);
+    default: return sb(16 - reach, y0, lo, 16, y1, hi);
+    }
+}
+} // namespace
+
+void BlockRegistry::buildShapes() {
+    size_t n = stateBlock_.size();
+    boxed_.assign(n, 0); renderRange_.assign(n, 0); collRange_.assign(n, 0); boxes_.clear();
+    std::vector<ShapeBox> r, c;
+    for (const BlockDef& d : defs_) {
+        if (!isBoxedShape(d.shape)) continue;
+        static const char* SIDES[4] = {"north", "south", "west", "east"};
+        int sideProp[4]; for (int k = 0; k < 4; k++) sideProp[k] = d.propIndex(SIDES[k]);
+        for (int i = 0; i < d.stateCount; i++) {
+            BlockState s = (BlockState)(d.base + i);
+            auto prop = [&](const char* p) { return getProp(s, p); };
+            r.clear(); c.clear();
+            switch (d.shape) {
+            case BlockShape::Slab: {
+                int t = prop("type");   // 0 bottom, 1 top, 2 double
+                r.push_back(t == 0 ? sb(0, 0, 0, 16, 8, 16) : t == 1 ? sb(0, 8, 0, 16, 16, 16) : sb(0, 0, 0, 16, 16, 16));
+                c = r;
+                if (t == 2) { opaque_[s] = d.layer == RenderLayer::Opaque; opacity_[s] = 15; }
+                break;
+            }
+            case BlockShape::Stairs: {   // "facing" = side of the tall back; "half" 1 = upside down
+                int f = prop("facing"), top = prop("half");
+                r.push_back(top ? sb(0, 8, 0, 16, 16, 16) : sb(0, 0, 0, 16, 8, 16));
+                ShapeBox b = panel(f, 8, top ? 0 : 8, top ? 8 : 16);
+                r.push_back(b);
+                c = r;
+                break;
+            }
+            case BlockShape::Fence: {
+                r.push_back(sb(6, 0, 6, 10, 16, 10)); c.push_back(sb(6, 0, 6, 10, 24, 10));
+                for (int k = 0; k < 4; k++) if (sideProp[k] >= 0 && getProp(s, sideProp[k])) {
+                    r.push_back(arm(k, 7, 9, 6, 12, 15)); r.push_back(arm(k, 7, 9, 6, 6, 9));
+                    c.push_back(arm(k, 6, 10, 6, 0, 24));
+                }
+                break;
+            }
+            case BlockShape::Pane: {
+                r.push_back(sb(7, 0, 7, 9, 16, 9));
+                for (int k = 0; k < 4; k++) if (sideProp[k] >= 0 && getProp(s, sideProp[k])) r.push_back(arm(k, 7, 9, 7, 0, 16));
+                c = r;
+                break;
+            }
+            case BlockShape::Door: {   // panel on side "facing" when closed; opening swings it about the hinge
+                int f = prop("facing"), open = prop("open"), hinge = prop("hinge");
+                int side = !open ? f : hinge == 0 ? dirCW(f) : dirCCW(f);
+                r.push_back(panel(side, 3)); c = r;
+                break;
+            }
+            case BlockShape::Trapdoor: {
+                int f = prop("facing"), open = prop("open"), top = prop("top");
+                r.push_back(open ? panel(f, 3) : top ? sb(0, 13, 0, 16, 16, 16) : sb(0, 0, 0, 16, 3, 16)); c = r;
+                break;
+            }
+            default: break;
+            }
+            boxed_[s] = 1;
+            renderRange_[s] = (u32)(boxes_.size() << 4) | (u32)r.size(); boxes_.insert(boxes_.end(), r.begin(), r.end());
+            collRange_[s] = (u32)(boxes_.size() << 4) | (u32)c.size(); boxes_.insert(boxes_.end(), c.begin(), c.end());
+        }
+    }
 }
 
 const BlockDef* BlockRegistry::byName(const std::string& name) const {

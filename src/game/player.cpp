@@ -13,37 +13,54 @@ Vec3 Player::look() const {
     return {std::sin(yaw) * cp, std::sin(pitch), -std::cos(yaw) * cp};
 }
 
-bool Player::collides(const World& w, const AABB& b) const {
-    int x0 = (int)std::floor(b.min.x), x1 = (int)std::floor(b.max.x - 1e-5f);
-    int y0 = (int)std::floor(b.min.y), y1 = (int)std::floor(b.max.y - 1e-5f);
-    int z0 = (int)std::floor(b.min.z), z1 = (int)std::floor(b.max.z - 1e-5f);
+// Visits every collision box (world space) of the blocks overlapping `r`. Full solid blocks are
+// unit cubes; building shapes contribute their per-state boxes. One extra layer below is scanned
+// because fences reach 1.5 blocks up. Cells below the world floor count as solid.
+template <class F> static bool forEachCollider(const World& w, const AABB& r, F&& f) {
+    const float eps = 1e-5f;
+    int x0 = (int)std::floor(r.min.x), x1 = (int)std::floor(r.max.x - eps);
+    int y0 = (int)std::floor(r.min.y) - 1, y1 = (int)std::floor(r.max.y - eps);
+    int z0 = (int)std::floor(r.min.z), z1 = (int)std::floor(r.max.z - eps);
     for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
-        if (y < 0) return true;
-        if (w.reg.solid(w.getBlock(x, y, z))) return true;
+        if (y < 0) { if (f(AABB{{(float)x, (float)y, (float)z}, {(float)x + 1, (float)y + 1, (float)z + 1}})) return true; continue; }
+        BlockState s = w.getBlock(x, y, z);
+        if (!w.reg.solid(s)) continue;
+        if (!w.reg.boxed(s)) {
+            if (y == y0 && y0 < (int)std::floor(r.min.y)) continue;   // the extra layer only matters for tall shapes
+            if (f(AABB{{(float)x, (float)y, (float)z}, {(float)x + 1, (float)y + 1, (float)z + 1}})) return true;
+            continue;
+        }
+        for (const ShapeBox& sb : w.reg.collisionBoxes(s)) {
+            AABB a{{x + sb.mn[0] / 16.0f, y + sb.mn[1] / 16.0f, z + sb.mn[2] / 16.0f}, {x + sb.mx[0] / 16.0f, y + sb.mx[1] / 16.0f, z + sb.mx[2] / 16.0f}};
+            if (f(a)) return true;
+        }
     }
     return false;
 }
 
+bool Player::collides(const World& w, const AABB& b) const { return collidesAny(w, b); }
+
+bool collidesAny(const World& w, const AABB& b) {
+    return forEachCollider(w, b, [&](const AABB& a) { return a.intersects(b); });
+}
+
 float sweepAxis(const World& w, const AABB& b, int axis, float d, bool& hit) {
-    // Exact sweep: find the nearest solid block face in the swept slab along `axis`.
+    // Exact sweep: clip the movement against every collision box that overlaps the moving box on
+    // the other two axes and lies ahead of it along `axis`.
     hit = false;
     if (d == 0) return 0;
     const float eps = 1e-4f;
     int o1 = (axis + 1) % 3, o2 = (axis + 2) % 3;
-    int a0 = (int)std::floor(b.min[o1] + eps), a1 = (int)std::floor(b.max[o1] - eps);
-    int c0 = (int)std::floor(b.min[o2] + eps), c1 = (int)std::floor(b.max[o2] - eps);
+    AABB region = b;
+    if (d > 0) region.max[axis] += d; else region.min[axis] += d;
     float allowed = d;
-    int start, end, step;
-    if (d > 0) { start = (int)std::floor(b.max[axis] - eps) + 1; end = (int)std::floor(b.max[axis] + d); step = 1; }
-    else { start = (int)std::floor(b.min[axis] + eps) - 1; end = (int)std::floor(b.min[axis] + d); step = -1; }
-    for (int k = start; step > 0 ? k <= end : k >= end; k += step) {
-        bool solid = false;
-        for (int i = a0; i <= a1 && !solid; i++) for (int j = c0; j <= c1 && !solid; j++) {
-            int c[3]; c[axis] = k; c[o1] = i; c[o2] = j;
-            solid = c[1] < 0 || w.reg.solid(w.getBlock(c[0], c[1], c[2]));
-        }
-        if (solid) { allowed = d > 0 ? (float)k - b.max[axis] : (float)(k + 1) - b.min[axis]; hit = true; break; }
-    }
+    forEachCollider(w, region, [&](const AABB& c) {
+        if (c.max[o1] <= b.min[o1] + eps || c.min[o1] >= b.max[o1] - eps) return false;
+        if (c.max[o2] <= b.min[o2] + eps || c.min[o2] >= b.max[o2] - eps) return false;
+        if (d > 0 && c.min[axis] >= b.max[axis] - eps) { float a = c.min[axis] - b.max[axis]; if (a < allowed) { allowed = a; hit = true; } }
+        else if (d < 0 && c.max[axis] <= b.min[axis] + eps) { float a = c.max[axis] - b.min[axis]; if (a > allowed) { allowed = a; hit = true; } }
+        return false;
+    });
     return d > 0 ? std::max(0.0f, std::min(allowed, d)) : std::min(0.0f, std::max(allowed, d));
 }
 
@@ -102,6 +119,7 @@ void Player::tick(const World& w, const PlayerInput& in) {
     bool wasGround = onGround;
     onGround = hitY && vel.y < 0;
     if (hitY) vel.y = 0;
+    const Vec3 beforeH = pos; const float wantX = vel.x, wantZ = vel.z;
     for (int axis : {0, 2}) {
         float d = vel[axis];
         if (sneaking && onGround && d != 0) {
@@ -112,6 +130,22 @@ void Player::tick(const World& w, const PlayerInput& in) {
         }
         moveAxis(w, axis, d, axis == 0 ? hitX : hitZ);
         if ((axis == 0 ? hitX : hitZ)) vel[axis] = 0;
+    }
+    // Step up onto slabs, stairs and other low ledges (at most tune.stepHeight) without jumping:
+    // retry the horizontal move from a raised position, settle back down, and keep it if it got
+    // further than the plain move.
+    if (onGround && (hitX || hitZ) && tune.stepHeight > 0) {
+        Vec3 t = beforeH; bool h;
+        float up = sweepAxis(w, boxAt(t), 1, tune.stepHeight, h); t.y += up;
+        bool sx, sz;
+        t.x += sweepAxis(w, boxAt(t), 0, wantX, sx);
+        t.z += sweepAxis(w, boxAt(t), 2, wantZ, sz);
+        t.y += sweepAxis(w, boxAt(t), 1, -up, h);
+        float gotStep = (t.x - beforeH.x) * (t.x - beforeH.x) + (t.z - beforeH.z) * (t.z - beforeH.z);
+        float gotFlat = (pos.x - beforeH.x) * (pos.x - beforeH.x) + (pos.z - beforeH.z) * (pos.z - beforeH.z);
+        if (gotStep > gotFlat + 1e-6f && t.y > beforeH.y - 1e-4f) {
+            pos = t; vel.x = sx ? 0 : wantX; vel.z = sz ? 0 : wantZ;
+        }
     }
     if (flying && onGround) flying = false;   // landing ends flight
 
@@ -136,7 +170,30 @@ RayHit raycastBlocks(const World& w, Vec3 o, Vec3 d, float reach, bool hitFluidS
     while (t <= reach) {
         BlockState s = w.getBlock(x, y, z);
         bool fluidHit = hitFluidSources && w.reg.fluid(s) && w.reg.getProp(s, "level") == 0;
-        if ((s != AIR && !w.reg.fluid(s)) || fluidHit) { r.block = {x, y, z}; r.normal = n; r.distance = t; r.hit = true; return r; }
+        if ((s != AIR && !w.reg.fluid(s)) || fluidHit) {
+            if (w.reg.boxed(s)) {   // building shapes: hit only their actual boxes (aim through an open door)
+                float best = 1e30f; BlockPos bn = n;
+                for (const ShapeBox& b : w.reg.renderBoxes(s)) {
+                    float tmin = 0, tmax = 1e30f; int axisHit = -1; bool ok = true;
+                    for (int a = 0; a < 3 && ok; a++) {
+                        float lo = (a == 0 ? x : a == 1 ? y : z) + b.mn[a] / 16.0f, hi = (a == 0 ? x : a == 1 ? y : z) + b.mx[a] / 16.0f;
+                        if (std::fabs(d[a]) < 1e-9f) { if (o[a] < lo || o[a] > hi) ok = false; continue; }
+                        float t0 = (lo - o[a]) / d[a], t1 = (hi - o[a]) / d[a];
+                        if (t0 > t1) std::swap(t0, t1);
+                        if (t0 > tmin) { tmin = t0; axisHit = a; }
+                        tmax = std::min(tmax, t1);
+                        if (tmin > tmax) ok = false;
+                    }
+                    if (ok && tmin < best && tmin <= reach) {
+                        best = tmin;
+                        bn = {0, 0, 0};
+                        if (axisHit >= 0) { int sgn = d[axisHit] > 0 ? -1 : 1; if (axisHit == 0) bn.x = sgn; else if (axisHit == 1) bn.y = sgn; else bn.z = sgn; }
+                        else bn = n;
+                    }
+                }
+                if (best < 1e29f) { r.block = {x, y, z}; r.normal = bn; r.distance = best; r.hit = true; r.point = o + d * best; return r; }
+            } else { r.block = {x, y, z}; r.normal = n; r.distance = t; r.hit = true; r.point = o + d * t; return r; }
+        }
         if (tmx < tmy && tmx < tmz) { x += stepX; t = tmx; tmx += tdx; n = {-stepX, 0, 0}; }
         else if (tmy < tmz) { y += stepY; t = tmy; tmy += tdy; n = {0, -stepY, 0}; }
         else { z += stepZ; t = tmz; tmz += tdz; n = {0, 0, -stepZ}; }

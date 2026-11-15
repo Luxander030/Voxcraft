@@ -6,6 +6,12 @@
 namespace vx {
 inline AABB blockShapeBounds(const BlockRegistry& reg, BlockState s) {
     const BlockDef& d = reg.def(s);
+    if (reg.boxed(s)) {   // building shapes: union of their boxes
+        AABB u{{1, 1, 1}, {0, 0, 0}};
+        for (const ShapeBox& b : reg.renderBoxes(s))
+            for (int a = 0; a < 3; a++) { u.min[a] = std::min(u.min[a], b.mn[a] / 16.0f); u.max[a] = std::max(u.max[a], b.mx[a] / 16.0f); }
+        return u;
+    }
     auto box = [](float x0, float y0, float z0, float x1, float y1, float z1) { return AABB{{x0 / 16, y0 / 16, z0 / 16}, {x1 / 16, y1 / 16, z1 / 16}}; };
     int facing = d.propIndex("facing") >= 0 ? reg.getProp(s, "facing") : 0;
     switch (d.shape) {

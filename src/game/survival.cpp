@@ -35,10 +35,11 @@ std::vector<ItemStack> blockDrops(BlockState s, const BlockRegistry& blocks, con
         for (auto& l : *loot) if (rng.chance(l.chance)) out.push_back({l.item, (u8)(1 + (l.extra ? rng.range(l.extra + 1) : 0)), 0});
         return out;
     }
+    if (b.shape == BlockShape::Door && blocks.getProp(s, "upper")) return out;   // one door item, from the lower half
     u16 it = 0;
     if (b.drop == "self") it = items.forBlockType(b.index);
     else if (!b.drop.empty()) it = items.id(b.drop);
-    if (it) out.push_back({it, 1, 0});
+    if (it) out.push_back({it, (u8)(b.shape == BlockShape::Slab && blocks.getProp(s, "type") == 2 ? 2 : 1), 0});
     return out;
 }
 

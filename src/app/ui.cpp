@@ -96,6 +96,19 @@ void Ui::bitmap(float x, float y, const u16* rows, int w, int h, u32 color) {
 void Ui::blockIcon(float cx, float cy, float size, BlockState b, const BlockRegistry& reg, const BlockTextures& tex) {
     const BlockDef& d = reg.def(b);
     float s = scale, r = size * 0.5f * s, X = cx * s, Y = cy * s;
+    if (d.shape == BlockShape::Slab || d.shape == BlockShape::Stairs) {   // iso block, half height for slabs
+        float hw = r * 0.87f, q = r * 0.5f, h = d.shape == BlockShape::Slab ? r * 0.5f : r;
+        float yo = d.shape == BlockShape::Slab ? r * 0.5f : 0;   // slab sits at the bottom of the icon
+        const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        const float uvs[4][2] = {{0, d.shape == BlockShape::Slab ? 0.5f : 0.0f}, {1, d.shape == BlockShape::Slab ? 0.5f : 0.0f}, {1, 1}, {0, 1}};
+        const float pt[4][2] = {{X, Y - r + yo}, {X + hw, Y - q + yo}, {X, Y + yo}, {X - hw, Y - q + yo}};
+        quad(pt, uv, tex.face(b, FACE_PY), 2, rgba(255, 255, 255));
+        const float pl[4][2] = {{X - hw, Y - q + yo}, {X, Y + yo}, {X, Y + yo + h}, {X - hw, Y - q + yo + h}};
+        quad(pl, uvs, tex.face(b, FACE_NZ), 2, rgba(200, 200, 200));
+        const float pr[4][2] = {{X, Y + yo}, {X + hw, Y - q + yo}, {X + hw, Y - q + yo + h}, {X, Y + yo + h}};
+        quad(pr, uvs, tex.face(b, FACE_PX), 2, rgba(150, 150, 150));
+        return;
+    }
     if (d.shape != BlockShape::Cube) {   // flat sprite for plants, torches, wires...
         const float p[4][2] = {{X - r, Y - r}, {X + r, Y - r}, {X + r, Y + r}, {X - r, Y + r}};
         const float uv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};

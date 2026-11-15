@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Building shapes
+- 9 slabs, 8 stairs, 3 fences, glass panes, oak and iron doors, and oak trapdoors, with recipes.
+  Two slabs of the same kind stack into a double slab. Stairs and trapdoors take the upper half
+  when placed against a ceiling or the upper half of a wall. Stairs rise away from the player.
+  Fences and panes connect to each other and to solid walls (panes also connect to glass).
+  A second door beside the first mirrors its hinge to form a double door.
+- Doors and trapdoors open with right-click (both door halves together). Iron doors open only
+  with a circuit signal, and any door or trapdoor follows a signal. Breaking either door half
+  removes the other, and only one door item drops. A double slab drops two slabs.
+- **Engine:** each state's visual and collision boxes are precomputed once at load, and
+  connections are block-state properties refreshed by neighbour updates. Meshing, collision
+  and saves therefore never look at neighbours. The mesher skips boundary faces against opaque
+  neighbours and lights them from the cell they face.
+- **Physics:** collision now uses exact box sweeps (full cubes plus shape boxes). The player steps
+  up ledges of up to 0.6 blocks (slabs, stairs) without jumping. Fences are 1.5 blocks tall for
+  collision and cannot be jumped.
+- **Picking:** rays hit the actual boxes, so you can aim through an open doorway, and they return
+  the hit point (used to choose slab and stair halves).
+- Flat worlds no longer draw distant-terrain LOD, which sampled the default terrain height.
+- `--menu build` smoke scene. Tests: `building_*` (7).
+
 ### Third-person camera and player model
 - V (remappable as "Camera view") cycles first person, behind the player and facing the player.
   The camera pulls in when a solid block is in the way. Grass, flowers and torches do not block it.

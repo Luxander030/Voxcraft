@@ -89,5 +89,31 @@
   "ashsoil":      {"tex": "ashsoil", "hardness": 0.5, "tool": "shovel", "sound": "sand"},
   "glowcap":      {"tex": "glowcap", "shape": "cross", "layer": "cutout", "solid": false, "opaque": false, "opacity": 0, "light": 12, "hardness": 0, "sound": "grass", "flags": ["needs_soil", "replaceable"]},
   "rift":         {"tex": "rift", "layer": "translucent", "solid": false, "opaque": false, "opacity": 0, "light": 11, "hardness": -1, "resistance": 0, "drop": "", "sound": "glass"},
-  "piston_head":  {"tex": {"top": "piston_side", "side": "piston_side", "front": "piston_front"}, "shape": "piston_head", "layer": "cutout", "opaque": false, "opacity": 0, "hardness": 1.5, "drop": "", "sound": "stone", "props": {"facing": 6}, "flags": ["circuit"]}
+  "piston_head":  {"tex": {"top": "piston_side", "side": "piston_side", "front": "piston_front"}, "shape": "piston_head", "layer": "cutout", "opaque": false, "opacity": 0, "hardness": 1.5, "drop": "", "sound": "stone", "props": {"facing": 6}, "flags": ["circuit"]},
+
+  // building shapes (appended so existing state ids stay put)
+  "oak_slab": {"tex": "oak_planks", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"type": 3}, "flags": ["flammable"]},
+  "birch_slab": {"tex": "birch_planks", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"type": 3}, "flags": ["flammable"]},
+  "pine_slab": {"tex": "pine_planks", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"type": 3}, "flags": ["flammable"]},
+  "cobblestone_slab": {"tex": "cobblestone", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"type": 3}},
+  "stone_slab": {"tex": "stone", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"type": 3}},
+  "stone_brick_slab": {"tex": "stone_bricks", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"type": 3}},
+  "brick_slab": {"tex": "bricks", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"type": 3}},
+  "sandstone_slab": {"tex": {"top": "sandstone_top", "bottom": "sandstone_top", "side": "sandstone"}, "shape": "slab", "opaque": false, "opacity": 0, "hardness": 0.8, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"type": 3}},
+  "slate_slab": {"tex": "slate_cobble", "shape": "slab", "opaque": false, "opacity": 0, "hardness": 3.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"type": 3}},
+  "oak_stairs": {"tex": "oak_planks", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"facing": 4, "half": 2}, "flags": ["flammable"]},
+  "birch_stairs": {"tex": "birch_planks", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"facing": 4, "half": 2}, "flags": ["flammable"]},
+  "pine_stairs": {"tex": "pine_planks", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"facing": 4, "half": 2}, "flags": ["flammable"]},
+  "cobblestone_stairs": {"tex": "cobblestone", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"facing": 4, "half": 2}},
+  "stone_brick_stairs": {"tex": "stone_bricks", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"facing": 4, "half": 2}},
+  "brick_stairs": {"tex": "bricks", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"facing": 4, "half": 2}},
+  "sandstone_stairs": {"tex": {"top": "sandstone_top", "bottom": "sandstone_top", "side": "sandstone"}, "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 0.8, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"facing": 4, "half": 2}},
+  "slate_stairs": {"tex": "slate_cobble", "shape": "stairs", "opaque": false, "opacity": 0, "hardness": 3.0, "tool": "pickaxe", "level": 0, "sound": "stone", "props": {"facing": 4, "half": 2}},
+  "oak_fence": {"tex": "oak_planks", "shape": "fence", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"north": 2, "south": 2, "west": 2, "east": 2}, "flags": ["flammable"]},
+  "birch_fence": {"tex": "birch_planks", "shape": "fence", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"north": 2, "south": 2, "west": 2, "east": 2}, "flags": ["flammable"]},
+  "pine_fence": {"tex": "pine_planks", "shape": "fence", "opaque": false, "opacity": 0, "hardness": 2.0, "tool": "axe", "sound": "wood", "props": {"north": 2, "south": 2, "west": 2, "east": 2}, "flags": ["flammable"]},
+  "glass_pane": {"tex": "glass", "shape": "pane", "layer": "cutout", "opaque": false, "opacity": 0, "hardness": 0.3, "drop": "", "sound": "glass", "props": {"north": 2, "south": 2, "west": 2, "east": 2}},
+  "oak_door": {"tex": {"top": "oak_door_upper", "bottom": "oak_door_lower", "side": "oak_door_lower"}, "shape": "door", "layer": "cutout", "opaque": false, "opacity": 0, "hardness": 3.0, "tool": "axe", "sound": "wood", "props": {"facing": 4, "upper": 2, "open": 2, "hinge": 2, "powered": 2}, "flags": ["flammable"]},
+  "iron_door": {"tex": {"top": "iron_door_upper", "bottom": "iron_door_lower", "side": "iron_door_lower"}, "shape": "door", "layer": "cutout", "opaque": false, "opacity": 0, "hardness": 5.0, "tool": "pickaxe", "level": 0, "sound": "metal", "props": {"facing": 4, "upper": 2, "open": 2, "hinge": 2, "powered": 2}},
+  "oak_trapdoor": {"tex": "oak_trapdoor", "shape": "trapdoor", "layer": "cutout", "opaque": false, "opacity": 0, "hardness": 3.0, "tool": "axe", "sound": "wood", "props": {"facing": 4, "top": 2, "open": 2, "powered": 2}, "flags": ["flammable"]}
 }

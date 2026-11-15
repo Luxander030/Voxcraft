@@ -5,6 +5,7 @@
 //   --seed <n>       seed for a new world    --flat   flat preset    --creative   creative mode for a new world
 //   --radius <n>     render distance in chunks
 //   --smoke <frames> scripted run that prints stats and exits    --screenshot <png>  capture this window (macOS)
+#include "game/building.h"
 #include "app/game.h"
 #include "core/profiler.h"
 #include "sokol/sokol_log.h"
@@ -123,7 +124,7 @@ void frame() {
             G->world->meta.raining = G->opt.menuState == 6;
             G->world->meta.dayTime = G->opt.menuState == 7 ? 18000 : G->opt.menuState == 8 ? 4500 : 6000;
         }
-        if (G->opt.menuState >= 6 && (int)G->frame >= last - 20) { G->player.pitch = G->opt.menuState == 7 ? 0.9f : G->opt.menuState == 8 ? 1.2f : 0.3f; if (G->opt.menuState == 8) G->player.yaw = PI * 0.5f; }
+        if (G->opt.menuState >= 6 && G->opt.menuState != 12 && (int)G->frame >= last - 20) { G->player.pitch = G->opt.menuState == 7 ? 0.9f : G->opt.menuState == 8 ? 1.2f : 0.3f; if (G->opt.menuState == 8) G->player.yaw = PI * 0.5f; }
         if (G->smokeUnderground && G->frame == 20 && G->playerReady) {   // measurement: a pocket deep underground
             BlockPos c{(int)std::floor(G->player.pos.x), 24, (int)std::floor(G->player.pos.z)};
             for (int dy = 0; dy < 3; dy++) for (int dz = -2; dz <= 2; dz++) for (int dx = -2; dx <= 2; dx++) G->world->setBlock({c.x + dx, c.y + dy, c.z + dz}, AIR);
@@ -139,6 +140,39 @@ void frame() {
             if (G->frame == 20) { G->player.pos.y = 140; G->player.prevPos = G->player.pos; }
             G->player.flying = true; G->player.vel = {}; G->player.pitch = -0.18f; G->input.forward = 0;
         }
+        static bool built = false;
+        if (G->opt.menuState == 12 && G->frame >= 30 && G->playerReady && !built) {
+            built = true;   // building shapes showcase on a flat pad
+            Vec3 l = G->player.look(); int f = std::fabs(l.x) > std::fabs(l.z) ? (l.x > 0 ? 3 : 2) : (l.z > 0 ? 1 : 0);
+            int fx, fz; dirOffset(f, fx, fz); int rx = -fz, rz = fx;   // forward and right
+            BlockPos o{(int)std::floor(G->player.pos.x), (int)std::floor(G->player.pos.y), (int)std::floor(G->player.pos.z)};
+            auto at = [&](int fwd, int right, int up) { return BlockPos{o.x + fx * fwd + rx * right, o.y + up, o.z + fz * fwd + rz * right}; };
+            for (int a = 2; a <= 9; a++) for (int b = -6; b <= 6; b++) { G->world->setBlock(at(a, b, -1), G->reg.stateOf("stone_bricks")); for (int u = 0; u < 4; u++) G->world->setBlock(at(a, b, u), AIR); }
+            auto put = [&](BlockPos p, const char* n, std::initializer_list<std::pair<const char*, int>> props) {
+                BlockState s = G->reg.stateOf(n); for (auto& [k, v] : props) s = G->reg.withProp(s, k, v);
+                G->world->setBlock(p, s);
+            };
+            int back = f, toward = dirOpposite(f);   // stairs rise away from the camera; doors face it
+            for (int b = -6; b <= -3; b++) put(at(5, b, 0), "oak_stairs", {{"facing", back}});
+            for (int b = -6; b <= -3; b++) put(at(6, b, 1), "oak_slab", {{"type", 0}});
+            put(at(4, -2, 0), "cobblestone_slab", {{"type", 0}}); put(at(4, -1, 0), "cobblestone_slab", {{"type", 2}}); put(at(4, 0, 0), "brick_stairs", {{"facing", back}, {"half", 1}});
+            for (int b = 1; b <= 6; b++) put(at(7, b, 0), "oak_fence", {});
+            put(at(6, 6, 0), "oak_fence", {});
+            for (int b = 1; b <= 4; b++) put(at(5, b, 0), "glass_pane", {});
+            put(at(5, 5, 0), "glass", {});
+            put(at(3, 3, 0), "oak_trapdoor", {{"facing", f}}); put(at(3, 4, 0), "oak_trapdoor", {{"facing", toward}, {"open", 1}});
+            for (int k = 0; k < 2; k++) {   // a pair of doors in a short wall, one open
+                PlacePlan pl; pl.ok = true; pl.at = at(8, k, 0);
+                pl.state = G->reg.withProp(G->reg.withProp(G->reg.withProp(G->reg.stateOf(k ? "iron_door" : "oak_door"), "facing", toward), "hinge", k), "open", k == 0);
+                pl.upper = G->reg.withProp(pl.state, "upper", 1);
+                applyPlacement(*G->world, pl);
+            }
+            for (int b = -2; b <= 3; b++) if (b < 0 || b > 1) for (int u = 0; u < 3; u++) G->world->setBlock(at(8, b, u), G->reg.stateOf("oak_planks"));
+            for (int b = -2; b <= 3; b++) G->world->setBlock(at(8, b, 2), G->reg.stateOf("oak_planks"));
+            for (int b = 1; b <= 6; b++) put(at(7, b, 0), "oak_fence", {});   // connections after neighbours exist
+            G->player.pitch = -0.35f;
+        }
+        if (G->opt.menuState == 12 && G->frame > 30) { G->input.forward = 0; G->player.flying = false; G->player.pitch = -0.35f; }
         if (G->opt.menuState == 9 && G->frame == 20) {   // visit the nearest village
             int vx, vy, vz;
             if (G->world->generator().nearestVillage((int)G->player.pos.x, (int)G->player.pos.z, 8, vx, vy, vz)) {
@@ -154,11 +188,11 @@ void frame() {
             if (!enterDimension(G->dimension == "hollow" ? "overworld" : "hollow", t, true, &err)) fprintf(stderr, "travel failed: %s\n", err.c_str());
         }
         bool posing = (int)G->frame > last - 90;
-        if (G->opt.menuState == 9 || G->opt.menuState == 11) posing = true;
+        if (G->opt.menuState == 9 || G->opt.menuState == 11 || G->opt.menuState == 12) posing = true;
         if (!posing) { G->player.yaw += 0.01f; G->input.forward = G->frame > 120 && G->frame < 400 ? 1.0f : 0.0f; }
         else G->input.forward = 0;
         G->player.flying = G->creative() && !posing;
-        if ((int)G->frame == last - 90 && G->playerReady && G->opt.menuState != 9) {   // one of each creature in front of the camera
+        if ((int)G->frame == last - 90 && G->playerReady && G->opt.menuState != 9 && G->opt.menuState != 12) {   // one of each creature in front of the camera
             Vec3 l = G->player.look(); Vec3 f = normalize(Vec3(l.x, 0, l.z)), r{-f.z, 0, f.x};
             G->player.pitch = -0.25f;
             for (u16 t = 0; t < G->mobReg.size(); t++) {
@@ -217,7 +251,8 @@ void frame() {
     }
     int radius = std::min(G->opt.radius, G->budget.effectiveRadius);
     // distant terrain LOD: rebuilt on a worker (with its own generator instance) after 64 blocks of movement
-    G->renderer.farTerrainEnabled = G->options.distantTerrain && G->dimension == "overworld";
+    // (flat worlds have nothing to show in the distance, and column() describes default terrain)
+    G->renderer.farTerrainEnabled = G->options.distantTerrain && G->dimension == "overworld" && G->world->meta.gen.preset != "flat";
     if (G->renderer.farTerrainEnabled && !G->farInFlight) {
         int cx = (int)std::floor(renderPos.x / 8) * 8, cz = (int)std::floor(renderPos.z / 8) * 8;
         if (std::abs(cx - G->farCX) > 64 || std::abs(cz - G->farCZ) > 64 || G->farRadiusBuilt != radius) {
@@ -427,7 +462,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         else if (a == "--no-occlusion") G->noOcclusion = true;
         else if (a == "--underground") G->smokeUnderground = true;
         else if (a == "--title-smoke") { G->opt.smokeFrames = atoi(next()); G->opt.directWorld = false; }
-        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : m == "armor" ? 10 : m == "vista" ? 11 : 0; }
+        else if (a == "--menu") { std::string m = next(); G->opt.menuState = m == "worlds" ? 1 : m == "create" ? 2 : m == "settings" ? 3 : m == "pause" ? 4 : m == "hollow" ? 5 : m == "rain" ? 6 : m == "night" ? 7 : m == "sky" ? 8 : m == "village" ? 9 : m == "armor" ? 10 : m == "vista" ? 11 : m == "build" ? 12 : 0; }
     }
     logSetLevel(LogLevel::Info);
     fs::create_directories(userDataDir("Voxcraft"));

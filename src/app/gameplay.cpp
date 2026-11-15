@@ -1,4 +1,5 @@
 // Session lifecycle, persistence of player state, simulation tick and block interaction.
+#include "game/building.h"
 #include "app/game.h"
 #include "core/profiler.h"
 #include "sokol/sokol_audio.h"
@@ -115,6 +116,23 @@ bool placeHeld() {
     if (hs.empty()) return false;
     BlockState place = G->items.def(hs.item).places;
     if (place == AIR) return false;
+    if (isBoxedShape(G->reg.def(place).shape)) {   // slabs, stairs, fences, panes, doors, trapdoors
+        PlacePlan plan = planBuildingPlacement(*G->world, place, G->target.block, G->target.normal, G->target.point, G->player.look());
+        if (!plan.ok) return false;
+        AABB pb = G->player.box();
+        for (auto [pos, st] : {std::pair<BlockPos, BlockState>{plan.at, plan.state}, {plan.at + BlockPos{0, 1, 0}, plan.upper}}) {
+            if (st == AIR) continue;
+            for (const ShapeBox& b : G->reg.collisionBoxes(st)) {
+                AABB a{{pos.x + b.mn[0] / 16.0f, pos.y + b.mn[1] / 16.0f, pos.z + b.mn[2] / 16.0f}, {pos.x + b.mx[0] / 16.0f, pos.y + b.mx[1] / 16.0f, pos.z + b.mx[2] / 16.0f}};
+                if (a.intersects(pb)) return false;
+            }
+        }
+        if (!applyPlacement(*G->world, plan)) return false;
+        const BlockDef& d = G->reg.def(place);
+        sfx3d("place_" + d.sound, {plan.at.x + 0.5f, plan.at.y + 0.5f, plan.at.z + 0.5f}, SoundCat::Blocks);
+        if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
+        return true;
+    }
     BlockPos at = G->target.block;
     if (!G->reg.def(G->world->getBlock(at)).has(BF_REPLACEABLE)) at = at + G->target.normal;
     if (!G->reg.def(G->world->getBlock(at)).has(BF_REPLACEABLE)) return false;
@@ -717,6 +735,10 @@ void clickUse() {
     if (G->target.hit && !G->keys[G->options.keys[UserOptions::Sneak]] && !G->sneakLatched) {
         BlockState s = G->world->getBlock(G->target.block);
         const BlockDef& d = G->reg.def(s);
+        if (isOpenable(G->reg, s) && toggleOpenable(*G->world, G->target.block)) {
+            sfx3d("place_" + d.sound, {G->target.block.x + 0.5f, G->target.block.y + 0.5f, G->target.block.z + 0.5f}, SoundCat::Blocks, 0.8f);
+            return;
+        }
         if (d.has(BF_INTERACT_CRAFT)) { openScreen(Screen::Workbench); return; }
         if (d.has(BF_INTERACT_CHEST)) {
             G->openBlock = G->target.block;

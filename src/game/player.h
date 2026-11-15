@@ -17,6 +17,7 @@ struct MoveTuning {
     float flySpeed = 0.55f, flyVertical = 0.38f;
     float swimGravity = 0.02f, swimDrag = 0.8f, swimUp = 0.045f;
     float climb = 0.12f, climbMaxFall = 0.15f;
+    float stepHeight = 0.6f;                                  // walk up ledges this high (slabs, stairs)
     float width = 0.6f, height = 1.8f, sneakHeight = 1.5f, eye = 1.62f, sneakEye = 1.27f;
 };
 
@@ -54,9 +55,10 @@ private:
 
 // Exact axis sweep of an AABB against solid blocks: returns the allowed displacement (<= |d|).
 float sweepAxis(const World& w, const AABB& box, int axis, float d, bool& hit);
+bool collidesAny(const World& w, const AABB& box);   // any collision box (full blocks and building shapes) overlaps
 
 // Voxel ray traversal (Amanatides-Woo). Returns the first targetable block within `reach`.
-struct RayHit { BlockPos block; BlockPos normal; float distance = 0; bool hit = false; };
+struct RayHit { BlockPos block; BlockPos normal; float distance = 0; bool hit = false; Vec3 point; };   // point: world-space hit position
 RayHit raycastBlocks(const World& w, Vec3 origin, Vec3 dir, float reach, bool hitFluidSources = false);
 
 } // namespace vx

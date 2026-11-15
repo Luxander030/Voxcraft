@@ -92,8 +92,11 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ `tools/package.py`: self-contained zip (macOS `.app` with resources, ad-hoc signed; Windows exe + data). ~0.5 MiB.
 - ⬜ Run the Windows build on real hardware; notarized macOS builds; installer.
 
-## Phase 11 ⬜
+## Phase 11 🔶
 Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, further optimization.
+- ✅ Building shapes: slabs (double stacking), stairs (upright/upside-down), fences and panes with connections, doors (double doors, iron doors on circuits), trapdoors; box collision with 0.6-block step-up; box-accurate picking.
+- ⬜ Stair corner shapes (inner/outer); fence gates; walls.
+- ⬜ Use building shapes in generated structures (needs a new generator version).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

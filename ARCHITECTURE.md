@@ -105,6 +105,24 @@ deleted at the next save. Format details are in [docs/WORLD_FORMAT.md](docs/WORL
 - A world is never closed after a failed save, except when the process is exiting anyway. Rift
   travel, quit-to-title and window close all keep the session open and report the error.
 
+## Building shapes
+
+Slabs, stairs, fences, panes, doors and trapdoors are "boxed" shapes. At load, `BlockRegistry`
+precomputes up to 15 visual boxes and 15 collision boxes per state (pixel units; fence collision
+reaches 24 px). Everything else reads the same tables:
+
+- **Mesher:** emits the boxes, skipping boundary faces against opaque neighbours, and lights
+  them from the cell they face.
+- **Physics:** `sweepAxis` / `collidesAny` clip movement against the box list. The player's step-up
+  of 0.6 blocks is a second raised attempt that is kept only if it gets further.
+- **Picking:** `raycastBlocks` intersects the boxes and returns the hit point.
+- **Outline:** the union of the boxes.
+
+Fence and pane connections are state properties ("north", ...) that neighbour updates refresh
+(`game/building.cpp`), so shapes stay a pure function of state. Door halves keep each other
+alive through neighbour updates. `applyPlacement` writes the upper half first without neighbour
+updates, so neither half is ever briefly alone.
+
 ## Block updates and fluids
 
 `game/behaviors.cpp` subscribes to World's neighbour-update, scheduled-tick and random-tick hooks.

@@ -17,7 +17,19 @@ namespace vx {
 using BlockState = u16;
 constexpr BlockState AIR = 0;
 
-enum class BlockShape : u8 { None, Cube, Cross, Fluid, Torch, FlatWall, Wire, Lever, Button, Plate, SlabThin, PistonHead, Model };
+enum class BlockShape : u8 { None, Cube, Cross, Fluid, Torch, FlatWall, Wire, Lever, Button, Plate, SlabThin, PistonHead, Model,
+                             Slab, Stairs, Fence, Pane, Door, Trapdoor };
+// Building shapes: geometry, collision, picking and outline all come from per-state box lists.
+inline bool isBoxedShape(BlockShape s) { return s >= BlockShape::Slab; }
+// Horizontal directions used by 4-way "facing": 0 N(-Z) 1 S(+Z) 2 W(-X) 3 E(+X).
+inline int dirCW(int f) { static const int t[4] = {3, 2, 0, 1}; return t[f & 3]; }    // N->E->S->W
+inline int dirCCW(int f) { static const int t[4] = {2, 3, 1, 0}; return t[f & 3]; }
+inline int dirOpposite(int f) { return f ^ 1; }
+inline void dirOffset(int f, int& dx, int& dz) { dx = f == 2 ? -1 : f == 3 ? 1 : 0; dz = f == 0 ? -1 : f == 1 ? 1 : 0; }
+
+// Axis-aligned box in pixel units (16 = one block). Collision boxes may reach y = 24 (fences).
+struct ShapeBox { u8 mn[3], mx[3]; };
+struct ShapeSpan { const ShapeBox* p = nullptr; int n = 0; const ShapeBox* begin() const { return p; } const ShapeBox* end() const { return p + n; } };
 enum class RenderLayer : u8 { Opaque, Cutout, Translucent };
 enum class ToolType : u8 { None, Pickaxe, Axe, Shovel, Hoe, Sword };
 enum class Tint : u8 { None, Grass, Foliage, Water };
@@ -86,11 +98,18 @@ public:
     u8 opacity(BlockState s) const { return opacity_[s]; }
     bool isAir(BlockState s) const { return s == AIR; }
     bool fluid(BlockState s) const { return fluid_[s] != 0; }
+    // Building shapes (isBoxedShape): visual boxes and collision boxes, precomputed per state.
+    bool boxed(BlockState s) const { return boxed_[s] != 0; }
+    ShapeSpan renderBoxes(BlockState s) const { u32 r = renderRange_[s]; return {boxes_.data() + (r >> 4), (int)(r & 15)}; }
+    ShapeSpan collisionBoxes(BlockState s) const { u32 r = collRange_[s]; return {boxes_.data() + (r >> 4), (int)(r & 15)}; }
 
 private:
     std::vector<BlockDef> defs_;
     std::vector<u16> stateBlock_;
-    std::vector<u8> opaque_, solid_, light_, opacity_, fluid_;
+    std::vector<u8> opaque_, solid_, light_, opacity_, fluid_, boxed_;
+    std::vector<ShapeBox> boxes_;
+    std::vector<u32> renderRange_, collRange_;   // (offset << 4) | count into boxes_
+    void buildShapes();
     std::unordered_map<std::string, u16> byName_;
 };
 

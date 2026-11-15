@@ -262,6 +262,34 @@ void specialShapes(const MeshContext& ctx, const Padded& p, Emitter& em) {
             if (visible(FACE_PZ)) { int q[4][3] = {{0, 0, 16}, {16, 0, 16}, {16, hc[2], 16}, {0, hc[3], 16}}; const int uv[4][2] = {{0, 16}, {16, 16}, {16, 16 - hc[2]}, {0, 16 - hc[3]}}; emit(FACE_PZ, q, uv); }
             break;
         }
+        case BlockShape::Slab: case BlockShape::Stairs: case BlockShape::Fence: case BlockShape::Pane:
+        case BlockShape::Door: case BlockShape::Trapdoor: {
+            // Building shapes: their precomputed boxes. A face lying on the block boundary is
+            // skipped when the neighbour there is opaque (a double slab inside a wall costs nothing).
+            SectionMesh tmp; Emitter te{tmp};
+            for (const ShapeBox& sbx : reg.renderBoxes(b)) {
+                int mn[3] = {sbx.mn[0], sbx.mn[1], sbx.mn[2]}, mx[3] = {sbx.mx[0], sbx.mx[1], sbx.mx[2]};
+                for (int f = 0; f < 6; f++) {
+                    int a = f >> 1; bool pos = f & 1;
+                    bool onEdge = pos ? mx[a] == 16 : mn[a] == 0;
+                    int ni = pidx(x + DIR[f][0], y + DIR[f][1], z + DIR[f][2]);
+                    if (onEdge && p.opq[ni]) continue;   // hidden against an opaque neighbour
+                    // boundary faces are lit from the cell they face (an opaque double slab has no
+                    // light of its own); inner faces from the block's own cell
+                    u8 fs = onEdge ? std::max(p.sky[ni], p.opq[i] ? (u8)0 : sky) : sky;
+                    u8 fb = onEdge ? std::max(p.blk[ni], p.opq[i] ? (u8)0 : blk) : blk;
+                    bool one[6] = {}; one[f] = true;
+                    te.box(ml, mn, mx, tex, fs, fb, 0xFFFFFF, one, nullptr);
+                }
+            }
+            for (size_t k = 0; k < tmp.data[ml].size(); k += 3) {
+                u32 w0 = tmp.data[ml][k];
+                u32 px = (w0 & 511) + X, py = ((w0 >> 9) & 511) + Y, pz = ((w0 >> 18) & 511) + Z;
+                em.out.data[ml].push_back((w0 & ~0x7FFFFFFu) | px | (py << 9) | (pz << 18));
+                em.out.data[ml].push_back(tmp.data[ml][k + 1]); em.out.data[ml].push_back(tmp.data[ml][k + 2]);
+            }
+            break;
+        }
         default: {
             int mn[3], mx[3]; int topUV[4] = {7, 4, 9, 6}; const int* tuv = nullptr;
             int facing = d.propIndex("facing") >= 0 ? reg.getProp(b, "facing") : 0;
