@@ -146,7 +146,10 @@ Storage carts hold their 27 slots on the `Cart` itself (no block entity: it move
 them through `ContainerContext::carts`. A hopper with no container block in front of it loads a
 storage cart whose centre column is in that cell, and a hopper with no container above it unloads
 the cart there. A cart is matched by its centre, so it is never served by two hoppers side by side.
-The cart's chest screen reuses `Screen::Chest` with `openCart` set, and closes when the cart rolls
+Hopper carts (5 slots) run in the same `tickContainers` pass after the hoppers: every 4 ticks
+they pull one item from a container directly above the cart's cell, or they pick up dropped items
+in the cell. Any cart with an inventory is unloaded by a hopper below the track.
+A cart's inventory screen reuses `Screen::Chest` with `openCart` set, and closes when the cart rolls
 more than 6 blocks away or breaks.
 
 ## Block updates and fluids

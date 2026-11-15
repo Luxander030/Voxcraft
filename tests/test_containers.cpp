@@ -137,6 +137,32 @@ TEST(hoppers_unload_and_load_storage_carts) {
     // a plain cart is not a container
     Cart& plain = carts.spawn({0.5f, 5, 0.5f});
     (void)plain;
-    CHECK(carts.storageAt({0, 5, 0}) == &carts.carts[0]);
-    CHECK(carts.storageAt({0, 4, 0}) == nullptr);
+    CHECK(carts.inventoryAt({0, 5, 0}) == &carts.carts[0]);
+    CHECK(carts.inventoryAt({0, 4, 0}) == nullptr);
+}
+
+TEST(hopper_carts_pull_from_containers_and_pick_up_items) {
+    Env e("hopcart2");
+    CartSystem carts; e.ctx.carts = &carts;
+    for (int x = 0; x <= 8; x++) e.w.setBlock({x, 5, 0}, e.st("rail"));
+    e.put(2, 6, 0, e.st("chest"));                               // a chest over the track
+    e.slots(2, 6, 0, BE_CHEST, CHEST_SLOTS)[3] = it("coal", 3);
+    Cart& hc = carts.spawn({2.5f, 5, 0.5f}, CartKind::Hopper);
+    REQUIRE(hc.items.size() == (size_t)CartSystem::HOPPER_SLOTS);
+    u32 id = hc.id;
+    e.run(CartSystem::HOPPER_COOLDOWN * 4);
+    int got = 0; for (auto& s : carts.byId(id)->items) got += s.count;
+    CHECK_EQ(got, 3);
+    CHECK_EQ(e.count(2, 6, 0), 0);
+    // an item lying on the track is picked up by a hopper cart parked on it
+    e.em.spawnItem({6.5f, 5.1f, 0.5f}, it("stick", 2), e.rng, {});
+    Cart& h2 = carts.spawn({6.5f, 5, 0.5f}, CartKind::Hopper);
+    u32 id2 = h2.id;
+    e.run(4);
+    int sticks = 0; for (auto& s : carts.byId(id2)->items) sticks += s.count;
+    CHECK_EQ(sticks, 2);
+    CHECK(e.em.items.empty());
+    // and a hopper under the track drains a hopper cart like any cart with an inventory
+    e.put(6, 4, 0, e.facing("hopper", 1));
+    CHECK(carts.inventoryAt({6, 5, 0}) == carts.byId(id2));
 }

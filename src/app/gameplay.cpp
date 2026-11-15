@@ -804,16 +804,16 @@ void clickUse() {
         // carts: put one on a rail, or climb into one
         float cd = 0;
         Cart* cart = G->carts->raycast(G->player.eye(), G->player.look(), 4.0f, &cd);
-        const std::string& held = hs.empty() ? std::string() : G->items.def(hs.item).name;
-        bool holdingCart = held == "cart" || held == "storage_cart";
+        CartKind heldKind = CartKind::Plain;
+        bool holdingCart = !hs.empty() && cartKindFromItem(G->items.def(hs.item).name, heldKind);
         if (cart && !holdingCart && (!G->target.hit || cd < G->target.distance)) {
-            if (cart->kind == CartKind::Storage) { G->openCart = cart->id; openScreen(Screen::Chest); }
+            if (!cart->items.empty()) { G->openCart = cart->id; openScreen(Screen::Chest); }
             else G->riding = cart->id;
             return;
         }
         if (holdingCart && G->target.hit && isRail(G->reg, G->world->getBlock(G->target.block))) {
             const BlockPos& b = G->target.block;
-            G->carts->spawn({b.x + 0.5f, (float)b.y, b.z + 0.5f}, held == "storage_cart" ? CartKind::Storage : CartKind::Plain);
+            G->carts->spawn({b.x + 0.5f, (float)b.y, b.z + 0.5f}, heldKind);
             sfx3d("place_metal", {b.x + 0.5f, b.y + 0.2f, b.z + 0.5f}, SoundCat::Blocks);
             if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
             return;

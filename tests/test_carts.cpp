@@ -239,4 +239,13 @@ TEST(storage_carts_persist_contents_and_drop_them_when_broken) {
     CHECK(drops[0].item == itemsReg().id("storage_cart"));
     CHECK_EQ(cartDrops(r, itemsReg(), true).size(), (size_t)2);
     CHECK(cartDrops(p, itemsReg(), false)[0].item == itemsReg().id("cart"));
+    // hopper carts round-trip too
+    CartSystem hs; EntityManager hm(itemsReg()); hm.carts = &hs;
+    hs.spawn({1.5f, 5, 1.5f}, CartKind::Hopper).items[4] = {itemsReg().id("stick"), 7, 0};
+    auto hr = hm.collectEntities({0, 0}, true);
+    hm.spawnEntities({0, 0}, std::move(hr));
+    REQUIRE(hs.carts.size() == 1);
+    CHECK(hs.carts[0].kind == CartKind::Hopper); CHECK_EQ(hs.carts[0].items.size(), (size_t)CartSystem::HOPPER_SLOTS);
+    CHECK_EQ(hs.carts[0].items[4].count, 7);
+    CHECK(cartDrops(hs.carts[0], itemsReg(), false)[0].item == itemsReg().id("hopper_cart"));
 }

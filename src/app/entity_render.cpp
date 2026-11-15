@@ -188,6 +188,11 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
                 static const BlockState chest = G->reg.stateOf("chest");
                 u16 t[6]; for (int f = 0; f < 6; f++) t[f] = G->renderer.textures().face(chest, f);
                 emitBox(out, world, {-6, 3, -6}, {12, 12, 12}, t, sky, blk, tint);
+            } else if (c.kind == CartKind::Hopper) {   // a hopper funnel: a wide rim over a narrower throat
+                static const BlockState hopper = G->reg.stateOf("hopper");
+                u16 t[6]; for (int f = 0; f < 6; f++) t[f] = G->renderer.textures().face(hopper, f);
+                emitBox(out, world, {-6, 9, -6}, {12, 5, 12}, t, sky, blk, tint);
+                emitBox(out, world, {-4, 3, -4}, {8, 6, 8}, t, sky, blk, tint);
             }
         }
     }

@@ -19,7 +19,8 @@ Windows hardware. See [ROADMAP.md](ROADMAP.md).
   - Grazers, puffbirds, gloomlings, rockmites and settlers who trade.
   - In the Hollow, cinderwisps that shoot ember bolts.
 - **Building and transport:** slabs, stairs, fences, panes, doors, trapdoors, gates and walls;
-  rails, powered and detector rails, and carts that ride them and bump into things.
+  rails, powered and detector rails, and carts (plain, storage, hopper) that ride them and bump
+  into things.
 - **The Hollow:** a cavern dimension reached through slate rift gates.
 - **Glimmer circuits:** wire, torches, lamps, relays, comparators, watchers, pistons and sticky
   pistons, hoppers, droppers and dispensers.
@@ -48,7 +49,7 @@ build\Release\voxcraft.exe                    # Windows
 | T or / | chat and commands (`/help`) |
 | F3 | debug overlay |
 | V (remappable) | camera view: first person → behind → facing the player |
-| right-click a cart / sneak | ride it / step off (forward pushes); a storage cart opens its chest |
+| right-click a cart / sneak | ride it / step off (forward pushes); storage and hopper carts open their inventory |
 | F5 | save now |
 | F11 | fullscreen |
 | Esc | pause menu (settings, save and quit to title) |

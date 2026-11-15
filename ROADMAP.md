@@ -102,7 +102,8 @@ Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, furt
 - ✅ Rails (straight, curves, slopes), powered rails, rideable carts with rail physics, persisted.
 - ✅ Cart-to-cart, cart-to-creature and player-to-cart collisions; detector rails.
 - ✅ Storage carts (27-slot chest, persisted, loaded and unloaded by hoppers).
-- ⬜ Hopper carts; creatures riding carts.
+- ✅ Hopper carts (5 slots; pull from containers above, pick up items on the track).
+- ⬜ Creatures riding carts; a rail that locks hopper carts.
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

@@ -5,7 +5,8 @@
 // its speed (so curves cost nothing). Slopes add a gravity component, powered rails boost (or
 // brake when unpowered), and friction slowly stops a coasting cart. Off rails it is a plain
 // falling box. Positions are the cart's bottom centre. Carts persist with their chunk.
-// A storage cart carries a 27-slot chest that players open and hoppers fill or empty.
+// A storage cart carries a 27-slot chest that players open and hoppers fill or empty. A hopper
+// cart carries 5 slots and, like a hopper, pulls from containers above it and picks up items.
 #pragma once
 #include "game/rails.h"
 #include "game/player.h"
@@ -14,12 +15,14 @@
 namespace vx {
 class MobSystem;
 
-enum class CartKind : u8 { Plain = 0, Storage = 1 };
+enum class CartKind : u8 { Plain = 0, Storage = 1, Hopper = 2 };
+int cartSlots(CartKind k);   // 0 plain, 27 storage, 5 hopper
 
 struct Cart {
     u32 id = 0;
     CartKind kind = CartKind::Plain;
-    std::vector<ItemStack> items;   // storage carts: STORAGE_SLOTS slots
+    std::vector<ItemStack> items;   // storage / hopper carts: cartSlots(kind) slots
+    int cooldown = 0;               // hopper carts: ticks until the next transfer (not persisted)
     Vec3 pos, prevPos, vel;
     Vec3 push;   // impulses from collisions this tick; on a rail only the along-track part counts
     float yaw = 0, prevYaw = 0, pitch = 0, prevPitch = 0;
@@ -31,11 +34,12 @@ struct Cart {
 class CartSystem {
 public:
     static constexpr float MAX_SPEED = 0.4f, FRICTION = 0.997f, SLOPE_G = 0.012f, BOOST = 0.04f;
-    static constexpr int STORAGE_SLOTS = 27;
+    static constexpr int STORAGE_SLOTS = 27, HOPPER_SLOTS = 5, HOPPER_COOLDOWN = 4;
     std::vector<Cart> carts;
     Cart& spawn(Vec3 pos, CartKind kind = CartKind::Plain);
-    // The storage cart whose box reaches into block cell p (hoppers above/below a track), or null.
-    Cart* storageAt(const BlockPos& p);
+    // The cart with an inventory (storage or hopper) whose box reaches into block cell p, centred
+    // over it (hoppers above/below a track), or null.
+    Cart* inventoryAt(const BlockPos& p);
     void tick(const World& w);
     void step(const World& w, Cart& c);   // one tick of one cart (exposed for tests)
     Cart* raycast(Vec3 origin, Vec3 dir, float reach, float* dist = nullptr);
@@ -55,6 +59,8 @@ public:
     static constexpr float CREATURE_MASS = 0.5f;   // a creature takes this share of a collision
 };
 
+const char* cartItemName(CartKind k);                          // the item that places / is dropped as this cart
+bool cartKindFromItem(const std::string& item, CartKind& out);   // false: not a cart item
 // What a broken cart drops: the cart item (storage carts: the storage cart item) unless in creative,
 // and always a storage cart's contents.
 std::vector<ItemStack> cartDrops(const Cart& c, const ItemRegistry& items, bool creative);

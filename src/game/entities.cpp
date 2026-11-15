@@ -133,7 +133,7 @@ void EntityManager::spawnEntities(ChunkPos, std::vector<EntityRecord>&& recs) {
             std::vector<std::pair<int, ItemStack>> slots;
             if (ver >= 2) {
                 u8 k = rd.u8_();
-                kind = k == 1 ? CartKind::Storage : CartKind::Plain;
+                kind = k == 1 ? CartKind::Storage : k == 2 ? CartKind::Hopper : CartKind::Plain;
                 u64 n = rd.var();
                 for (u64 i = 0; i < n && rd.ok() && i < 256; i++) {
                     int slot = rd.u8_(); ItemStack s; s.item = items_.id(rd.str()); s.count = rd.u8_(); s.damage = (u16)rd.var();

@@ -515,6 +515,13 @@ def storage_cart_icon(px, rng):
         for x in range(4, 12): put(px, x, y, dark if x in (4, 11) or y == 1 or y == 3 else wood)
     put(px, 7, 4, latch); put(px, 8, 4, latch)
 
+def hopper_cart_icon(px, rng):
+    cart_icon(px, rng)
+    rim, dark = hexc("5a5a60"), hexc("3a3a40")
+    for x in range(3, 13): put(px, x, 1, rim); put(px, x, 2, dark if x in (3, 12) else rim)
+    for y in (3, 4):
+        for x in range(5, 11): put(px, x, y, dark if x in (5, 10) else rim)
+
 ITEM_RECIPES = {
     "bucket": bucket(None), "water_bucket": bucket(pal("3a68d8", "4a78e8")), "lava_bucket": bucket(pal("e8691e", "f8b040")),
     "stick": item(lambda px, r: [put(px, 3 + k, 12 - k, HANDLE[k % 2]) for k in range(10)]),
@@ -656,6 +663,7 @@ for _m, _names in ARMOR_NAMES.items():
 ITEM_RECIPES.update({
     "cart": item(cart_icon),
     "storage_cart": item(storage_cart_icon),
+    "hopper_cart": item(hopper_cart_icon),
     "oak_door_item": item(door_icon(hexc("6e5131"), hexc("a8854f"), hexc("b8dcf0"))),
     "iron_door_item": item(door_icon(hexc("8a8a8a"), hexc("c8c8c8"), hexc("6a6a6a"))),
 })

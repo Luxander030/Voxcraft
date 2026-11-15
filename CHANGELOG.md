@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Hopper carts
+- Hopper carts (a hopper on a cart) hold 5 slots. Every 4 ticks they pull an item from a container
+  above the track, or pick up items lying on it. A hopper under the track empties them like a
+  storage cart. Cart record v2 kind 2.
+- Test: `hopper_carts_pull_from_containers_and_pick_up_items`.
+
 ### Storage carts
 - Storage carts (a chest on a cart) carry 27 slots. Right-click one to open it. Breaking it drops
   the storage cart and spills its contents.

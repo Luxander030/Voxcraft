@@ -120,7 +120,7 @@ void tickContainers(ContainerContext& c, ChunkPos center, int radius) {
                 ItemStack one = slot; one.count = 1;
                 if (insertOne(c, *target, ts, one, dir.y < 0 ? 0 : 1)) { slot.count--; if (!slot.count) slot = {}; moved = true; if (c.behaviors) c.behaviors->containerChanged(tp); break; }
             }
-        } else if (Cart* cart = c.carts ? c.carts->storageAt(tp) : nullptr) {   // load a storage cart
+        } else if (Cart* cart = c.carts ? c.carts->inventoryAt(tp) : nullptr) {   // load a storage cart
             be = c.world.blockEntity(h.p);
             for (auto& slot : be->items) {
                 if (slot.empty()) continue;
@@ -137,7 +137,7 @@ void tickContainers(ContainerContext& c, ChunkPos center, int radius) {
                 ItemStack one = source->items[k]; one.count = 1;
                 if (insertOne(c, *be, hs, one, 0)) { source->items[k].count--; if (!source->items[k].count) source->items[k] = {}; moved = true; if (c.behaviors) c.behaviors->containerChanged(up); }
             }
-        } else if (Cart* cart = c.carts ? c.carts->storageAt(up) : nullptr) {   // unload a storage cart above
+        } else if (Cart* cart = c.carts ? c.carts->inventoryAt(up) : nullptr) {   // unload a storage cart above
             for (auto& slot : cart->items) {
                 if (slot.empty()) continue;
                 ItemStack one = slot; one.count = 1;
@@ -161,6 +161,32 @@ void tickContainers(ContainerContext& c, ChunkPos center, int radius) {
             if (ChunkPtr ch = c.world.chunk(tp.chunk())) ch->unsaved = true;
             if (c.behaviors) c.behaviors->containerChanged(h.p);
         }
+    }
+    // hopper carts: pull from the container above the cart, or pick up items in the cart's cell
+    if (c.carts) for (auto& cart : c.carts->carts) {
+        if (cart.removed || cart.kind != CartKind::Hopper) continue;
+        BlockPos cell{(int)std::floor(cart.pos.x), (int)std::floor(cart.pos.y + 0.01f), (int)std::floor(cart.pos.z)};
+        if (!c.world.isReady(cell.chunk())) continue;
+        if (cart.cooldown > 0) { cart.cooldown--; continue; }
+        bool moved = false;
+        BlockPos up{cell.x, cell.y + 1, cell.z};
+        BlockState us; BlockEntity* source = containerAt(c, up, &us);
+        if (source) {
+            int k = pullSlot(c, *source, us);
+            if (k >= 0 && insertInto(c, cart.items, source->items[k])) {
+                if (!--source->items[k].count) source->items[k] = {};
+                moved = true;
+                if (ChunkPtr ch = c.world.chunk(up.chunk())) ch->unsaved = true;
+                if (c.behaviors) c.behaviors->containerChanged(up);
+            }
+        } else if (c.entities) {
+            for (auto& e : c.entities->items) {
+                if (e.removed || std::fabs(e.pos.x - cart.pos.x) > 0.6f || std::fabs(e.pos.z - cart.pos.z) > 0.6f || e.pos.y < cart.pos.y - 0.1f || e.pos.y > cart.pos.y + 1.2f) continue;
+                while (!e.stack.empty() && insertInto(c, cart.items, e.stack)) { e.stack.count--; moved = true; }
+                if (e.stack.empty()) e.removed = true;
+            }
+        }
+        if (moved) cart.cooldown = CartSystem::HOPPER_COOLDOWN;
     }
     if (c.entities) c.entities->items.erase(std::remove_if(c.entities->items.begin(), c.entities->items.end(), [](const ItemEntity& e) { return e.removed; }), c.entities->items.end());
 }
