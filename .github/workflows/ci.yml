@@ -1,15 +1,19 @@
 name: ci
 on: [push, pull_request]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-14,      name: macos-arm64 }
-          - { os: macos-13,      name: macos-x64 }
+          - { os: macos-15,       name: macos-arm64 }
+          - { os: macos-15-intel, name: macos-x64 }
           - { os: windows-2022,  name: windows-x64 }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
