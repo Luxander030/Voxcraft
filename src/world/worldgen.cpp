@@ -458,8 +458,12 @@ private:
             w.solid(cx + dx, y0 + 1, cz + dz, rim ? plaza : AIR);
             for (int yy = y0 - 3; yy <= y0; yy++) w.solid(cx + dx, yy, cz + dz, rim ? plaza : cb.water);
         }
-        for (int s : {-4, 4}) for (int t : {-4, 4}) {
-            for (int yy = 1; yy <= 3; yy++) w.solid(cx + s, y0 + yy, cz + t, cb.oak_log);
+        const bool v5 = st.version >= 5;
+        for (int s0 : {-4, 4}) for (int t0 : {-4, 4}) {
+            // v5: lamp posts are free-standing walls, one block further in so that every
+            // neighbour is cleared plaza air (no connections, now or after any update)
+            int s = v5 ? s0 * 3 / 4 : s0, t = v5 ? t0 * 3 / 4 : t0;
+            for (int yy = 1; yy <= 3; yy++) w.solid(cx + s, y0 + yy, cz + t, v5 ? reg.stateOf(desert ? "brick_wall" : "cobblestone_wall") : cb.oak_log);
             w.solid(cx + s, y0 + 4, cz + t, reg.withProp(cb.torch, "facing", 4));
         }
         // cottages on a ring, doors facing the plaza
@@ -476,6 +480,7 @@ private:
             int face = std::abs(ddx) > std::abs(ddz) ? (ddx > 0 ? 3 : 2) : (ddz > 0 ? 1 : 0);   // 0 N 1 S 2 W 3 E
             Rng hr(hashCoords(st.seed ^ 0xC077, hx, hz));
             placeCottage(w, hx, hc.height, hz, face, hr, desert);
+            if (v5) { Rng gr(hashCoords(st.seed ^ 0x6A4D, hx, hz)); if (gr.chance(0.5f)) placeGarden(w, hx, hc.height, hz, face, gr); }
             // gravel path from the door to the plaza
             static const int FX[4] = {0, 0, -1, 1}, FZ[4] = {-1, 1, 0, 0};
             int px = hx + FX[face] * 3, pz = hz + FZ[face] * 3;
@@ -499,12 +504,51 @@ private:
                 else if (edgeX || edgeZ) b = (yy == 2 && (dx == 0 || dz == 0)) ? cb.glass : wall;
                 w.solid(hx + dx, y + yy, hz + dz, b);
             }
+            if (st.version >= 5) continue;   // v5 roofs and windows below
             w.solid(hx + dx, y + h + 1, hz + dz, roof);
             if (std::abs(dx) <= 1 && std::abs(dz) <= 1) w.solid(hx + dx, y + h + 2, hz + dz, roof);
         }
-        // door opening facing the plaza
         static const int FX[4] = {0, 0, -1, 1}, FZ[4] = {-1, 1, 0, 0};
-        for (int yy = 1; yy <= 2; yy++) w.solid(hx + FX[face] * 2, y + yy, hz + FZ[face] * 2, AIR);
+        if (st.version >= 5) {
+            // Every shape below is written exactly as the runtime rules (game/building.cpp) would
+            // compute it from these neighbours, so no later neighbour update changes it and the
+            // chunk stays unmodified (nothing to save).
+            BlockState stairs = reg.stateOf(desert ? "sandstone_stairs" : "pine_stairs"), slab = reg.stateOf(desert ? "sandstone_slab" : "pine_slab");
+            BlockState pane = reg.stateOf("glass_pane");
+            // glass panes in the middle of each wall, joined to the wall blocks on either side
+            for (int k = 0; k < 4; k++) {
+                int dx = FX[k] * 2, dz = FZ[k] * 2;
+                bool alongX = dz != 0;   // north/south walls run east-west
+                BlockState p = reg.withProp(reg.withProp(pane, alongX ? "west" : "north", 1), alongX ? "east" : "south", 1);
+                if (k == dirOpposite(face)) {   // the back window: the torch's plank block is right behind it, inside
+                    static const char* SIDES[4] = {"north", "south", "west", "east"};
+                    p = reg.withProp(p, SIDES[face], 1);
+                }
+                w.solid(hx + dx, y + 2, hz + dz, p);
+            }
+            // stepped roof: a ring of stairs over the walls, a smaller ring, a planked top with a slab
+            auto ring = [&](int r, int yy) {
+                for (int dz = -r; dz <= r; dz++) for (int dx = -r; dx <= r; dx++) {
+                    if (std::abs(dx) != r && std::abs(dz) != r) { w.solid(hx + dx, yy, hz + dz, roof); continue; }
+                    int zin = dz < 0 ? 1 : 0, xin = dx < 0 ? 3 : 2;   // directions toward the centre
+                    BlockState s;
+                    if (std::abs(dx) == r && std::abs(dz) == r)   // corner: outer, tall quarter toward the centre
+                        s = reg.withProp(reg.withProp(stairs, "facing", zin), "shape", xin == dirCW(zin) ? 3 : 4);
+                    else s = reg.withProp(stairs, "facing", std::abs(dz) == r ? zin : xin);
+                    w.solid(hx + dx, yy, hz + dz, s);
+                }
+            };
+            ring(2, y + h + 1);
+            ring(1, y + h + 2);
+            w.solid(hx, y + h + 3, hz, slab);
+            // a door in the doorway, panel on the outside, closed
+            BlockState door = reg.withProp(reg.stateOf("oak_door"), "facing", face);
+            w.solid(hx + FX[face] * 2, y + 1, hz + FZ[face] * 2, door);
+            w.solid(hx + FX[face] * 2, y + 2, hz + FZ[face] * 2, reg.withProp(door, "upper", 1));
+        } else {
+            // door opening facing the plaza
+            for (int yy = 1; yy <= 2; yy++) w.solid(hx + FX[face] * 2, y + yy, hz + FZ[face] * 2, AIR);
+        }
         // furnishings: torch, and one of workbench / chest / kiln in the back corner
         w.solid(hx - FX[face], y + 3, hz - FZ[face], reg.withProp(cb.torch, "facing", 4));
         w.solid(hx - FX[face], y + 2, hz - FZ[face], reg.stateOf("oak_planks"));
@@ -512,6 +556,41 @@ private:
         BlockState furn = kind == 0 ? cb.workbench : kind == 1 ? reg.withProp(cb.chest, "facing", face) : reg.withProp(cb.kiln, "facing", face);
         int sx = FZ[face] != 0 ? 1 : -FX[face], sz = FX[face] != 0 ? 1 : -FZ[face];
         w.solid(hx + sx, y + 1, hz + sz, furn);
+    }
+
+    // v5: a fenced crop plot behind a cottage (4..8 blocks behind its centre, inside the village
+    // bound), levelled with a one-block cleared margin so the fence joins only its own ring.
+    void placeGarden(Writer& w, int hx, int y, int hz, int face, Rng& rng) const {
+        static const int FX[4] = {0, 0, -1, 1}, FZ[4] = {-1, 1, 0, 0};
+        int gx = hx - FX[face] * 6, gz = hz - FZ[face] * 6;
+        BlockState fence = reg.stateOf("oak_fence"), gate = reg.stateOf("oak_fence_gate"), farm = reg.withProp(reg.stateOf("farmland"), "moist", 1);
+        BlockState grain = reg.stateOf("grain");
+        for (int dz = -3; dz <= 3; dz++) for (int dx = -3; dx <= 3; dx++) {
+            for (int yy = y - 2; yy <= y; yy++) w.solid(gx + dx, yy, gz + dz, yy == y && std::abs(dx) <= 1 && std::abs(dz) <= 1 ? farm : (yy == y ? cb.turf : cb.dirt));
+            for (int yy = y + 1; yy <= y + 3; yy++) w.solid(gx + dx, yy, gz + dz, AIR);
+        }
+        w.solid(gx, y, gz, cb.water);   // keeps the farmland moist
+        for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++)
+            if (dx || dz) w.solid(gx + dx, y + 1, gz + dz, reg.withProp(grain, "age", rng.range(8)));
+        // the ring: corners join two sides, sides join along their line; the gate faces the cottage
+        int gateSide = face;   // the side nearest the cottage
+        for (int dz = -2; dz <= 2; dz++) for (int dx = -2; dx <= 2; dx++) {
+            if (std::abs(dx) != 2 && std::abs(dz) != 2) continue;
+            bool onX = std::abs(dz) == 2;   // north/south side: runs east-west
+            int side = std::abs(dz) == 2 ? (dz < 0 ? 0 : 1) : (dx < 0 ? 2 : 3);
+            bool corner = std::abs(dx) == 2 && std::abs(dz) == 2;
+            if (!corner && (onX ? dx : dz) == 0 && side == gateSide) {
+                w.solid(gx + dx, y + 1, gz + dz, reg.withProp(gate, "facing", side));
+                continue;
+            }
+            BlockState f = fence;
+            if (corner) {
+                f = reg.withProp(f, dz < 0 ? "south" : "north", 1);
+                f = reg.withProp(f, dx < 0 ? "east" : "west", 1);
+            } else if (onX) f = reg.withProp(reg.withProp(f, "west", 1), "east", 1);
+            else f = reg.withProp(reg.withProp(f, "north", 1), "south", 1);
+            w.solid(gx + dx, y + 1, gz + dz, f);
+        }
     }
 
     void placeWatchtower(Writer& w, int ox, int y, int oz, Rng& rng) const {

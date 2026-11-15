@@ -65,6 +65,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Settlers: original villager creature (OpenSCAD model), spawned lazily the first time a player approaches a village (recorded in world.json so it happens once; generation stays entity-free), wander around their home plaza, trade 3 deterministic offers each using copper as currency.
 - ✅ Smooth fluid surfaces: per-corner heights averaged over neighbouring fluid cells, sloped top and side faces.
 - ✅ Generator v4 (new worlds): mossy boulders (taiga/forest/mountains), lily pads on swamp and river water, capshroom clusters on forest floors, ice spires in snowy biomes, single-flower meadows in plains; new blocks mossy cobblestone, lily pad, capshroom. v1-v3 unchanged.
+- ✅ Generator v5 (new worlds): villages built with the building shapes — cottage doors, glass-pane windows, stepped stair-and-slab roofs with corner pieces, fenced crop gardens with a gate and a water source, wall lamp posts. Every generated shape equals what the runtime connection rules compute (tested on three villages), so untouched village chunks stay unmodified. v1-v4 unchanged.
 
 ## Phase 8 — Advanced gameplay 🔶
 - ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).
@@ -96,7 +97,7 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, further optimization.
 - ✅ Building shapes: slabs (double stacking), stairs (upright/upside-down), fences and panes with connections, doors (double doors, iron doors on circuits), trapdoors; box collision with 0.6-block step-up; box-accurate picking.
 - ✅ Stair corner shapes (inner/outer), fence gates, walls.
-- ⬜ Use building shapes in generated structures (needs a new generator version).
+- ✅ Building shapes in generated villages (generator v5).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

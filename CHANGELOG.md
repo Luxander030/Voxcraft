@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### World generator v5: villages with building shapes
+- New worlds use generator v5. Existing worlds keep their version and generate exactly as before.
+- Cottages have a real door facing the plaza, glass-pane windows and a stepped roof: a ring of
+  stairs with outer corner pieces, a smaller ring, and a slab cap.
+- Half of the cottages have a fenced crop garden behind them: a gate toward the cottage, 3×3
+  farmland with grain at random growth stages, and a water source in the middle.
+- Plaza lamp posts are walls.
+- Generated shapes are written exactly as the runtime rules would compute them from their
+  neighbours, so a neighbour update never rewrites them and an untouched village chunk stays
+  free of saved data. `worldgen_v5_villages_use_building_shapes_consistently` checks every
+  building-shape block in three villages (644 blocks). It found one case during development:
+  lamp posts next to terrain, which were then moved inside the plaza.
+
 ### Stair corners, fence gates and walls
 - Stairs form inner and outer corners from their neighbours (a `shape` state property refreshed
   by neighbour updates, like fence connections). Stairs saved before this change load as straight

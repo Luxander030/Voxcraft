@@ -49,6 +49,6 @@ std::unique_ptr<WorldGenerator> createGenerator(const GenSettings& s, const Bloc
 // Version history: 1 = initial terrain, ruins, trees.  2 = adds watchtowers, buried caches, desert
 // wells (and the Hollow dimension).  3 = adds villages.  4 = biome features (boulders, lily pads,
 // capshrooms, ice spires, flower meadows).
-constexpr u32 LATEST_GENERATOR_VERSION = 4;
+constexpr u32 LATEST_GENERATOR_VERSION = 5;
 
 } // namespace vx

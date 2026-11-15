@@ -485,3 +485,55 @@ TEST(storage_stale_async_save_never_overwrites_newer_data) {
     r.loadChunkSync({0, 0});
     CHECK_EQ(r.getBlock(p), blocks().stateOf("glass"));
 }
+
+#include "game/building.h"
+TEST(worldgen_v5_villages_use_building_shapes_consistently) {
+    // v5 adds doors, panes, stair roofs and fenced gardens to villages and changes nothing else.
+    // Every generated shape must equal what the runtime connection rules compute, otherwise the
+    // first neighbour update would rewrite it and make an untouched chunk persistent.
+    GenSettings v4; v4.seed = 99; v4.version = 4;
+    GenSettings v5 = v4; v5.version = 5;
+    auto g4 = createGenerator(v4, blocks()), g5 = createGenerator(v5, blocks());
+    REQUIRE(g4 && g5);
+    std::map<std::string, int> found;
+    int differ = 0, total = 0;
+    for (int cz = -24; cz < 24; cz++) for (int cx = -24; cx < 24; cx++) {
+        Chunk a({cx, cz}), b({cx, cz}); g4->generate(a); g5->generate(b); total++;
+        bool d = false;
+        for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) {
+            BlockState x = a.sec[s].get(i), y = b.sec[s].get(i);
+            if (x != y) { d = true; found[blocks().def(y).name]++; }
+        }
+        differ += d;
+        CHECK(!b.hasPersistentData());
+    }
+    printf("    v5 vs v4: %d of %d chunks differ;", differ, total);
+    for (auto& [n, c] : found) if (c > 5) printf(" %s:%d", n.c_str(), c);
+    printf("\n");
+    CHECK(found["oak_door"] > 0); CHECK(found["glass_pane"] > 0); CHECK(found["pine_stairs"] + found["sandstone_stairs"] > 0);
+    CHECK(found["oak_fence"] > 0); CHECK(found["oak_fence_gate"] > 0);
+    CHECK(differ < total / 4);
+
+    // Load a village into a world and recompute every building shape from its neighbours.
+    for (Vec3 probe : {Vec3{0, 0, 0}, Vec3{1500, 0, -900}, Vec3{-1200, 0, 1300}}) {
+    int vx, vy, vz;
+    REQUIRE(g5->nearestVillage((int)probe.x, (int)probe.z, 8, vx, vy, vz));
+    auto dir = vxtest::tempDir("v5village");
+    World w(blocks(), jobs(), vxtest::testItems());
+    WorldMeta m = testMeta(99); m.gen.version = 5;
+    std::string err; REQUIRE(w.create(dir, m, &err));
+    ChunkPos c0{vx >> 4, vz >> 4};
+    for (int dz = -3; dz <= 3; dz++) for (int dx = -3; dx <= 3; dx++) w.loadChunkSync({c0.x + dx, c0.z + dz});
+    int checked = 0, mismatched = 0;
+    for (int z = vz - 28; z <= vz + 28; z++) for (int x = vx - 28; x <= vx + 28; x++) for (int y = vy - 4; y <= vy + 16; y++) {
+        BlockState s = w.getBlock({x, y, z});
+        if (s == AIR || !blocks().boxed(s)) continue;
+        checked++;
+        BlockState c = withConnections(w, {x, y, z}, s);
+        if (c != s) { mismatched++; if (mismatched < 5) printf("    mismatch at %d %d %d: %s vs %s\n", x, y, z, blocks().stateString(s).c_str(), blocks().stateString(c).c_str()); }
+    }
+    printf("    village at %d %d %d: %d building-shape blocks checked\n", vx, vy, vz, checked);
+    CHECK(checked > 20);
+    CHECK_EQ(mismatched, 0);
+    }
+}
