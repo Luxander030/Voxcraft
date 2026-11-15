@@ -23,6 +23,7 @@ struct MobDef {
     std::vector<std::string> dimensions{"overworld"};
     struct Drop { u16 item; int min, max; };
     std::vector<Drop> drops;
+    std::vector<u16> food;             // items that start love mode / speed up a baby's growth
     SpawnWhere where = SpawnWhere::Surface;
     int groupMin = 1, groupMax = 1, weight = 1;
 };
@@ -52,8 +53,13 @@ struct Mob {
     std::vector<BlockPos> path; size_t pathIdx = 0;
     Vec3 home; bool hasHome = false;   // settlers stay near their village
     u32 seed = 0;                      // per-creature variation (trade offers)
+    // Breeding: growTicks < 0 while a baby (counts up to 0); loveTicks > 0 after being fed;
+    // breedCooldown > 0 after breeding.
+    int growTicks = 0, loveTicks = 0, breedCooldown = 0;
     Animator anim;
-    AABB box(const MobDef& d) const { float h = d.width * 0.5f; return {{pos.x - h, pos.y, pos.z - h}, {pos.x + h, pos.y + d.height, pos.z + h}}; }
+    bool baby() const { return growTicks < 0; }
+    float scale() const { return baby() ? 0.5f : 1.0f; }
+    AABB box(const MobDef& d) const { float h = d.width * 0.5f * scale(); return {{pos.x - h, pos.y, pos.z - h}, {pos.x + h, pos.y + d.height * scale(), pos.z + h}}; }
     bool alive() const { return deathTicks < 0; }
 };
 
@@ -81,6 +87,11 @@ public:
     void spawnTick(const World& w, const Player& p, float daylight, Rng& rng, int passiveCap = 10, int hostileCap = 12, const std::string& dimension = "overworld");
     // Player melee. Returns true if the mob took damage.
     bool hurt(Mob& m, float dmg, Vec3 knockDir, Rng& rng, MobContext* ctx);
+    // Feeding (player right-click with an item). Returns true if the item was eaten: adults that
+    // can breed fall in love, babies grow 10% faster toward adulthood.
+    bool feed(Mob& m, u16 item);
+    static constexpr int BABY_TICKS = 12000, LOVE_TICKS = 600, BREED_COOLDOWN = 6000;
+    int births = 0;   // babies born so far (stats / tests)
     Mob* raycast(Vec3 origin, Vec3 dir, float reach, float* dist = nullptr);
     const MobRegistry& registry() const { return reg_; }
     int countNear(Vec3 p, float radius, MobBehavior b) const;

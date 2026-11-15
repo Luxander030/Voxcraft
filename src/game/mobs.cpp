@@ -24,6 +24,11 @@ bool MobRegistry::load(const Json& mobs, const Json& models, const Json& anims, 
         d.trader = j["trader"].asBool(false);
         d.flying = j["flying"].asBool(false); d.ranged = j["ranged"].asBool(false); d.emissive = j["emissive"].asBool(false);
         if (const Json* dims = j.find("dimensions")) { d.dimensions.clear(); for (auto& x : dims->arr) d.dimensions.push_back(x.asString()); }
+        for (auto& f : j["food"].arr) {
+            u16 it = items.id(f.asString());
+            if (!it) { if (err) *err = "mob " + name + ": unknown food " + f.asString(); return false; }
+            d.food.push_back(it);
+        }
         for (auto& dr : j["drops"].arr) {
             u16 it = items.id(dr["item"].asString());
             if (!it) { if (err) *err = "mob " + name + ": unknown drop " + dr["item"].asString(); return false; }
@@ -121,9 +126,9 @@ void MobSystem::move(const World& w, Mob& m, const MobDef& d) {
     bool inFluid = w.reg.fluid(w.getBlock((int)std::floor(m.pos.x), (int)std::floor(m.pos.y + 0.2f), (int)std::floor(m.pos.z)));
     if (d.flying && m.alive()) m.vel.y *= 0.85f;   // fliers hold altitude (vertical intent set by the AI)
     else m.vel.y = inFluid ? std::min(m.vel.y * 0.8f + 0.03f, 0.08f) : std::max((m.vel.y - 0.078f) * 0.98f, -3.0f);
-    float hw = d.width * 0.5f;
+    float hw = d.width * 0.5f * m.scale(), hh = d.height * m.scale();
     bool hitX = false, hitZ = false, hitY;
-    auto boxAt = [&]() { return AABB{{m.pos.x - hw, m.pos.y, m.pos.z - hw}, {m.pos.x + hw, m.pos.y + d.height, m.pos.z + hw}}; };
+    auto boxAt = [&]() { return AABB{{m.pos.x - hw, m.pos.y, m.pos.z - hw}, {m.pos.x + hw, m.pos.y + hh, m.pos.z + hw}}; };
     float dy = sweepAxis(w, boxAt(), 1, m.vel.y, hitY); m.pos.y += dy;
     m.onGround = hitY && m.vel.y < 0;
     if (hitY) m.vel.y = 0;
@@ -142,6 +147,7 @@ int MobSystem::countNear(Vec3 p, float r, MobBehavior b) const {
 
 void MobSystem::killDrops(Mob& m, Rng& rng, MobContext* ctx) {
     const MobDef& d = reg_.def(m.type);
+    if (m.baby()) return;   // babies drop nothing
     std::vector<ItemStack> loot;
     for (auto& dr : d.drops) { int n = dr.min + rng.range(dr.max - dr.min + 1); if (n > 0) loot.push_back({dr.item, (u8)n, 0}); }
     if (ctx && ctx->dropLoot) ctx->dropLoot(m, loot);
@@ -158,10 +164,23 @@ bool MobSystem::hurt(Mob& m, float dmg, Vec3 dir, Rng& rng, MobContext* ctx) {
     return true;
 }
 
+bool MobSystem::feed(Mob& m, u16 item) {
+    const MobDef& d = reg_.def(m.type);
+    if (!m.alive() || std::find(d.food.begin(), d.food.end(), item) == d.food.end()) return false;
+    if (m.baby()) { m.growTicks = std::min(0, m.growTicks + BABY_TICKS / 10); return true; }
+    if (m.loveTicks > 0 || m.breedCooldown > 0) return false;   // not hungry for it now
+    m.loveTicks = LOVE_TICKS;
+    m.health = std::min(d.health, m.health + 2);
+    return true;
+}
+
 void MobSystem::tick(MobContext& ctx, Rng& rng) {
     const World& w = ctx.world;
     Vec3 pp = ctx.player.pos;
-    for (auto& m : mobs) {
+    struct Birth { u16 type; Vec3 pos; };
+    std::vector<Birth> born;   // appended after the loop: never resize `mobs` while iterating it
+    for (size_t mi = 0; mi < mobs.size(); mi++) {
+        Mob& m = mobs[mi];
         if (m.removed) continue;
         const MobDef& d = reg_.def(m.type);
         if (!w.isReady({(int)std::floor(m.pos.x) >> 4, (int)std::floor(m.pos.z) >> 4})) continue;   // frozen at the world edge
@@ -172,6 +191,9 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
         float frozenR = (float)(w.simulationRadius * 16 + 8);
         if (distP > frozenR) continue;
         m.prevPos = m.pos; m.prevYaw = m.yaw; m.age++;
+        if (m.growTicks < 0) m.growTicks++;
+        if (m.loveTicks > 0) m.loveTicks--;
+        if (m.breedCooldown > 0) m.breedCooldown--;
         if (m.hurtTicks > 0) m.hurtTicks--;
         if (m.attackCooldown > 0) m.attackCooldown--;
         if (!m.alive()) { if (--m.deathTicks <= 0) m.removed = true; move(w, m, d); continue; }
@@ -235,8 +257,41 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
                 m.path = findPath(w, feet, g, hb, 200); m.pathIdx = 1;
             }
             speed *= 1.8f;
+        } else if (m.loveTicks > 0 && !m.baby()) {
+            // find the nearest partner of the same kind that is also in love; meet; a baby is born
+            Mob* mate = nullptr; float best = 8 * 8;
+            for (size_t k = 0; k < mobs.size(); k++) {
+                Mob& o = mobs[k];
+                if (k == mi || o.removed || !o.alive() || o.type != m.type || o.loveTicks <= 0 || o.baby()) continue;
+                Vec3 dv = o.pos - m.pos; float dd = dv.x * dv.x + dv.z * dv.z;
+                if (dd < best && std::fabs(dv.y) < 2) { best = dd; mate = &o; }
+            }
+            if (mate) {
+                if (best < 1.6f * 1.6f) {
+                    born.push_back({m.type, (m.pos + mate->pos) * 0.5f});
+                    m.loveTicks = mate->loveTicks = 0;
+                    m.breedCooldown = mate->breedCooldown = BREED_COOLDOWN;
+                    m.path.clear();
+                } else {
+                    Vec3 dv = mate->pos - m.pos; float hd = std::sqrt(best);
+                    want = Vec3(dv.x, 0, dv.z) * (1.0f / std::max(hd, 1e-4f));
+                    m.path.clear();
+                }
+            }
         } else if (m.path.empty() || m.pathIdx >= m.path.size()) {
-            if (--m.idleTimer <= 0) {
+            if (m.baby() && --m.idleTimer <= 0) {   // babies stay near a grown-up of their kind
+                m.idleTimer = 40 + rng.range(60);
+                const Mob* parent = nullptr; float best = 16 * 16;
+                for (const Mob& o : mobs) {
+                    if (&o == &m || o.removed || o.type != m.type || o.baby()) continue;
+                    Vec3 dv = o.pos - m.pos; float dd = dv.x * dv.x + dv.z * dv.z;
+                    if (dd < best) { best = dd; parent = &o; }
+                }
+                if (parent && best > 3 * 3) {
+                    BlockPos g{(int)std::floor(parent->pos.x), (int)std::floor(parent->pos.y + 0.01f), (int)std::floor(parent->pos.z)};
+                    m.path = findPath(w, feet, g, hb, 200); m.pathIdx = 1;
+                }
+            } else if (--m.idleTimer <= 0) {
                 m.idleTimer = 60 + rng.range(140);
                 bool farFromHome = m.hasHome && (std::fabs(m.pos.x - m.home.x) > 20 || std::fabs(m.pos.z - m.home.z) > 20);
                 if (farFromHome || rng.chance(0.6f)) {
@@ -268,6 +323,11 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
             m.headYaw = clamp((float)std::remainder(ly - m.yaw, 2 * PI), -1.0f, 1.0f);
             m.headPitch = std::atan2(toP.y + 1.0f - d.height * 0.8f, std::max(distP, 0.1f));
         } else { m.headYaw *= 0.9f; m.headPitch *= 0.9f; }
+    }
+    for (const Birth& b : born) {
+        Mob& baby = spawn(b.type, b.pos, rng);
+        baby.growTicks = -BABY_TICKS;
+        births++;
     }
     mobs.erase(std::remove_if(mobs.begin(), mobs.end(), [](const Mob& m) { return m.removed; }), mobs.end());
 }

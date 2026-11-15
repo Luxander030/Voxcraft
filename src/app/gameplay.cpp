@@ -587,6 +587,17 @@ void simulateTick() {
             return;   // the world changed: nothing else this tick
         }
     }
+    {   // breeding feedback: hearts drift up from creatures in love; a burst when a baby is born
+        static int lastBirths = 0;
+        if (G->world->meta.tick % 10 == 0)
+            for (const Mob& m : G->mobs->mobs) if (m.loveTicks > 0) G->particles.puff(m.pos + Vec3(0, G->mobReg.def(m.type).height, 0), 1, rgba(240, 110, 150, 230), G->rng);
+        if (G->mobs->births < lastBirths) lastBirths = 0;   // a new session's creature system
+        if (G->mobs->births > lastBirths) {
+            for (size_t k = G->mobs->mobs.size() - std::min<size_t>(G->mobs->mobs.size(), (size_t)(G->mobs->births - lastBirths)); k < G->mobs->mobs.size(); k++)
+                G->particles.puff(G->mobs->mobs[k].pos + Vec3(0, 0.5f, 0), 10, rgba(240, 110, 150, 230), G->rng);
+            lastBirths = G->mobs->births;
+        }
+    }
     G->entities->tick(*G->world, p, G->stats.dead ? nullptr : &G->inv);
     {   // pressure plates under the player or dropped items
         BlockPos feet{(int)std::floor(p.pos.x), (int)std::floor(p.pos.y + 0.05f), (int)std::floor(p.pos.z)};
@@ -730,6 +741,16 @@ void clickUse() {
             openScreen(Screen::Trade);
             sfx3d("grazer_call", m->pos + Vec3(0, 1.6f, 0), SoundCat::Creatures, 0.6f);
             return;
+        }
+        // feed a creature its food: love mode (or a growth spurt for a baby)
+        ItemStack& hs = G->inv.slots[G->hotbarSel];
+        if (Mob* m = G->mobs->raycast(G->player.eye(), G->player.look(), 4.0f, &md); m && !hs.empty() && (!G->target.hit || md < G->target.distance)) {
+            if (G->mobs->feed(*m, hs.item)) {
+                if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
+                G->particles.puff(m->pos + Vec3(0, G->mobReg.def(m->type).height * m->scale(), 0), 6, rgba(240, 110, 150, 230), G->rng);
+                sfx("eat", 0.5f);
+                return;
+            }
         }
     }
     if (G->target.hit && !G->keys[G->options.keys[UserOptions::Sneak]] && !G->sneakLatched) {

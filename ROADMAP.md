@@ -98,6 +98,7 @@ Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, furt
 - ✅ Building shapes: slabs (double stacking), stairs (upright/upside-down), fences and panes with connections, doors (double doors, iron doors on circuits), trapdoors; box collision with 0.6-block step-up; box-accurate picking.
 - ✅ Stair corner shapes (inner/outer), fence gates, walls.
 - ✅ Building shapes in generated villages (generator v5).
+- ✅ Animal breeding: feeding, love mode, babies that grow up, persisted (creature record v3).
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

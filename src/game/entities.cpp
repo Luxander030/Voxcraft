@@ -72,10 +72,11 @@ std::vector<EntityRecord> EntityManager::collectEntities(ChunkPos p, bool remove
     if (mobs) {
         for (auto& m : mobs->mobs) {
             if (m.removed || !m.alive() || ChunkPos{(int)std::floor(m.pos.x) >> 4, (int)std::floor(m.pos.z) >> 4} != p) continue;
-            ByteWriter w; w.u8_(2);
+            ByteWriter w; w.u8_(3);
             w.str(mobs->registry().def(m.type).name);
             w.f64_(m.pos.x); w.f64_(m.pos.y); w.f64_(m.pos.z); w.f32_(m.yaw); w.f32_(m.health); w.var((u64)m.age);
             w.u8_(m.hasHome ? 1 : 0); w.f32_(m.home.x); w.f32_(m.home.y); w.f32_(m.home.z); w.u32_(m.seed);
+            w.svar(m.growTicks); w.var((u64)m.loveTicks); w.var((u64)m.breedCooldown);   // v3
             out.push_back({"mob", std::move(w.buf)});
             if (remove) m.removed = true;
         }
@@ -89,16 +90,19 @@ void EntityManager::spawnEntities(ChunkPos, std::vector<EntityRecord>&& recs) {
         if (r.type == "mob" && mobs) {
             ByteReader rd(r.payload);
             u8 ver = rd.u8_();
-            if (ver != 1 && ver != 2) continue;
+            if (ver < 1 || ver > 3) continue;
             u16 t = mobs->registry().id(rd.str());
             Vec3 pos; pos.x = (float)rd.f64_(); pos.y = (float)rd.f64_(); pos.z = (float)rd.f64_();
             float yaw = rd.f32_(), hp = rd.f32_(); int age = (int)rd.var();
             bool hasHome = false; Vec3 home; u32 seed = 0;
             if (ver >= 2) { hasHome = rd.u8_() != 0; home.x = rd.f32_(); home.y = rd.f32_(); home.z = rd.f32_(); seed = rd.u32_(); }
+            int grow = 0, love = 0, cool = 0;
+            if (ver >= 3) { grow = (int)rd.svar(); love = (int)rd.var(); cool = (int)rd.var(); }
             if (!rd.ok() || t == 0xFFFF) { VX_WARN("dropping unreadable mob record"); continue; }
             Rng rng((u64)age * 31 + 7);
             Mob& m = mobs->spawn(t, pos, rng); m.yaw = m.prevYaw = yaw; m.health = hp; m.age = age;
             m.hasHome = hasHome; m.home = home; m.seed = seed;
+            m.growTicks = std::min(0, grow); m.loveTicks = love; m.breedCooldown = cool;
             continue;
         }
         if (r.type != "item") { VX_WARN("unknown entity type '%s' dropped", r.type.c_str()); continue; }

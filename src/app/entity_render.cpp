@@ -160,12 +160,16 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
         if (dist < 32 || (G->frame + (u64)(uintptr_t)&m / 64) % 4 == 0) m.anim.update(dist < 32 ? dt : dt * 4, {hspeed, m.onGround, m.headYaw, m.headPitch});
         m.anim.boneMatrices(bones);
         float yaw = m.prevYaw + (float)std::remainder(m.yaw - m.prevYaw, 2 * PI) * alpha;
-        Mat4 world = Mat4::translate(rel.x, rel.y, rel.z) * Mat4::rotateY(-yaw) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
-        float sky, blk; lightAt(pos + Vec3(0, d.height * 0.5f, 0), sky, blk);
+        float sc = m.scale() / 16.0f;
+        Mat4 world = Mat4::translate(rel.x, rel.y, rel.z) * Mat4::rotateY(-yaw) * Mat4::scale(sc, sc, sc);
+        float sky, blk; lightAt(pos + Vec3(0, d.height * 0.5f * m.scale(), 0), sky, blk);
         if (d.emissive) { sky = 1; blk = 1; }
         u32 tint = m.hurtTicks > 0 || !m.alive() ? rgba(255, 110, 110) : rgba(255, 255, 255);
         const Model& model = G->mobReg.model(d.model);
-        for (auto& b : model.boxes) emitBox(out, world * bones[b.bone], b.min, b.size, b.tex, sky, blk, tint);
+        int head = m.baby() ? model.bone("head") : -1;
+        Mat4 headScale;   // babies: a proportionally larger head, scaled about its pivot
+        if (head >= 0) { Vec3 pv = model.bones[head].pivot; headScale = Mat4::translate(pv.x, pv.y, pv.z) * Mat4::scale(1.5f, 1.5f, 1.5f) * Mat4::translate(-pv.x, -pv.y, -pv.z); }
+        for (auto& b : model.boxes) emitBox(out, b.bone == head ? world * bones[b.bone] * headScale : world * bones[b.bone], b.min, b.size, b.tex, sky, blk, tint);
     }
     // projectiles: arrows as thin shafts along their velocity, bolts as glowing cubes
     for (const Projectile& pr : G->projectiles.list) {

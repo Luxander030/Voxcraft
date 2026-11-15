@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Animal breeding
+- Feed grazers grain or puffbirds seeds (right-click) and they fall in love; hearts drift up from them. Two
+  in love within 8 blocks walk to each other, and a baby is born.
+- Babies are half size with a larger head and a matching smaller hitbox. They stay near grown-ups
+  of their kind, drop nothing, and grow up after 10 minutes. Each feeding takes 10% off the time left.
+- Parents can breed again after 5 minutes. Love mode lasts 30 seconds.
+- Creature records are now version 3 (growth, love and cooldown). Versions 1 and 2 still load.
+- Data-driven: `"food"` in `mobs.json`. Test: `mobs_breeding_feed_love_baby_grows_and_persists`.
+
 ### World generator v5: villages with building shapes
 - New worlds use generator v5. Existing worlds keep their version and generate exactly as before.
 - Cottages have a real door facing the plaza, glass-pane windows and a stepped roof: a ring of

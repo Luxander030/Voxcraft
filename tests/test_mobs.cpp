@@ -257,3 +257,44 @@ TEST(anim_player_stances_and_swing) {
     Vec4 hand = mats[m.bone("arm_r")] * Vec4{6, 10, 0, 1};
     CHECK(hand.z < -6);                    // swing goes forward
 }
+
+TEST(mobs_breeding_feed_love_baby_grows_and_persists) {
+    Flat f("breed");
+    MobSystem ms(mobs());
+    Rng rng(5);
+    u16 g = mobs().id("grazer"), grain = items().id("grain"), coal = items().id("coal");
+    Mob& a = ms.spawn(g, {0.5f, 5, 0.5f}, rng);
+    Mob& b = ms.spawn(g, {4.5f, 5, 0.5f}, rng);
+    CHECK(!ms.feed(a, coal));                 // not its food
+    CHECK(ms.feed(ms.mobs[0], grain)); CHECK(ms.feed(ms.mobs[1], grain));
+    CHECK(!ms.feed(ms.mobs[0], grain));       // already in love
+    (void)a; (void)b;
+    Player p; p.pos = {40, 5, 40};
+    MobContext ctx{f.w, p, false, 1.0f, nullptr, nullptr};
+    for (int t = 0; t < 400 && ms.births == 0; t++) ms.tick(ctx, rng);
+    REQUIRE(ms.births == 1);
+    REQUIRE(ms.mobs.size() == 3);
+    Mob& baby = ms.mobs[2];
+    CHECK(baby.baby()); CHECK(baby.scale() < 1);
+    CHECK(ms.mobs[0].breedCooldown > 0 && ms.mobs[0].loveTicks == 0);
+    CHECK(!ms.feed(ms.mobs[0], grain));       // cooling down
+    // the baby is smaller for collision and picking
+    AABB bb = baby.box(mobs().def(g));
+    CHECK(bb.max.y - bb.min.y < mobs().def(g).height * 0.6f);
+    // feeding a baby speeds it up; it grows into an adult
+    int before = baby.growTicks;
+    CHECK(ms.feed(baby, grain)); CHECK(baby.growTicks > before);
+    // persistence: a v3 record keeps age and cooldowns
+    EntityManager em(items()); em.mobs = &ms;
+    ChunkPos cp{(int)std::floor(baby.pos.x) >> 4, (int)std::floor(baby.pos.z) >> 4};
+    int grow = baby.growTicks;
+    auto recs = em.collectEntities(cp, true);
+    REQUIRE(ms.mobs.empty() || std::none_of(ms.mobs.begin(), ms.mobs.end(), [](const Mob& m) { return m.baby(); }));
+    em.spawnEntities(cp, std::move(recs));
+    const Mob* back = nullptr; for (auto& m : ms.mobs) if (m.baby()) back = &m;
+    REQUIRE(back); CHECK_EQ(back->growTicks, grow);
+    Mob& kid = const_cast<Mob&>(*back);
+    kid.growTicks = -3;
+    for (int t = 0; t < 5; t++) ms.tick(ctx, rng);
+    CHECK(!kid.baby());
+}
