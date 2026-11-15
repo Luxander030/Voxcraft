@@ -299,6 +299,7 @@ void sfx3d(const std::string& n, Vec3 at, SoundCat cat, float gain) {
 bool startSession(const std::string& worldName, const NewWorld* create, std::string* err) {
     G->opt.world = worldName;
     resetPlayerState();
+    G->bobber.removed = true;   // no fishing line carries over from another world
     G->entities = std::make_unique<EntityManager>(G->items);
     G->mobs = std::make_unique<MobSystem>(G->mobReg);
     G->entities->mobs = G->mobs.get();
@@ -380,7 +381,7 @@ bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* 
         G->world->close();
         G->world.reset();
     }
-    G->entities->items.clear(); G->mobs->mobs.clear(); G->carts->carts.clear(); G->riding = 0; G->particles.parts.clear(); G->projectiles.list.clear();
+    G->entities->items.clear(); G->mobs->mobs.clear(); G->carts->carts.clear(); G->riding = 0; G->particles.parts.clear(); G->projectiles.list.clear(); G->bobber.removed = true;
     fs::path dir = dim == "overworld" ? G->saveDir : G->saveDir / "dim" / dim;
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
@@ -599,7 +600,7 @@ void simulateTick() {
         }
     } else G->eatTicks = 0;
     if (G->useCooldown > 0) G->useCooldown--;
-    if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && (h->isFood() || h->name == "bow"))) { clickUse(); }
+    if (!inScreen && G->mouseDown[1] && G->useCooldown == 0 && !(h && (h->isFood() || h->name == "bow" || h->name == "fishing_rod")))  { clickUse(); }
 
     // rift travel: stand in a rift for 4 s (0.5 s in creative)
     {
@@ -670,6 +671,14 @@ void simulateTick() {
             else sfx3d("dig_wood", pr.pos, SoundCat::Blocks, 0.5f);
         };
         G->projectiles.tick(*G->world, *G->mobs, p, h);
+        if (!G->bobber.removed) {   // the line: reeled in when the rod leaves the hand
+            const ItemStack& rs = G->inv.slots[G->hotbarSel];
+            if (G->stats.dead || rs.empty() || G->items.def(rs.item).name != "fishing_rod") G->bobber.removed = true;
+            else if (Fishing::tick(*G->world, G->bobber, p.eye(), G->rng)) {
+                G->particles.puff(G->bobber.pos, 8, rgba(200, 220, 255, 220), G->rng);
+                sfx3d("splash", G->bobber.pos, SoundCat::Blocks, 0.5f);
+            }
+        }
         for (auto& pr : G->projectiles.list) if (pr.kind == ProjKind::EmberBolt && G->rng.chance(0.5f)) G->particles.flame(pr.pos, (u16)std::max(0, G->pack.layer("cinderwisp_core")), G->rng);
     }
     // bow: hold use to draw, release to loose an arrow
@@ -802,6 +811,24 @@ void clickUse() {
             return;
         }
         ItemStack& hs = G->inv.slots[G->hotbarSel];
+        // fishing: cast, or reel in (a catch flies toward the player)
+        if (!hs.empty() && G->items.def(hs.item).name == "fishing_rod") {
+            Player& pl = G->player;
+            if (!G->bobber.removed) {
+                Vec3 at = G->bobber.pos;
+                ItemStack got = Fishing::reel(G->bobber, G->items, G->rng);
+                if (!got.empty()) {
+                    Vec3 d = pl.eye() - at;
+                    G->entities->spawnItem(at + Vec3(0, 0.2f, 0), got, G->rng, {d.x * 0.1f, d.y * 0.1f + std::sqrt(length(d)) * 0.08f, d.z * 0.1f});
+                    sfx3d("splash", at, SoundCat::Blocks, 0.6f);
+                    damageHeldTool();
+                }
+            } else {
+                G->bobber = Fishing::cast(pl.eye(), pl.look(), G->rng);
+                sfx3d("cast", pl.eye(), SoundCat::Blocks, 0.5f);
+            }
+            return;
+        }
         // carts: put one on a rail, or climb into one
         float cd = 0;
         Cart* cart = G->carts->raycast(G->player.eye(), G->player.look(), 4.0f, &cd);

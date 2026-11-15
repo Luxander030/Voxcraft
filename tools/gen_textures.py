@@ -510,6 +510,26 @@ def cart_icon(px, rng):
         for x in range(2, 14): put(px, x, y, rim if y == 5 else body)
     for x in (4, 5, 10, 11): put(px, x, 11, wheel); put(px, x, 12, wheel)
 
+def fish_icon(body, back, belly, fin, eye=(20, 20, 24, 255)):
+    """A fish swimming left: an elliptical body, a forked tail, a dorsal fin."""
+    def d(px, rng):
+        for y in range(N):
+            for x in range(2, 12):
+                dd = ((x - 7) / 5.0) ** 2 + ((y - 8) / 3.0) ** 2
+                if dd < 1: put(px, x, y, back if y < 7 else belly if y > 9 else body)
+        for k in range(4): put(px, 12 + k // 2, 8 - 1 - k // 2 - (k % 2), fin); put(px, 12 + k // 2, 8 + 1 + k // 2 + (k % 2) - 1, fin)
+        put(px, 12, 8, fin)
+        for x in (6, 7, 8): put(px, x, 4, fin)
+        put(px, 7, 3, fin)
+        put(px, 4, 7, eye)
+    return item(d)
+
+def rod_icon(px, rng):
+    for k in range(12): put(px, 2 + k, 13 - k, HANDLE[k % 2])          # the pole, corner to corner
+    line = hexc("e8e8e8")
+    for y in range(2, 12): put(px, 13, y, line)                         # the line hanging from the tip
+    put(px, 13, 12, hexc("e03a2a")); put(px, 12, 12, hexc("f0f0f0"))   # the bobber
+
 def storage_cart_icon(px, rng):
     cart_icon(px, rng)
     wood, dark, latch = hexc("a8854f"), hexc("6e5131"), hexc("d8d8d8")
@@ -602,6 +622,8 @@ ENTITY_RECIPES = {
     "gloomling_face": face(pal("3a2a48", "322440", "443254"), pal("ffd040", "fff4a0"), 7, 7, hexc("1a1020"), 3),
     "gloomling_leg": lambda r: noisy(r, pal("2a1e36", "241a30", "322440"), 0.5, 4),
     "cinderwisp_core": lambda r: noisy(r, pal("ff8a20", "ffb040", "e86010", "ffd070"), 0.6, 3),
+    "bobber": lambda r: [hexc("e03a2a") if i // N < 8 else hexc("f2f2f2") for i in range(N * N)],
+    "fishing_line": lambda r: [hexc("dcdcdc")] * (N * N),
     "cinderwisp_face": face(pal("ff8a20", "ffb040", "e86010"), pal("3a0a00", "fff4c0"), 6, 6, hexc("6a1a00")),
     "cinderwisp_shard": lambda r: noisy(r, pal("5a2a2a", "ff6a10", "442020"), 0.4, 2),
     "sun": lambda r: [hexc("fff8d0") if max(abs(x - 7.5), abs(y - 7.5)) < 5 else (hexc("ffe890") if max(abs(x - 7.5), abs(y - 7.5)) < 7 else CLEAR) for y in range(N) for x in range(N)],
@@ -665,6 +687,11 @@ for _m, _names in ARMOR_NAMES.items():
 ITEM_RECIPES.update({
     "cart": item(cart_icon),
     "storage_cart": item(storage_cart_icon),
+    "fishing_rod": item(rod_icon),
+    "silverfin": fish_icon(hexc("b8c4cc"), hexc("6a7e8e"), hexc("e8eef2"), hexc("8a9aa8")),
+    "cooked_silverfin": fish_icon(hexc("c8905a"), hexc("8a5a30"), hexc("e0b080"), hexc("7a4a24")),
+    "glowgill": fish_icon(hexc("3aa890"), hexc("1e6a5a"), hexc("8ae8c8"), hexc("e8d040")),
+    "cooked_glowgill": fish_icon(hexc("b0884a"), hexc("6e5228"), hexc("d8b878"), hexc("c89a30")),
     "hopper_cart": item(hopper_cart_icon),
     "oak_door_item": item(door_icon(hexc("6e5131"), hexc("a8854f"), hexc("b8dcf0"))),
     "iron_door_item": item(door_icon(hexc("8a8a8a"), hexc("c8c8c8"), hexc("6a6a6a"))),

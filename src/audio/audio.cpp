@@ -79,6 +79,7 @@ void SoundBank::generate() {
     { Gen g("hurt", 0.25f); g.fm(0, 0.2f, 220, 120, 1.5f, 2.0f, 0.8f); g.burst(0, 0.1f, 1500, 100, 0.4f, 30); sounds_["hurt"] = g.done(); }
     { Gen g("eat", 0.5f); for (int k = 0; k < 5; k++) g.burst(k * 0.09f, 0.07f, 3500, 400, 0.8f, 40); sounds_["eat"] = g.done(); }
     { Gen g("splash", 0.6f); g.burst(0, 0.55f, 5000, 300, 1.0f, 6); g.burst(0.05f, 0.3f, 1500, 200, 0.5f, 12); sounds_["splash"] = g.done(); }
+    { Gen g("cast", 0.3f); g.burst(0, 0.22f, 3000, 700, 0.5f, 9); sounds_["cast"] = g.done(); }   // a line whipping out
     { Gen g("click_circuit", 0.08f); g.burst(0, 0.05f, 6000, 1500, 1.0f, 120); g.ring(0, 1800, 0.3f, 90); sounds_["click_circuit"] = g.done(); }
     { Gen g("piston", 0.35f); g.burst(0, 0.3f, 900, 60, 1.0f, 12); g.ring(0, 140, 0.6f, 14); sounds_["piston"] = g.done(); }
     // creatures

@@ -216,6 +216,32 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
         emitBox(out, m, {-0.5f, -0.5f, -5}, {1, 1, 9}, ts, sky, blk, rgba(255, 255, 255));
         emitBox(out, m, {-1, -1, -7}, {2, 2, 2}, tt, sky, blk, rgba(255, 255, 255));
     }
+    // fishing: the bobber (dipped while a fish bites) and the line from the rod tip, sagging
+    if (!G->bobber.removed) {
+        const Bobber& bb = G->bobber;
+        Vec3 bpos = bb.prevPos + (bb.pos - bb.prevPos) * alpha, brel = bpos - eye;
+        int lb = std::max(0, G->pack.layer("bobber")), ll = std::max(0, G->pack.layer("fishing_line"));
+        u16 tb[6] = {(u16)lb, (u16)lb, (u16)lb, (u16)lb, (u16)lb, (u16)lb}, tl[6] = {(u16)ll, (u16)ll, (u16)ll, (u16)ll, (u16)ll, (u16)ll};
+        float sky, blk; lightAt(bpos, sky, blk);
+        emitBox(out, Mat4::translate(brel.x, brel.y, brel.z) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f), {-1.5f, -1.5f, -1.5f}, {3, 3, 3}, tb, sky, blk, rgba(255, 255, 255));
+        Vec3 look = G->player.look(), right = normalize(Vec3(-look.z, 0, look.x));
+        Vec3 tip = G->player.eye() + look * 0.9f + right * 0.35f + Vec3(0, 0.25f, 0);
+        float span = length(bpos - tip), sag = bb.inWater ? std::min(1.5f, span * 0.08f) : 0.0f;
+        constexpr int SEG = 16;
+        Vec3 prev = tip;
+        for (int k = 1; k <= SEG; k++) {
+            float t = (float)k / SEG;
+            Vec3 cur = tip + (bpos - tip) * t - Vec3(0, sag * 4 * t * (1 - t), 0);
+            Vec3 d = cur - prev; float len = length(d);
+            if (len > 1e-4f) {
+                float hz = std::sqrt(d.x * d.x + d.z * d.z), yaw = std::atan2(d.x, -d.z), pitch = std::atan2(d.y, std::max(hz, 1e-5f));
+                Vec3 r = prev - eye;
+                Mat4 m = Mat4::translate(r.x, r.y, r.z) * Mat4::rotateY(-yaw) * Mat4::rotateX(pitch) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
+                emitBox(out, m, {-0.2f, -0.2f, -len * 16}, {0.4f, 0.4f, len * 16}, tl, sky, blk, rgba(255, 255, 255));
+            }
+            prev = cur;
+        }
+    }
     // dropped items: small spinning cubes (block items) or crossed sprites
     for (auto& e : G->entities->items) {
         Vec3 rel = e.pos - eye;

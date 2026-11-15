@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fishing
+- Fishing rods (3 sticks and 2 shadow thread, 64 uses). Right-click casts the line; right-click
+  again reels in. The bobber floats on water. After a wait of 5 to 25 seconds (twice as long under
+  a roof), a fish bites: the bobber dips and splashes for 1.5 seconds. Reeling in then pulls the
+  catch toward you.
+- Catches: silverfin (60%) and glowgill (15%), both cookable in a kiln; junk (20%: sticks, hide,
+  shadow thread); treasure (5%: azurite, gold, ember shards).
+- New original textures: four fish icons, the rod, the bobber and the line. New synthesized
+  "cast" sound.
+- Tests: `fishing_bobber_lands_and_floats_on_the_pond`,
+  `fishing_bites_come_and_go_and_only_a_timely_reel_catches`,
+  `fishing_covered_water_bites_slower_and_catch_table_is_mostly_fish`.
+
 ### Creatures riding carts, trip rails
 - An empty cart that is moving picks up a walking creature up to one block wide that it runs into.
   The creature rides along until the cart crosses an active trip rail or is broken. A player can't

@@ -14,7 +14,7 @@ Windows hardware. See [ROADMAP.md](ROADMAP.md).
   - Water and lava that flow, rain and snow, a day/night cycle, and a distant-terrain horizon.
 - **Survival:**
   - Tools in four tiers, crafting, kilns, chests, health, hunger, armor, farming, bedrolls,
-    buckets, bows and arrows.
+    buckets, bows and arrows, fishing.
 - **Creatures (all original):**
   - Grazers, puffbirds, gloomlings, rockmites and settlers who trade.
   - In the Hollow, cinderwisps that shoot ember bolts.

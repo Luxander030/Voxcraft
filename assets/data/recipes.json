@@ -97,6 +97,7 @@
     {"pattern": ["AAA", "A A", "A A"], "key": {"A": "azurite"}, "result": "azurite_greaves"},
     {"pattern": ["A A", "A A"], "key": {"A": "azurite"}, "result": "azurite_boots"},
     {"pattern": [" ST", "S T", " ST"], "key": {"S": "stick", "T": "shadow_thread"}, "result": "bow"},
+    {"pattern": ["  S", " ST", "S T"], "key": {"S": "stick", "T": "shadow_thread"}, "result": "fishing_rod"},
     {"pattern": ["F", "S", "E"], "key": {"F": "flint", "S": "stick", "E": "feather"}, "result": "arrow", "count": 4},
     {"pattern": ["E", "F"], "key": {"E": "ember_shard", "F": "flint"}, "result": "ember_striker"},
     {"pattern": ["PPP", "BBB", "PPP"], "key": {"P": "#planks", "B": "clay_lump"}, "result": "bookshelf"}
@@ -123,7 +124,9 @@
     {"input": "#logs", "result": "coal"},
     {"input": "wild_root", "result": "baked_root"},
     {"input": "raw_venison", "result": "cooked_venison"},
-    {"input": "raw_fowl", "result": "cooked_fowl"}
+    {"input": "raw_fowl", "result": "cooked_fowl"},
+    {"input": "silverfin", "result": "cooked_silverfin"},
+    {"input": "glowgill", "result": "cooked_glowgill"}
   ],
   "trades": [
     {"give": "grain", "give_count": 12, "get": "copper_ingot", "get_count": 1},

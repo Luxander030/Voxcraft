@@ -12,6 +12,7 @@
 #include "game/mobs.h"
 #include "game/particles.h"
 #include "game/projectiles.h"
+#include "game/fishing.h"
 #include "game/shapes.h"
 #include "game/player.h"
 #include "game/survival.h"
@@ -90,6 +91,7 @@ struct Game {
     SoundBank sounds;
     ParticleSystem particles;
     ProjectileSystem projectiles;
+    Bobber bobber{{}, {}, {}, false, true};   // the cast fishing line (removed = none out)
     int bowCharge = 0; bool prevRight = false;
     u32 tradeSeed = 0; Vec3 tradePos; bool tradeClick = false;   // the settler being traded with
     std::unique_ptr<Mixer> mixer;

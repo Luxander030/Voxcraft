@@ -104,6 +104,7 @@ Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, furt
 - ✅ Storage carts (27-slot chest, persisted, loaded and unloaded by hoppers).
 - ✅ Hopper carts (5 slots; pull from containers above, pick up items on the track).
 - ✅ Creatures ride carts that run into them; trip rails drop riders off and lock hopper carts.
+- ✅ Fishing: rod, floating bobber, bites, a weighted catch table (fish, junk, treasure), cookable fish.
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

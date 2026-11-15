@@ -159,6 +159,14 @@ in the cell. Any cart with an inventory is unloaded by a hopper below the track.
 A cart's inventory screen reuses `Screen::Chest` with `openCart` set, and closes when the cart rolls
 more than 6 blocks away or breaks.
 
+## Fishing
+
+`game/fishing.cpp` is pure logic over the world: a cast bobber is a small box using the same
+`sweepAxis` as everything else. It floats on the water surface, and in water it counts down a random
+wait (doubled under an opaque roof). A bite is a 30-tick window in which reeling lands a catch from
+a weighted table. The bobber is transient state on the game (`G->bobber`), never saved: switching
+items, dying, walking 32 blocks away or leaving the world reels it in.
+
 ## Block updates and fluids
 
 `game/behaviors.cpp` subscribes to World's neighbour-update, scheduled-tick and random-tick hooks.
