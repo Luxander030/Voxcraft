@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Creatures riding carts, trip rails
+- An empty cart that is moving picks up a walking creature up to one block wide that it runs into.
+  The creature rides along until the cart crosses an active trip rail or is broken. A player can't
+  climb into an occupied cart, and the cart the player rides never picks anything up.
+- Trip rails (6 iron, 2 sticks and a spark torch, makes 6) become active while they receive a
+  circuit signal. An active trip rail drops off any rider, the player included, and stops a hopper
+  cart on it from moving items.
+- Creature record v4 adds an "in a cart" flag; a saved rider boards its cart again on load.
+- Tests: `creatures_ride_carts_until_a_trip_rail_drops_them_off`, `trip_rail_locks_hopper_carts`.
+
 ### Hopper carts
 - Hopper carts (a hopper on a cart) hold 5 slots. Every 4 ticks they pull an item from a container
   above the track, or pick up items lying on it. A hopper under the track empties them like a

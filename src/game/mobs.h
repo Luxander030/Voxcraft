@@ -56,6 +56,8 @@ struct Mob {
     // Breeding: growTicks < 0 while a baby (counts up to 0); loveTicks > 0 after being fed;
     // breedCooldown > 0 after breeding.
     int growTicks = 0, loveTicks = 0, breedCooldown = 0;
+    // Riding a cart: the cart's id (runtime only; saved as a flag and re-attached on load).
+    u32 cartId = 0; bool boardOnLoad = false;
     Animator anim;
     bool baby() const { return growTicks < 0; }
     float scale() const { return baby() ? 0.5f : 1.0f; }

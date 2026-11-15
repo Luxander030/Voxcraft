@@ -500,6 +500,8 @@ RECIPES.update({
     "powered_rail_on": track(pal("c8a040", "e8c860"), TIES, hexc("e83a20")),
     "detector_rail": track(pal("9a9aa0", "c8c8d0"), TIES, hexc("6a6c72")),
     "detector_rail_on": track(pal("9a9aa0", "c8c8d0"), TIES, hexc("40c8e0")),
+    "trip_rail": track(pal("7a6a8a", "a898b8"), TIES, hexc("3a2a4a")),
+    "trip_rail_on": track(pal("7a6a8a", "a898b8"), TIES, hexc("c060f0")),
 })
 
 def cart_icon(px, rng):

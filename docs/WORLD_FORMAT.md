@@ -71,9 +71,10 @@ var nBlockEntities; repeat: u16 index, u8 kind, 4 x svar data, var slots, var no
                             repeat nonEmpty: var slot, var itemPalette, u8 count, var damage
 var nTicks; repeat: u16 index, var blockPalette, svar (due - worldTick), u8 priority
 var nEntities; repeat: str type, var len, u8[len] payload
-                            ("mob" payload v3: u8 3, str type, f64 x3 pos, f32 yaw, f32 health, var age,
-                             u8 hasHome, f32 x3 home, u32 seed, svar growTicks, var loveTicks, var breedCooldown;
-                             v1/v2 are prefixes of this layout and still load;
+                            ("mob" payload v4: u8 4, str type, f64 x3 pos, f32 yaw, f32 health, var age,
+                             u8 hasHome, f32 x3 home, u32 seed, svar growTicks, var loveTicks, var breedCooldown,
+                             u8 inCart (riding the cart saved at the same spot; re-attached on load);
+                             v1-v3 are prefixes of this layout and still load;
                              "cart" payload v2: u8 2, f64 x3 pos, f32 x3 vel, f32 yaw, u8 kind (0 plain,
                              1 storage, 2 hopper), var nonEmpty, repeat nonEmpty: u8 slot, str item, u8 count, var damage;
                              v1 is the prefix up to yaw and loads as a plain cart)

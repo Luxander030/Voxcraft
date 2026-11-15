@@ -37,8 +37,10 @@ bool CartSystem::railCell(const World& w, Vec3 p, BlockPos& cell, BlockState& s)
 void CartSystem::step(const World& w, Cart& c) {
     c.prevPos = c.pos; c.prevYaw = c.yaw; c.prevPitch = c.pitch;
     if (c.hurtTicks > 0) c.hurtTicks--;
+    if (c.pickupDelay > 0) c.pickupDelay--;
     BlockPos cell; BlockState s;
     c.onRail = railCell(w, c.pos, cell, s);
+    c.onTrip = c.onRail && isTripRail(w.reg, s) && w.reg.getProp(s, "active");
     if (c.onRail) {
         int shape = w.reg.getProp(s, "shape");
         RailGeom g = railGeometry(shape);
@@ -160,15 +162,47 @@ std::vector<ItemStack> cartDrops(const Cart& c, const ItemRegistry& items, bool 
     return out;
 }
 
-void collideCartsWithMobs(CartSystem& cs, MobSystem& ms) {
+void collideCartsWithMobs(CartSystem& cs, MobSystem& ms, u32 playerCart) {
+    for (auto& c : cs.carts) c.carriesMob = false;
+    // riders: follow their cart, or get off
+    for (auto& m : ms.mobs) {
+        if (m.boardOnLoad) {   // saved riding: board the cart it was saved in
+            m.boardOnLoad = false;
+            auto claimed = [&](u32 id) { for (auto& o : ms.mobs) if (o.cartId == id) return true; return false; };
+            for (auto& c : cs.carts)
+                if (!c.removed && c.kind == CartKind::Plain && !claimed(c.id) && std::fabs(c.pos.x - m.pos.x) < 0.6f && std::fabs(c.pos.z - m.pos.z) < 0.6f && std::fabs(c.pos.y - m.pos.y) < 1.0f) { m.cartId = c.id; break; }
+        }
+        if (!m.cartId) continue;
+        Cart* c = cs.byId(m.cartId);
+        if (m.removed || !m.alive() || !c || c->onTrip || c->carriesMob) {
+            if (c && !m.removed) {   // step off to the side of the track
+                c->pickupDelay = 20;
+                Vec3 side{std::cos(c->yaw), 0, std::sin(c->yaw)};
+                m.vel = side * 0.25f + Vec3(0, 0.2f, 0);
+            }
+            m.cartId = 0;
+            continue;
+        }
+        c->carriesMob = true;
+        Vec3 off{0, 0.2f, 0};
+        m.prevPos = c->prevPos + off; m.pos = c->pos + off; m.vel = {}; m.onGround = true;
+        m.prevYaw = c->prevYaw; m.yaw = c->yaw;
+    }
     if (cs.carts.empty()) return;
     for (auto& m : ms.mobs) {
-        if (m.removed || !m.alive()) continue;
+        if (m.removed || !m.alive() || m.cartId) continue;
         const MobDef& d = ms.registry().def(m.type);
         AABB mb = m.box(d);
         for (auto& c : cs.carts) {
             Vec3 n; float approach;
             if (!CartSystem::contact(c, mb, m.vel, n, approach)) continue;
+            float speed = std::sqrt(c.vel.x * c.vel.x + c.vel.z * c.vel.z);
+            if (c.kind == CartKind::Plain && !c.carriesMob && c.id != playerCart && c.pickupDelay == 0 && !c.onTrip &&
+                speed > 0.05f && !d.flying && d.width * m.scale() <= 1.0f) {
+                m.cartId = c.id; c.carriesMob = true; m.path.clear();
+                m.prevPos = m.pos = c.pos + Vec3(0, 0.2f, 0); m.vel = {};
+                break;
+            }
             if (approach > 0) {
                 m.vel += n * approach;
                 if (m.onGround) m.vel.y = std::max(m.vel.y, 0.2f);   // bumped off its feet

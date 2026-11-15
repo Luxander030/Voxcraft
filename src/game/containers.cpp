@@ -164,7 +164,7 @@ void tickContainers(ContainerContext& c, ChunkPos center, int radius) {
     }
     // hopper carts: pull from the container above the cart, or pick up items in the cart's cell
     if (c.carts) for (auto& cart : c.carts->carts) {
-        if (cart.removed || cart.kind != CartKind::Hopper) continue;
+        if (cart.removed || cart.kind != CartKind::Hopper || cart.onTrip) continue;   // locked on an active trip rail
         BlockPos cell{(int)std::floor(cart.pos.x), (int)std::floor(cart.pos.y + 0.01f), (int)std::floor(cart.pos.z)};
         if (!c.world.isReady(cell.chunk())) continue;
         if (cart.cooldown > 0) { cart.cooldown--; continue; }

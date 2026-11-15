@@ -204,6 +204,13 @@ void MobSystem::tick(MobContext& ctx, Rng& rng) {
             if (++m.burnTimer >= 20) { m.burnTimer = 0; m.hurtTicks = 0; hurt(m, 2, Vec3(0, 0, 0.001f), rng, &ctx); }
         }
 
+        // ---- riding a cart: the cart moves it (collideCartsWithMobs); just look around
+        if (m.cartId) {
+            m.path.clear(); m.vel = {};
+            if (distP < 8) { float ly = std::atan2(toP.x, -toP.z); m.headYaw = clamp((float)std::remainder(ly - m.yaw, 2 * PI), -1.0f, 1.0f); }
+            continue;
+        }
+
         // ---- flying ranged attackers: hover at range, strafe, shoot with line of sight
         if (d.flying) {
             Vec3 eye = m.pos + Vec3(0, d.height * 0.6f, 0), target = pp + Vec3(0, 1.3f, 0);

@@ -166,7 +166,7 @@ TEST(carts_knock_creatures_aside_and_players_push_carts) {
     for (int t = 0; t < 40 && !hit; t++) {
         cs.tick(e.w);
         float v = cs.carts[0].vel.x;
-        collideCartsWithMobs(cs, ms);
+        collideCartsWithMobs(cs, ms, cs.carts[0].id);   // the player's own cart: knocks creatures aside, never picks them up
         if (length(ms.mobs[0].vel) > 0.1f) { hit = true; speedAtHit = v; }
     }
     REQUIRE(hit);
@@ -248,4 +248,54 @@ TEST(storage_carts_persist_contents_and_drop_them_when_broken) {
     CHECK(hs.carts[0].kind == CartKind::Hopper); CHECK_EQ(hs.carts[0].items.size(), (size_t)CartSystem::HOPPER_SLOTS);
     CHECK_EQ(hs.carts[0].items[4].count, 7);
     CHECK(cartDrops(hs.carts[0], itemsReg(), false)[0].item == itemsReg().id("hopper_cart"));
+}
+
+TEST(creatures_ride_carts_until_a_trip_rail_drops_them_off) {
+    Env e("cartride");
+    for (int x = 0; x <= 40; x++) e.rail(x, 5, 0);
+    e.w.setBlock({20, 5, 0}, blocks().stateOf("trip_rail"));
+    e.w.setBlock({20, 5, 1}, blocks().stateOf("lever"));
+    e.b->toggleLever({20, 5, 1});
+    for (int i = 0; i < 4; i++) e.w.tick();
+    REQUIRE(blocks().getProp(e.w.getBlock({20, 5, 0}), "active") == 1);
+    CHECK_EQ(e.shape(20, 5, 0), 1);
+    MobSystem ms(mobReg()); Rng rng(3);
+    ms.spawn(mobReg().id("grazer"), {8.5f, 5, 0.5f}, rng).vel = {};
+    CartSystem cs;
+    cs.spawn({2.5f, 5, 0.5f}).vel = {0.3f, 0, 0};
+    bool boarded = false; float maxErr = 0;
+    for (int t = 0; t < 40; t++) {
+        cs.tick(e.w); collideCartsWithMobs(cs, ms);
+        const Mob& m = ms.mobs[0];
+        if (m.cartId) { boarded = true; maxErr = std::max(maxErr, std::fabs(m.pos.x - cs.carts[0].pos.x)); }
+        if (cs.carts[0].pos.x > 15) break;
+    }
+    REQUIRE(boarded);
+    CHECK(maxErr < 1e-4f);                                // rides along exactly with the cart
+    CHECK(cs.carts[0].carriesMob);
+    CHECK(cs.carts[0].vel.x > 0.25f);                     // boarding does not stop the cart
+    // the player cannot share it, and it saves with its rider
+    {
+        EntityManager em(itemsReg()); em.mobs = &ms; em.carts = &cs;
+        auto recs = em.collectEntities({0, 0}, true);
+        REQUIRE(ms.mobs.empty()); REQUIRE(cs.carts.empty());
+        em.spawnEntities({0, 0}, std::move(recs));
+        REQUIRE(ms.mobs.size() == 1); REQUIRE(cs.carts.size() == 1);
+        collideCartsWithMobs(cs, ms);
+        CHECK(ms.mobs[0].cartId == cs.carts[0].id);       // re-attached after loading
+    }
+    for (int t = 0; t < 60 && ms.mobs[0].cartId; t++) { cs.tick(e.w); collideCartsWithMobs(cs, ms); }
+    CHECK(ms.mobs[0].cartId == 0);                        // dropped off ...
+    CHECK(std::fabs(cs.carts[0].pos.x - 20.5f) < 1.0f);   // ... at the trip rail
+    CHECK(!cs.carts[0].carriesMob);
+    // the empty cart rolls on without scooping the creature straight back up
+    for (int t = 0; t < 20; t++) { cs.tick(e.w); collideCartsWithMobs(cs, ms); }
+    CHECK(ms.mobs[0].cartId == 0);
+    // the player's cart and slow carts never pick anything up
+    MobSystem m2(mobReg());
+    m2.spawn(mobReg().id("grazer"), {33.5f, 5, 0.5f}, rng).vel = {};
+    CartSystem c2;
+    Cart& mine = c2.spawn({30.5f, 5, 0.5f}); mine.vel = {0.3f, 0, 0};
+    for (int t = 0; t < 20; t++) { c2.tick(e.w); collideCartsWithMobs(c2, m2, mine.id); }
+    CHECK(m2.mobs[0].cartId == 0);
 }

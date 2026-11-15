@@ -495,6 +495,7 @@ void simulateTick() {
         Cart* oc = G->carts->byId(G->openCart);
         if (!oc || length(oc->pos - p.pos) > 6.0f) closeScreen();
     }
+    if (Cart* rc = G->riding ? G->carts->byId(G->riding) : nullptr; rc && rc->onTrip) dismountCart();   // trip rail drops riders off
     if (!G->stats.dead) p.vel += collideCartsWithPlayer(*G->carts, p.box(), p.pos - before, G->riding);
     if (G->riding) {
         if (Cart* c = G->carts->byId(G->riding)) {
@@ -637,7 +638,7 @@ void simulateTick() {
     }
     MobContext ctx = mobContext();
     G->mobs->tick(ctx, G->rng);
-    collideCartsWithMobs(*G->carts, *G->mobs);
+    collideCartsWithMobs(*G->carts, *G->mobs, G->riding);
     // particles: simulate, and let nearby torches emit flames (random sampling: no world scans)
     G->particles.tick(*G->world);
     for (int i = 0; i < 200; i++) {
@@ -808,7 +809,7 @@ void clickUse() {
         bool holdingCart = !hs.empty() && cartKindFromItem(G->items.def(hs.item).name, heldKind);
         if (cart && !holdingCart && (!G->target.hit || cd < G->target.distance)) {
             if (!cart->items.empty()) { G->openCart = cart->id; openScreen(Screen::Chest); }
-            else G->riding = cart->id;
+            else if (!cart->carriesMob) G->riding = cart->id;
             return;
         }
         if (holdingCart && G->target.hit && isRail(G->reg, G->world->getBlock(G->target.block))) {

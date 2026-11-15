@@ -28,6 +28,9 @@ struct Cart {
     float yaw = 0, prevYaw = 0, pitch = 0, prevPitch = 0;
     int damage = 0, hurtTicks = 0;
     bool removed = false, onRail = false;
+    bool onTrip = false;      // on an active trip rail this tick: riders get off, hopper carts lock
+    bool carriesMob = false;  // a creature is riding (derived each tick from the creatures)
+    int pickupDelay = 0;      // ticks before it can pick up a creature again (after dropping one off)
     AABB box() const { return {{pos.x - 0.49f, pos.y, pos.z - 0.49f}, {pos.x + 0.49f, pos.y + 0.7f, pos.z + 0.49f}}; }
 };
 
@@ -65,9 +68,12 @@ bool cartKindFromItem(const std::string& item, CartKind& out);   // false: not a
 // and always a storage cart's contents.
 std::vector<ItemStack> cartDrops(const Cart& c, const ItemRegistry& items, bool creative);
 
-// Carts against creatures: a cart running into a creature knocks it aside (the creature takes the
-// closing speed and the cart loses CREATURE_MASS/2 of it), and overlapping bodies drift apart.
-void collideCartsWithMobs(CartSystem& carts, MobSystem& mobs);
+// Carts against creatures. An empty plain cart that is moving picks up a walking creature up to one
+// block wide that it runs into (not the player's cart, not on an active trip rail); the creature
+// rides until the cart crosses an active trip rail or breaks. Otherwise a cart running into a
+// creature knocks it aside (the creature takes the closing speed and the cart loses CREATURE_MASS/2
+// of it), and overlapping bodies drift apart. Also re-attaches creatures saved riding a cart.
+void collideCartsWithMobs(CartSystem& carts, MobSystem& mobs, u32 playerCart = 0);
 // The player walking into a cart (not the ridden one) nudges it along the track; a cart running
 // into the player shoves them aside. Returns the push for the player.
 Vec3 collideCartsWithPlayer(CartSystem& carts, const AABB& player, Vec3 playerVel, u32 ridden);

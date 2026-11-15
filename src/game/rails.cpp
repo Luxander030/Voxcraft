@@ -5,6 +5,7 @@ namespace vx {
 bool isRail(const BlockRegistry& reg, BlockState s) { return s != AIR && reg.def(s).shape == BlockShape::Rail; }
 bool isPoweredRail(const BlockRegistry& reg, BlockState s) { return isRail(reg, s) && reg.def(s).propIndex("powered") >= 0; }
 bool isDetectorRail(const BlockRegistry& reg, BlockState s) { return isRail(reg, s) && reg.def(s).propIndex("on") >= 0; }
+bool isTripRail(const BlockRegistry& reg, BlockState s) { return isRail(reg, s) && reg.def(s).propIndex("active") >= 0; }
 
 void railShapeExits(int shape, int& d0, int& d1) {
     static const int E[10][2] = {{0, 1}, {2, 3}, {1, 0}, {0, 1}, {3, 2}, {2, 3}, {1, 3}, {1, 2}, {0, 2}, {0, 3}};
@@ -39,7 +40,7 @@ bool railToward(const World& w, const BlockPos& p, int d, bool& up) {
 
 BlockState withRailShape(const World& w, const BlockPos& p, BlockState s) {
     if (!isRail(w.reg, s)) return s;
-    bool straightOnly = isPoweredRail(w.reg, s) || isDetectorRail(w.reg, s);
+    bool straightOnly = isPoweredRail(w.reg, s) || isDetectorRail(w.reg, s) || isTripRail(w.reg, s);
     bool c[4], up[4];
     for (int d = 0; d < 4; d++) c[d] = railToward(w, p, d, up[d]);
     int shape = w.reg.getProp(s, "shape");
@@ -61,6 +62,7 @@ bool railNeighborUpdate(World& w, const BlockPos& p, const std::function<int(con
     if (!w.reg.solid(w.getBlock({p.x, p.y - 1, p.z}))) { w.setBlock(p, AIR); return true; }
     BlockState n = withRailShape(w, p, s);
     if (isPoweredRail(w.reg, n) && power) n = w.reg.withProp(n, "powered", power(p) > 0 ? 1 : 0);
+    if (isTripRail(w.reg, n) && power) n = w.reg.withProp(n, "active", power(p) > 0 ? 1 : 0);
     if (n != s) w.setBlock(p, n);
     // Rails one level up or down next to this one connect diagonally, but block updates only reach
     // face neighbours: re-evaluate those too (each change re-runs this, so slopes settle).

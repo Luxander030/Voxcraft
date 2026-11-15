@@ -146,6 +146,13 @@ Storage carts hold their 27 slots on the `Cart` itself (no block entity: it move
 them through `ContainerContext::carts`. A hopper with no container block in front of it loads a
 storage cart whose centre column is in that cell, and a hopper with no container above it unloads
 the cart there. A cart is matched by its centre, so it is never served by two hoppers side by side.
+Creatures ride carts by reference: a riding creature holds its cart's runtime id (`Mob::cartId`),
+skips its AI, and `collideCartsWithMobs` snaps it onto the cart each tick after the creatures move.
+`Cart::carriesMob` is re-derived from the creatures every tick, so a rider that despawns or dies
+can never leave a cart marked as occupied. Saves store only an "in a cart" flag on the creature;
+on load it boards the cart at the same spot. Trip rails (`active` while powered) set `Cart::onTrip`
+during the cart's step, which drops riders off (creature or player) and locks hopper carts.
+
 Hopper carts (5 slots) run in the same `tickContainers` pass after the hoppers: every 4 ticks
 they pull one item from a container directly above the cart's cell, or they pick up dropped items
 in the cell. Any cart with an inventory is unloaded by a hopper below the track.

@@ -42,6 +42,7 @@
     {"pattern": ["I I", "ISI", "I I"], "key": {"I": "iron_ingot", "S": "stick"}, "result": "rail", "count": 16},
     {"pattern": ["G G", "GSG", "GDG"], "key": {"G": "gold_ingot", "S": "stick", "D": "glimmer_dust"}, "result": "powered_rail", "count": 6},
     {"pattern": ["I I", "IPI", "IDI"], "key": {"I": "iron_ingot", "P": "pressure_plate", "D": "glimmer_dust"}, "result": "detector_rail", "count": 6},
+    {"pattern": ["ISI", "ITI", "ISI"], "key": {"I": "iron_ingot", "S": "stick", "T": "spark_torch"}, "result": "trip_rail", "count": 6},
     {"pattern": ["I I", "III"], "key": {"I": "iron_ingot"}, "result": "cart"},
     {"pattern": ["C", "M"], "key": {"C": "chest", "M": "cart"}, "result": "storage_cart"},
     {"pattern": ["H", "M"], "key": {"H": "hopper", "M": "cart"}, "result": "hopper_cart"},

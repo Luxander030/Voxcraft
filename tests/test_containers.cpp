@@ -166,3 +166,22 @@ TEST(hopper_carts_pull_from_containers_and_pick_up_items) {
     e.put(6, 4, 0, e.facing("hopper", 1));
     CHECK(carts.inventoryAt({6, 5, 0}) == carts.byId(id2));
 }
+
+TEST(trip_rail_locks_hopper_carts) {
+    Env e("hopcart3");
+    CartSystem carts; e.ctx.carts = &carts;
+    e.w.setBlock({2, 5, 0}, e.st("trip_rail"));
+    e.w.setBlock({2, 5, 1}, e.st("lever"));
+    e.b->toggleLever({2, 5, 1});
+    e.run(4);
+    e.put(2, 6, 0, e.st("chest"));
+    e.slots(2, 6, 0, BE_CHEST, CHEST_SLOTS)[0] = it("coal", 3);
+    Cart& hc = carts.spawn({2.5f, 5, 0.5f}, CartKind::Hopper);
+    u32 id = hc.id;
+    for (int t = 0; t < 20; t++) { carts.tick(e.w); e.w.tick(); tickContainers(e.ctx, {0, 0}, 2); }
+    CHECK_EQ(e.count(2, 6, 0), 3);                       // locked: nothing moved
+    e.b->toggleLever({2, 5, 1});
+    for (int t = 0; t < 30; t++) { carts.tick(e.w); e.w.tick(); tickContainers(e.ctx, {0, 0}, 2); }
+    int got = 0; for (auto& s : carts.byId(id)->items) got += s.count;
+    CHECK_EQ(got, 3);                                    // unlocked: it pulled the chest empty
+}
