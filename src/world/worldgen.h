@@ -44,6 +44,7 @@ public:
 
 // Returns nullptr if the version is unknown (caller must refuse to open the world).
 std::unique_ptr<WorldGenerator> createGenerator(const GenSettings& s, const BlockRegistry& reg);
-constexpr u32 LATEST_GENERATOR_VERSION = 1;
+// Version history: 1 = initial terrain, ruins, trees.  2 = adds watchtowers, buried caches, desert wells.
+constexpr u32 LATEST_GENERATOR_VERSION = 2;
 
 } // namespace vx

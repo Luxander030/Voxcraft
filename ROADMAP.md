@@ -51,7 +51,9 @@ Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 - ✅ Event-driven fluids: water/lava flow with levels, falling columns, renewable water, lava hardening, drain-on-lost-support; deterministic and resumable across save/reload.
 - ✅ Falling sand/gravel, plants losing support, turf spread/decay, saplings growing into trees.
 - ✅ Buckets (scoop and pour sources).
-- ⬜ Structures (ruins, villages), more biome features, smooth fluid surfaces.
+- ✅ Generator v2 (new worlds): watchtowers, buried caches, desert wells. v1 kept bit-identical for existing worlds (golden test); unknown future versions are refused.
+- ✅ Structure chests are generated empty and roll deterministic loot on first open, so structures never make untouched chunks persistent.
+- ⬜ Villages, more biome features, smooth fluid surfaces.
 
 ## Phase 8 — Advanced gameplay 🔶
 - ✅ Glimmer circuits: lever, button, pressure plate, wire (strength 15, −1/block, step up/down), inverting spark torch, lamp, relay (4 delays), watcher (change detector), piston (pushes 12).

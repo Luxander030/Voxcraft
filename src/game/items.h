@@ -85,6 +85,10 @@ public:
     u16 smelt(u16 input) const { auto it = kiln_.find(input); return it == kiln_.end() ? 0 : it->second; }
     struct Loot { u16 item; float chance; int extra; };
     const std::vector<Loot>* loot(const std::string& block) const { auto it = loot_.find(block); return it == loot_.end() ? nullptr : &it->second; }
+    struct ChestLoot { u16 item; int min, max; float chance; };
+    std::vector<ChestLoot> structureLoot;
+    // Deterministic contents of a generated structure chest (rolled when first opened).
+    void rollStructureLoot(u64 seed, const BlockPos& p, std::vector<ItemStack>& slots) const;
     size_t shapedCount() const { return shaped_.size(); }
 private:
     struct Shaped { int w, h; std::vector<std::vector<u16>> cells; ItemStack result; };   // empty cell = empty vector

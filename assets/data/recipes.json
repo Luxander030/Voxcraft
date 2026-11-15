@@ -58,6 +58,20 @@
     {"input": "raw_venison", "result": "cooked_venison"},
     {"input": "raw_fowl", "result": "cooked_fowl"}
   ],
+  "structure_loot": [
+    {"item": "coal", "min": 2, "max": 8, "chance": 0.7},
+    {"item": "iron_ingot", "min": 1, "max": 4, "chance": 0.5},
+    {"item": "gold_ingot", "min": 1, "max": 3, "chance": 0.25},
+    {"item": "azurite", "min": 1, "max": 2, "chance": 0.08},
+    {"item": "glimmer_dust", "min": 2, "max": 7, "chance": 0.4},
+    {"item": "apple", "min": 1, "max": 3, "chance": 0.5},
+    {"item": "baked_root", "min": 1, "max": 4, "chance": 0.4},
+    {"item": "torch", "min": 4, "max": 12, "chance": 0.5},
+    {"item": "bucket", "min": 1, "max": 1, "chance": 0.15},
+    {"item": "iron_pickaxe", "min": 1, "max": 1, "chance": 0.08},
+    {"item": "stone_sword", "min": 1, "max": 1, "chance": 0.15},
+    {"item": "sapling", "min": 1, "max": 3, "chance": 0.3}
+  ],
   "loot": {
     "oak_leaves": [{"item": "sapling", "chance": 0.05}, {"item": "apple", "chance": 0.01}],
     "birch_leaves": [{"item": "sapling", "chance": 0.05}],

@@ -155,6 +155,11 @@ bool RecipeBook::load(const Json& root, const ItemRegistry& items, std::string* 
         if (!resolve(r["input"].asString(), in) || !resolve(r["result"].asString(), out)) return false;
         for (u16 i : in) kiln_[i] = out[0];
     }
+    structureLoot.clear();
+    for (auto& e : root["structure_loot"].arr) {
+        u16 i = items.id(e["item"].asString()); if (!i) { if (err) *err = "structure_loot: unknown item " + e["item"].asString(); return false; }
+        structureLoot.push_back({i, e["min"].asInt(1), e["max"].asInt(1), (float)e["chance"].asNumber(1)});
+    }
     for (auto& [block, arr] : root["loot"].obj) for (auto& e : arr.arr) {
         u16 i = items.id(e["item"].asString()); if (!i) { if (err) *err = "loot: unknown item " + e["item"].asString(); return false; }
         loot_[block].push_back({i, (float)e["chance"].asNumber(1), e["extra"].asInt(0)});
@@ -189,6 +194,19 @@ std::optional<ItemStack> RecipeBook::match(const ItemStack* grid, int gw, int gh
         }
     }
     return std::nullopt;
+}
+
+void RecipeBook::rollStructureLoot(u64 seed, const BlockPos& p, std::vector<ItemStack>& slots) const {
+    Rng rng(hashCoords(seed ^ 0x100750, p.x, p.y, p.z));
+    for (auto& l : structureLoot) {
+        if (!rng.chance(l.chance)) continue;
+        int n = l.min + rng.range(l.max - l.min + 1);
+        if (n <= 0) continue;
+        for (int tries = 0; tries < 8; tries++) {   // random free slot
+            size_t k = (size_t)rng.range((int)slots.size());
+            if (slots[k].empty()) { slots[k] = {l.item, (u8)n, 0}; break; }
+        }
+    }
 }
 
 void RecipeBook::consume(ItemStack* grid, int n) {

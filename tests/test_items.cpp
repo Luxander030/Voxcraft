@@ -173,3 +173,14 @@ TEST(kiln_smelts_with_fuel) {
     for (int i = 0; i < 300; i++) tickKiln(b2, items(), recipes(), lit);
     CHECK(b2.items[2].empty()); CHECK(!lit);
 }
+
+TEST(structure_loot_is_deterministic_per_seed_and_position) {
+    std::vector<ItemStack> a(CHEST_SLOTS), b(CHEST_SLOTS), c(CHEST_SLOTS);
+    recipes().rollStructureLoot(77, {10, 40, -3}, a);
+    recipes().rollStructureLoot(77, {10, 40, -3}, b);
+    recipes().rollStructureLoot(77, {11, 40, -3}, c);
+    CHECK(a == b);
+    int n = 0; for (auto& s : a) n += !s.empty();
+    CHECK(n > 0);
+    CHECK(!(a == c));   // different chest, different contents
+}

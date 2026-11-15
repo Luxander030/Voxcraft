@@ -308,3 +308,28 @@ TEST(storage_migration_full_to_sparse) {
     CHECK_EQ(w.getBlock(p), blocks().stateOf("bricks"));
     CHECK(!w.storage().hasRecord({3, 2}));
 }
+
+TEST(worldgen_v2_adds_structures_without_changing_v1_or_storage) {
+    GenSettings v1; v1.seed = 2024; v1.version = 1;
+    GenSettings v2 = v1; v2.version = 2;
+    auto g1 = createGenerator(v1, blocks()), g2 = createGenerator(v2, blocks());
+    REQUIRE(g1 && g2);
+    CHECK(!createGenerator([] { GenSettings s; s.version = LATEST_GENERATOR_VERSION + 1; return s; }(), blocks()));   // unknown future version refused
+    int differing = 0, chestChunks = 0, same = 0;
+    BlockState chest = blocks().stateOf("chest");
+    for (int cz = -12; cz < 12; cz++) for (int cx = -12; cx < 12; cx++) {
+        Chunk a({cx, cz}), b({cx, cz});
+        g1->generate(a); g2->generate(b);
+        bool diff = false, hasChest = false;
+        for (int s = 0; s < SECTIONS && !diff; s++) for (int i = 0; i < 4096; i++) if (a.sec[s].get(i) != b.sec[s].get(i)) { diff = true; break; }
+        for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) if (blocks().def(b.sec[s].get(i)).index == blocks().def(chest).index) hasChest = true;
+        differing += diff; same += !diff; chestChunks += hasChest;
+        CHECK(!b.hasPersistentData());   // generated chests are empty: nothing to store
+    }
+    printf("    v2 vs v1 over 576 chunks: %d differ, %d identical, %d contain structure chests\n", differing, same, chestChunks);
+    CHECK(differing > 0);          // v2 really adds structures
+    CHECK(same > differing * 5);   // ...and leaves the rest of the terrain untouched
+    // determinism of v2 itself
+    Chunk x({3, 3}), y({3, 3}); g2->generate(x); g2->generate(y);
+    for (int s = 0; s < SECTIONS; s++) for (int i = 0; i < 4096; i++) if (x.sec[s].get(i) != y.sec[s].get(i)) { CHECK(false); s = SECTIONS; break; }
+}

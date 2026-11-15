@@ -61,6 +61,11 @@ dimension, chunk position)*.
   features of all 3×3 neighbours and clipping them to the current chunk. No chunk ever reads
   another chunk's data.
 - Stages: climate/biome → base terrain → surface → caves → ores → cross-chunk features.
+- Version 2 added structures. It is implemented as "v1 plus extra placement gated on
+  `version >= 2`", so v1 output is unchanged (golden test). The worldgen v2 test also checks
+  that v2 differs from v1 only in structure chunks.
+- Generated chests are empty. Loot is rolled from (seed, position) the first time a chest is
+  opened, so the generated baseline never contains block entities.
 - The generator version is stored in `world.json`. Old generators stay in the codebase. Changing
   output requires bumping `LATEST_GENERATOR_VERSION`, and the golden hash test enforces that.
 

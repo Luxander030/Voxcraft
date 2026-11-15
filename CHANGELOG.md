@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Generator v2: structures
+- New worlds get watchtowers, buried caches and desert wells. Existing worlds keep generator v1
+  unchanged.
+- Structure loot is rolled lazily and deterministically when a chest is first opened, so
+  structures add no storage.
+
 ### Phase 10: packaging and CI
 - `vxshadercheck` compiles every HLSL shader with the D3D compiler in Windows CI.
 - `tools/package.py` builds self-contained zips. CI validates assets, then packages and uploads

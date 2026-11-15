@@ -271,6 +271,7 @@ private:
                     if (ci.height > SEA_LEVEL && (ci.biome == Biome::Plains || ci.biome == Biome::Forest || ci.biome == Biome::Desert || ci.biome == Biome::Savanna || ci.biome == Biome::Taiga))
                         placeRuin(w, ox, ci.height, oz, srng, ci.biome == Biome::Desert);
                 }
+                if (st.version >= 2) placeV2Structures(w, cx, cz);   // v1 output stays bit-identical
             }
             if (!st.trees) continue;
             for (int i = 0; i < 10; i++) {
@@ -343,6 +344,69 @@ private:
         }
     }
 
+    // ---- generator v2 structures. Each has an extent <= 8 blocks from its origin, so evaluating
+    // the 3x3 neighbourhood of candidate chunks covers it. Chests are generated EMPTY: their loot
+    // is rolled deterministically from (seed, position) the first time they are opened, so a
+    // structure never makes an untouched chunk need storage.
+    void placeV2Structures(Writer& w, int cx, int cz) const {
+        Rng r(hashCoords(st.seed ^ 0x57A2, cx, cz));
+        int roll = r.range(1000);
+        int ox = cx * 16 + 4 + r.range(8), oz = cz * 16 + 4 + r.range(8);
+        ColumnInfo ci = column(ox, oz);
+        bool land = ci.height > SEA_LEVEL && !ci.river;
+        if (roll < 6 && land && (ci.biome == Biome::Plains || ci.biome == Biome::Forest || ci.biome == Biome::Taiga || ci.biome == Biome::Savanna))
+            placeWatchtower(w, ox, ci.height, oz, r);
+        else if (roll >= 6 && roll < 18 && land)
+            placeCache(w, ox, 18 + r.range(20), oz, r);
+        else if (roll >= 18 && roll < 34 && land && ci.biome == Biome::Desert)
+            placeWell(w, ox, ci.height, oz);
+    }
+
+    void placeWatchtower(Writer& w, int ox, int y, int oz, Rng& rng) const {
+        BlockState wall = reg.stateOf("stone_bricks"), wall2 = cb.cobblestone, plank = cb.oak_planks;
+        int h = 10 + rng.range(5);
+        for (int dz = -2; dz <= 2; dz++) for (int dx = -2; dx <= 2; dx++) {
+            for (int yy = y - 4; yy <= y; yy++) w.solid(ox + dx, yy, oz + dz, wall2);   // footing
+            bool edge = std::abs(dx) == 2 || std::abs(dz) == 2;
+            for (int yy = 1; yy <= h; yy++) {
+                if (edge) {
+                    bool door = dz == 2 && dx == 0 && yy <= 2;
+                    bool window = (dx == 0 || dz == 0) && yy % 4 == 3;
+                    w.solid(ox + dx, y + yy, oz + dz, door || window ? AIR : (rng.chance(0.25f) ? wall2 : wall));
+                } else w.solid(ox + dx, y + yy, oz + dz, AIR);
+            }
+            w.solid(ox + dx, y + h + 1, oz + dz, plank);   // roof platform
+            if (edge && ((dx + dz) & 1) == 0) w.solid(ox + dx, y + h + 2, oz + dz, wall);   // crenellations
+        }
+        // ladder on the north inner wall (facing south), hatch hole in the platform
+        BlockState ladder = reg.withProp(reg.stateOf("ladder"), "facing", 1);
+        for (int yy = 1; yy <= h + 1; yy++) w.solid(ox, y + yy, oz - 1, yy == h + 1 ? AIR : ladder);
+        w.solid(ox, y + h + 1, oz - 1, AIR);
+        w.solid(ox + 1, y + h + 2, oz + 1, reg.withProp(cb.chest, "facing", 1));
+        w.solid(ox - 1, y + h + 2, oz + 1, reg.withProp(cb.torch, "facing", 4));
+    }
+
+    void placeCache(Writer& w, int ox, int y, int oz, Rng& rng) const {
+        BlockState wall = reg.stateOf("stone_bricks");
+        for (int dz = -3; dz <= 3; dz++) for (int dy = 0; dy <= 4; dy++) for (int dx = -3; dx <= 3; dx++) {
+            bool shell = std::abs(dx) == 3 || std::abs(dz) == 3 || dy == 0 || dy == 4;
+            w.solid(ox + dx, y + dy, oz + dz, shell ? (rng.chance(0.2f) ? cb.cobblestone : wall) : AIR);
+        }
+        w.solid(ox, y + 1, oz + 2, reg.withProp(cb.chest, "facing", 0));
+        w.solid(ox - 2, y + 1, oz - 2, reg.withProp(cb.torch, "facing", 4));
+        w.solid(ox + 2, y + 1, oz - 2, reg.stateOf("bookshelf"));
+    }
+
+    void placeWell(Writer& w, int ox, int y, int oz) const {
+        for (int dz = -2; dz <= 2; dz++) for (int dx = -2; dx <= 2; dx++) {
+            bool rim = std::abs(dx) == 2 || std::abs(dz) == 2;
+            for (int yy = y - 3; yy <= y; yy++) w.solid(ox + dx, yy, oz + dz, cb.sandstone);
+            if (!rim && std::abs(dx) <= 1 && std::abs(dz) <= 1) for (int yy = y - 2; yy <= y; yy++) w.solid(ox + dx, yy, oz + dz, cb.water);
+            w.solid(ox + dx, y + 1, oz + dz, rim ? cb.sandstone : AIR);
+            if (std::abs(dx) == 2 && std::abs(dz) == 2) { w.solid(ox + dx, y + 2, oz + dz, cb.sandstone); w.solid(ox + dx, y + 3, oz + dz, cb.glowcrystal); }
+        }
+    }
+
     void placeRuin(Writer& w, int ox, int y, int oz, Rng& rng, bool desert) const {
         BlockState wall = desert ? cb.sandstone : cb.cobblestone;
         BlockState wall2 = desert ? cb.sandstone : reg.stateOf("stone_bricks");
@@ -391,9 +455,10 @@ private:
 } // namespace
 
 std::unique_ptr<WorldGenerator> createGenerator(const GenSettings& s, const BlockRegistry& reg) {
-    if (s.version != 1) return nullptr;
+    // Every released version stays available forever: worlds keep the terrain they were created with.
+    if (s.version < 1 || s.version > LATEST_GENERATOR_VERSION) return nullptr;
     if (s.preset == "flat") return std::make_unique<FlatGenerator>(reg);
-    return std::make_unique<GeneratorV1>(s, reg);
+    return std::make_unique<GeneratorV1>(s, reg);   // v2 = v1 terrain + additional structures (see placeFeatures)
 }
 
 } // namespace vx

@@ -235,6 +235,7 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
         WorldMeta m; m.name = create->displayName.empty() ? worldName : create->displayName;
         m.gen.seed = create->seedSet ? create->seed : (u64)time(nullptr) * 0x9E3779B97F4A7C15ull;
         if (create->flat) m.gen.preset = "flat";
+        m.gen.version = LATEST_GENERATOR_VERSION;   // existing worlds keep the version they were created with
         m.gameMode = create->creative ? "creative" : "survival";
         m.createdUnix = (u64)time(nullptr);
         auto gen = createGenerator(m.gen, G->reg);
@@ -463,7 +464,17 @@ void clickUse() {
         BlockState s = G->world->getBlock(G->target.block);
         const BlockDef& d = G->reg.def(s);
         if (d.has(BF_INTERACT_CRAFT)) { openScreen(Screen::Workbench); return; }
-        if (d.has(BF_INTERACT_CHEST)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_CHEST)->items.resize(CHEST_SLOTS); openScreen(Screen::Chest); return; }
+        if (d.has(BF_INTERACT_CHEST)) {
+            G->openBlock = G->target.block;
+            bool fresh = G->world->blockEntity(G->openBlock) == nullptr;
+            BlockEntity* be = G->world->ensureBlockEntity(G->openBlock, BE_CHEST);
+            be->items.resize(CHEST_SLOTS);
+            // a chest that is part of the generated terrain (not placed by a player) gets its loot now
+            ChunkPtr ch = G->world->chunk(G->openBlock.chunk());
+            if (fresh && ch && !ch->delta.count(columnIndex(G->openBlock.x & 15, G->openBlock.y, G->openBlock.z & 15)))
+                G->recipes.rollStructureLoot(G->world->meta.gen.seed, G->openBlock, be->items);
+            openScreen(Screen::Chest); return;
+        }
         if (d.has(BF_INTERACT_KILN)) { G->openBlock = G->target.block; G->world->ensureBlockEntity(G->openBlock, BE_KILN)->items.resize(KILN_SLOTS); openScreen(Screen::Kiln); return; }
         Vec3 tc{G->target.block.x + 0.5f, G->target.block.y + 0.5f, G->target.block.z + 0.5f};
         if (d.shape == BlockShape::Lever) { G->behaviors->toggleLever(G->target.block); sfx3d("click_circuit", tc, SoundCat::Blocks); return; }
