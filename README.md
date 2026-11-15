@@ -3,9 +3,33 @@
 An original block-building sandbox game with its own engine, written in C++20. It targets Windows
 and macOS from one codebase.
 
-**Status:** early development. The headless engine core is done and tested: world generation,
-lighting, chunk streaming, and sparse journaled saves. The windowed game, renderer and gameplay
+**Status:** early development. You can explore an endless generated world, fly, walk, swim, and
+break and place blocks. Saves are sparse and crash-safe. Survival, items, crafting and creatures
 are next. See [ROADMAP.md](ROADMAP.md).
+
+## Run
+
+```sh
+open build/Voxcraft.app                       # macOS
+build\Release\voxcraft.exe                    # Windows
+./build/Voxcraft.app/Contents/MacOS/Voxcraft --world MyWorld --seed 42 --radius 12
+```
+
+| Control | Action |
+|---|---|
+| WASD, mouse | move, look (click to capture the mouse) |
+| Space / Left Shift | jump (fly up) / sneak (fly down) |
+| Left Ctrl or R | sprint |
+| F | toggle flying |
+| Left / Right / Middle click | break / place / pick block |
+| 1–9, wheel | hotbar |
+| F3 | debug overlay |
+| F5 | save now |
+| F11 | fullscreen |
+| Esc | pause; Esc again saves and quits |
+
+Worlds are stored in `~/Library/Application Support/Voxcraft/saves` on macOS and
+`%APPDATA%\Voxcraft\saves` on Windows. The world is also autosaved every 45 s.
 
 ## Highlights
 - Deterministic, versioned world generation that is bit-identical across x64 and arm64.
@@ -21,7 +45,7 @@ are next. See [ROADMAP.md](ROADMAP.md).
 ## Requirements
 - CMake ≥ 3.20
 - A C++20 compiler: Xcode command-line tools (clang) or Visual Studio 2022
-- Python 3 (asset pipeline)
+- Python 3 (asset pipeline, standard library only)
 - OpenSCAD (model pipeline)
 
 ## Build

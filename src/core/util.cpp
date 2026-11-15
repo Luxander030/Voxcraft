@@ -8,10 +8,15 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <shlobj.h>
+#include <psapi.h>
 #include <io.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#include <mach/mach.h>
+#endif
 #endif
 
 namespace vx {
@@ -154,6 +159,32 @@ fs::path userDataDir(const char* appName) {
     const char* xdg = getenv("XDG_DATA_HOME"); const char* home = getenv("HOME");
     fs::path base = xdg ? fs::path(xdg) : fs::path(home ? home : "/tmp") / ".local" / "share";
     return base / appName;
+#endif
+}
+
+fs::path executableDir() {
+#if defined(_WIN32)
+    wchar_t buf[MAX_PATH * 2]; DWORD n = GetModuleFileNameW(nullptr, buf, (DWORD)(sizeof buf / sizeof buf[0]));
+    return n ? fs::path(std::wstring(buf, n)).parent_path() : fs::current_path();
+#elif defined(__APPLE__)
+    char buf[4096]; uint32_t size = sizeof buf;
+    if (_NSGetExecutablePath(buf, &size) == 0) { std::error_code ec; auto p = fs::canonical(buf, ec); return (ec ? fs::path(buf) : p).parent_path(); }
+    return fs::current_path();
+#else
+    std::error_code ec; auto p = fs::read_symlink("/proc/self/exe", ec); return ec ? fs::current_path() : p.parent_path();
+#endif
+}
+
+u64 processMemoryBytes() {
+#if defined(_WIN32)
+    PROCESS_MEMORY_COUNTERS pmc;
+    return GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc) ? (u64)pmc.WorkingSetSize : 0;
+#elif defined(__APPLE__)
+    mach_task_basic_info info; mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    return task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &count) == KERN_SUCCESS ? (u64)info.resident_size : 0;
+#else
+    long pages = 0; FILE* f = fopen("/proc/self/statm", "r"); if (f) { long t; if (fscanf(f, "%ld %ld", &t, &pages) != 2) pages = 0; fclose(f); }
+    return (u64)pages * (u64)sysconf(_SC_PAGESIZE);
 #endif
 }
 

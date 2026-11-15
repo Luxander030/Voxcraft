@@ -1,6 +1,20 @@
 # Changelog
 
 ## Unreleased
+
+### Phases 1–2: playable renderer
+- Window, input and GPU through sokol (Metal / D3D11), with hand-written MSL and HLSL shaders.
+- Original procedural block textures, plus an asset packer with validation, deduplication and
+  incremental rebuilds.
+- Section mesher: culling, greedy merging, smooth light, AO, plants, fluids and small shapes.
+  It re-meshes only dirty sections, on worker threads.
+- Opaque, cutout and translucent passes; reversed-Z; frustum culling; fog; day/night cycle.
+- Player physics: walk, sprint, sneak edge guard, jump, fly, swim, climb, exact collision.
+- Raycast targeting with break, place and pick. The player's state is saved with the world.
+- Original bitmap font, HUD, hotbar with block icons, block outline, F3 debug overlay.
+- `--smoke` scripted run and `--screenshot`, which captures only the game window.
+
+### Engine core
 - Engine core:
   - Types and math, logging, binary I/O, CRC32, LZ4, atomic and durable file writes, JSON.
   - Job system with dynamic priorities.

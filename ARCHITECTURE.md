@@ -106,11 +106,15 @@ deleted at the next save. Format details are in [docs/WORLD_FORMAT.md](docs/WORL
 - Main-thread result delivery is time-budgeted (`pumpMain(budgetMs)`) so a burst of finished
   chunks cannot cause a frame spike.
 
-## Rendering design (Phase 2, in progress)
+## Rendering
 
-- Per 16³ section mesh with face culling against neighbours. Greedy merging for opaque full
-  cubes. The vertex is 8 bytes packed: position 3×5 bits + face 3 bits + UV tile index + AO 2
-  bits + light 8 bits.
+- Per 16³ section mesh with face culling against neighbours. Greedy merging of coplanar faces
+  that have identical texture, tint and flat light/AO. Merged quads tile via REPEAT addressing.
+- The vertex is 12 bytes packed (`render/mesher.h`): position in 1/16 units, face, AO, UV,
+  texture layer, sky/block light, and RGB tint.
+- One immutable GPU buffer per non-empty section holds the three layers back to back. Only dirty
+  sections are re-meshed, so a block edit touches 1–3 sections. Edge neighbours are re-meshed
+  too, because their smooth light samples across the border.
 - Index buffer: one shared quad index buffer, no per-mesh indices.
 - Three passes: opaque (front-to-back), cutout (alpha test), translucent (back-to-front by
   section).
@@ -118,7 +122,8 @@ deleted at the next save. Format details are in [docs/WORLD_FORMAT.md](docs/WORL
   connect through air) cuts underground overdraw.
 - Reversed-Z infinite projection. A single 2D array texture stores 16×16 tiles with no bleeding
   and nearest sampling.
-- Remeshing happens only for the sections in `onSectionsChanged` masks.
+- Shaders are hand-written MSL and HLSL in `src/app/shaders.h`, with identical maths.
+- UI: one transient vertex buffer per frame, one draw call.
 
 ## Platform abstraction
 

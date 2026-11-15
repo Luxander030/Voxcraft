@@ -10,6 +10,9 @@ All assets are original. Nothing is extracted from or traced over any other game
   fully opaque or fully transparent except on translucent materials.
 - **Sampling:** nearest-neighbour everywhere, and mipmaps are generated with alpha-coverage
   preservation for cutout blocks.
+- **Generation:** `tools/gen_textures.py` draws every texture procedurally (noise fills, boards,
+  rings, specks, outlines) from per-material palettes. Existing PNGs are kept unless `--force` is
+  passed, so hand edits survive.
 - **Packing:** `tools/build_assets.py` validates dimensions, finds textures that are referenced
   but missing (and the reverse), deduplicates identical images by content hash, and builds a
   2D texture array plus `assets/generated/voxcraft.pak` (manifest + data, LZ4). It rebuilds
@@ -34,5 +37,8 @@ All assets are original. Nothing is extracted from or traced over any other game
   entities update at reduced rates.
 
 ## Status
-The block registry (`assets/data/blocks.json`) is in place. The texture packer, the OpenSCAD
-exporter and the art itself come in Phase 2.
+- **Done:** the texture generator and packer, and 78 original block textures. The packer also
+  writes a preview sheet with `--preview`.
+- **Done:** the original 5×7 UI font. It is compiled into `src/app/ui.cpp` and rendered into a
+  texture at startup.
+- **Pending:** the OpenSCAD exporter and entity models (with mobs, Phase 6).

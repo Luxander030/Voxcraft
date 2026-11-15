@@ -37,6 +37,20 @@ Storage tests (`voxtests`):
 - An unmodified chunk produces 0 bytes and no region file.
 - Visiting ~100 chunks and editing one stores exactly 1 record.
 
+### Rendering (macOS arm64, Release, render distance 10, vsync on)
+
+| Metric | Value |
+|---|---|
+| Mesh one chunk (all 16 sections, worker thread) | 0.56 ms; 5 non-empty sections, 1727 quads, 81 KiB |
+| Frame time in `--smoke` runs | 16.6 ms (vsync-bound) |
+| Loaded chunks / mesh sections | ~420 / ~1400 |
+| Visible sections after frustum culling | ~460 → ~600 draw calls |
+| Triangles drawn | ~190–230 k |
+| Mesh VRAM | ~15 MiB (12 B/vertex) |
+| Process RSS | 85–125 MiB |
+
+Greedy merging turns a flat 16×16 floor from 512 quads into 2 (`render_greedy_merges_flat_floor`).
+
 ## Storage optimizations in place
 
 - Sparse delta records. Unmodified or reverted chunks are not stored, and empty region files are

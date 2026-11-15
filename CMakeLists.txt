@@ -44,7 +44,7 @@ target_include_directories(voxcore PUBLIC src third_party)
 find_package(Threads REQUIRED)
 target_link_libraries(voxcore PUBLIC vx_lz4 Threads::Threads)
 if(WIN32)
-  target_link_libraries(voxcore PUBLIC shell32 ole32)
+  target_link_libraries(voxcore PUBLIC shell32 ole32 psapi)
 endif()
 
 # ---- CPU-side renderer logic (meshing etc.) - testable without a GPU ----
@@ -57,6 +57,16 @@ else()
   target_link_libraries(voxrender INTERFACE voxcore)
 endif()
 
+# ---- runtime assets (validated + packed by tools/build_assets.py; incremental) ----
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+file(GLOB VX_TEXTURES CONFIGURE_DEPENDS assets/textures/blocks/*.png)
+add_custom_command(
+  OUTPUT ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/build_assets.py
+  DEPENDS ${VX_TEXTURES} ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${CMAKE_SOURCE_DIR}/tools/build_assets.py
+  COMMENT "Packing assets")
+add_custom_target(assets ALL DEPENDS ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak)
+
 # ---- tests ----
 enable_testing()
 file(GLOB VX_TEST_SRC CONFIGURE_DEPENDS tests/*.cpp)
@@ -64,6 +74,7 @@ list(FILTER VX_TEST_SRC EXCLUDE REGEX "bench\\.cpp$")
 add_executable(voxtests ${VX_TEST_SRC})
 target_link_libraries(voxtests PRIVATE voxrender)
 target_compile_definitions(voxtests PRIVATE VX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_dependencies(voxtests assets)
 add_test(NAME voxtests COMMAND voxtests)
 
 add_executable(voxbench tests/bench.cpp)
@@ -86,6 +97,12 @@ if(VX_BUILD_GAME AND EXISTS ${CMAKE_SOURCE_DIR}/src/app/main.cpp)
   add_executable(voxcraft WIN32 MACOSX_BUNDLE ${VX_APP_SRC} ${VX_PLATFORM_SRC})
   target_link_libraries(voxcraft PRIVATE voxrender)
   target_compile_definitions(voxcraft PRIVATE VX_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+  add_dependencies(voxcraft assets)
+  if(APPLE)
+    set_source_files_properties(src/platform/sokol_impl.m PROPERTIES COMPILE_FLAGS "-fobjc-arc -w")
+  elseif(NOT MSVC)
+    set_source_files_properties(src/platform/sokol_impl.c PROPERTIES COMPILE_FLAGS "-w")
+  endif()
   if(APPLE)
     target_compile_definitions(voxcraft PRIVATE SOKOL_METAL)
     target_link_libraries(voxcraft PRIVATE "-framework Cocoa" "-framework QuartzCore" "-framework Metal" "-framework MetalKit" "-framework AudioToolbox")
@@ -108,5 +125,6 @@ if(VX_BUILD_GAME AND EXISTS ${CMAKE_SOURCE_DIR}/src/app/main.cpp)
   # Packed runtime assets (built by tools/build_assets.py) are copied next to the executable / into the .app
   add_custom_command(TARGET voxcraft POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${VX_DATA_DEST}
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak ${VX_DATA_DEST}/voxcraft.pak)
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/generated/voxcraft.pak ${VX_DATA_DEST}/voxcraft.pak
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/data/blocks.json ${VX_DATA_DEST}/blocks.json)
 endif()

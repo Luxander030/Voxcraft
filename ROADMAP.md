@@ -3,37 +3,40 @@
 Status key: ✅ done and tested · 🔶 partial · ⬜ not started
 
 ## Phase 0 — Discovery ✅
-- ✅ Machine survey: macOS 15.5, arm64, clang, CMake, Python 3, OpenSCAD (`/opt/homebrew/bin/openscad`). Rust not installed.
-- ✅ Reference version selected (26.3, see REFERENCE_NOTES.md).
-- ✅ Stack chosen: C++20 + CMake + vendored sokol (ARCHITECTURE.md).
+- ✅ Machine survey: macOS 15.5 arm64, clang, CMake, Python 3, OpenSCAD (`/opt/homebrew/bin/openscad`). Rust not installed.
+- ✅ Reference version selected (26.3, REFERENCE_NOTES.md). Stack: C++20 + CMake + vendored sokol.
 
-## Phase 1 — Cross-platform foundation 🔶
-- ✅ CMake build, warnings, deterministic float flags, Metal/D3D11 selection.
-- ✅ Logging, atomic/durable file I/O, platform data dirs, job system.
-- ⬜ Window + input + GPU init (`src/app`, `src/platform/sokol_impl.*`).
-- 🔶 CI workflow for Windows + macOS (headless core + tests). Game packaging comes later.
+## Phase 1 — Cross-platform foundation ✅ (macOS verified; Windows compiles in CI, not yet run)
+- ✅ CMake build, deterministic float flags, Metal (macOS) / D3D11 (Windows) selection.
+- ✅ Logging, atomic/durable file I/O, platform data dirs, executable dir, process memory query, job system.
+- ✅ Window, input, mouse lock, high-DPI, `.app` bundle with packed assets.
+- ✅ CI for macOS arm64/x64 and Windows x64.
 
-## Phase 2 — Rendering foundation ⬜
-- ⬜ Camera, section meshing (culling, greedy), shaders, texture array, passes, frustum culling.
+## Phase 2 — Rendering foundation ✅
+- ✅ Original procedural 16×16 textures (`tools/gen_textures.py`), validating/deduplicating incremental packer (`tools/build_assets.py`).
+- ✅ 2D texture array with alpha-coverage-preserving mips, nearest sampling.
+- ✅ Section mesher: face culling, greedy merging, smooth light + AO, plants, fluids, small shapes. 12-byte packed vertices, shared index buffer.
+- ✅ Hand-written MSL + HLSL shaders; opaque / cutout / translucent passes; reversed-Z infinite projection; frustum culling per section; fog; day/night light.
+- ✅ Original 5×7 bitmap font, HUD, hotbar with isometric icons, block outline, F3 debug overlay.
+- ⬜ Cave/occlusion culling, LOD for far terrain.
 
-## Phase 3 — World and chunk foundation ✅ (headless)
-- ✅ Data-driven block registry with flattened block states (`assets/data/blocks.json`).
-- ✅ Chunk data: uniform/copy-on-write sections, exact modification tracking.
-- ✅ Deterministic generator v1: biomes, terrain, caves, ores, trees, cross-chunk features.
-- ✅ Lighting from 3×3 snapshots.
-- ✅ Sparse records, region files, journaled saves, recovery. Storage Tests A–F pass.
-- ✅ Streaming with hysteresis, pending write-back set, clean LRU cache.
+## Phase 3 — World and chunk foundation ✅
+- ✅ Block registry, chunk data, modification tracking, deterministic generator v1, lighting, sparse journaled storage (Tests A–F), streaming.
 
 ## Phase 4 — Optimization foundation 🔶
-- ✅ Background generation and lighting, chunk cache with byte budget, storage cleanup, save validation, `vxworld` CLI, `voxbench`.
-- ⬜ Profiling overlay (needs the renderer). ⬜ Mesh/texture memory budgets.
+- ✅ Background generation/lighting/meshing, chunk cache budget, storage cleanup, save validation, `vxworld`, `voxbench`, profiling overlay.
+- ⬜ Mesh/texture VRAM budget enforcement, memory-pressure response.
 
-## Phases 5–11 ⬜
-Player physics and interaction, inventory/items/crafting, mobs and AI, fluids, circuits,
-dimensions, audio, UI, particles, animation, packaging, stabilization. See CLAUDE.md §25 for the
-full list. Each becomes ✅ only with tests.
+## Phase 5 — Player gameplay 🔶
+- ✅ Movement (walk, sprint, sneak with edge guard, jump, fly, swim, climb), exact swept AABB collision, raycast targeting, break/place/pick, player save.
+- ⬜ Survival block breaking (hardness × tool), third-person camera.
+
+## Phases 6–11 ⬜
+Inventory/items/crafting, health/hunger, mobs and AI, fluids flow, circuits, dimensions, audio,
+menus, particles, animation, packaging, stabilization (CLAUDE.md §25).
 
 ## Known limitations
-- No graphical build yet: the game target is skipped until `src/app/main.cpp` exists.
-- The Windows build has not been run yet. CI is the first check of it.
-- The generator golden hash is pinned on arm64 only, until CI confirms x64.
+- Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.
+- Generator golden hash pinned on arm64; CI checks x64.
+- Creative-style instant breaking only; no items yet (hotbar holds blocks).
+- Font has no descenders (g, p, q, y sit on the baseline).

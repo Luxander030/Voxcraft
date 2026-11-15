@@ -94,5 +94,9 @@ u64 directorySize(const fs::path& dir);
 // Per-user writable data directory (Application Support on macOS, %APPDATA% on Windows,
 // XDG_DATA_HOME elsewhere). Never hardcoded.
 fs::path userDataDir(const char* appName);
+// Directory containing the running executable.
+fs::path executableDir();
+// Resident memory of this process in bytes (0 if unavailable).
+u64 processMemoryBytes();
 
 } // namespace vx
