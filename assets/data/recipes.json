@@ -43,6 +43,7 @@
     {"pattern": ["G G", "GSG", "GDG"], "key": {"G": "gold_ingot", "S": "stick", "D": "glimmer_dust"}, "result": "powered_rail", "count": 6},
     {"pattern": ["I I", "IPI", "IDI"], "key": {"I": "iron_ingot", "P": "pressure_plate", "D": "glimmer_dust"}, "result": "detector_rail", "count": 6},
     {"pattern": ["I I", "III"], "key": {"I": "iron_ingot"}, "result": "cart"},
+    {"pattern": ["C", "M"], "key": {"C": "chest", "M": "cart"}, "result": "storage_cart"},
     {"pattern": ["S#S", "S#S"], "key": {"#": "oak_planks", "S": "stick"}, "result": "oak_fence_gate"},
     {"pattern": ["S#S", "S#S"], "key": {"#": "birch_planks", "S": "stick"}, "result": "birch_fence_gate"},
     {"pattern": ["S#S", "S#S"], "key": {"#": "pine_planks", "S": "stick"}, "result": "pine_fence_gate"},

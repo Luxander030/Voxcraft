@@ -183,7 +183,7 @@ bool placeHeld() {
 
 ContainerContext containerCtx() {
     ContainerContext c{*G->world, G->items, G->recipes};
-    c.behaviors = G->behaviors.get(); c.entities = G->entities.get(); c.rng = &G->rng;
+    c.behaviors = G->behaviors.get(); c.entities = G->entities.get(); c.rng = &G->rng; c.carts = G->carts.get();
     c.shootArrow = [](Vec3 pos, Vec3 vel) { G->projectiles.shoot(ProjKind::Arrow, pos, vel, 2, true, true); };
     return c;
 }
@@ -491,6 +491,10 @@ void simulateTick() {
     } else if (!G->stats.dead) p.tick(*G->world, in);
     G->input.toggleFly = false;
     G->carts->tick(*G->world);
+    if (G->openCart) {   // a storage cart that rolled away (or was destroyed) closes its screen
+        Cart* oc = G->carts->byId(G->openCart);
+        if (!oc || length(oc->pos - p.pos) > 6.0f) closeScreen();
+    }
     if (!G->stats.dead) p.vel += collideCartsWithPlayer(*G->carts, p.box(), p.pos - before, G->riding);
     if (G->riding) {
         if (Cart* c = G->carts->byId(G->riding)) {
@@ -730,7 +734,8 @@ bool attackCart() {
     sfx3d("place_metal", c->pos + Vec3(0, 0.4f, 0), SoundCat::Blocks, 0.7f);
     if (++c->damage >= 3 || G->creative()) {
         if (c->id == G->riding) dismountCart();
-        if (!G->creative()) G->entities->spawnItem(c->pos + Vec3(0, 0.4f, 0), {G->items.id("cart"), 1, 0}, G->rng);
+        if (c->id == G->openCart) closeScreen();
+        for (const ItemStack& s : cartDrops(*c, G->items, G->creative())) G->entities->spawnItem(c->pos + Vec3(0, 0.4f, 0), s, G->rng);
         c->removed = true;
     }
     return true;
@@ -799,11 +804,16 @@ void clickUse() {
         // carts: put one on a rail, or climb into one
         float cd = 0;
         Cart* cart = G->carts->raycast(G->player.eye(), G->player.look(), 4.0f, &cd);
-        bool holdingCart = !hs.empty() && G->items.def(hs.item).name == "cart";
-        if (cart && !holdingCart && (!G->target.hit || cd < G->target.distance)) { G->riding = cart->id; return; }
+        const std::string& held = hs.empty() ? std::string() : G->items.def(hs.item).name;
+        bool holdingCart = held == "cart" || held == "storage_cart";
+        if (cart && !holdingCart && (!G->target.hit || cd < G->target.distance)) {
+            if (cart->kind == CartKind::Storage) { G->openCart = cart->id; openScreen(Screen::Chest); }
+            else G->riding = cart->id;
+            return;
+        }
         if (holdingCart && G->target.hit && isRail(G->reg, G->world->getBlock(G->target.block))) {
             const BlockPos& b = G->target.block;
-            G->carts->spawn({b.x + 0.5f, (float)b.y, b.z + 0.5f});
+            G->carts->spawn({b.x + 0.5f, (float)b.y, b.z + 0.5f}, held == "storage_cart" ? CartKind::Storage : CartKind::Plain);
             sfx3d("place_metal", {b.x + 0.5f, b.y + 0.2f, b.z + 0.5f}, SoundCat::Blocks);
             if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
             return;

@@ -184,6 +184,11 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
             float sky, blk; lightAt(pos + Vec3(0, 0.5f, 0), sky, blk);
             u32 tint = c.hurtTicks > 0 ? rgba(255, 110, 110) : rgba(255, 255, 255);
             for (auto& b : model.boxes) emitBox(out, world, b.min, b.size, b.tex, sky, blk, tint);
+            if (c.kind == CartKind::Storage) {   // a 12 px chest sitting in the tub, using the chest block's faces
+                static const BlockState chest = G->reg.stateOf("chest");
+                u16 t[6]; for (int f = 0; f < 6; f++) t[f] = G->renderer.textures().face(chest, f);
+                emitBox(out, world, {-6, 3, -6}, {12, 12, 12}, t, sky, blk, tint);
+            }
         }
     }
     // projectiles: arrows as thin shafts along their velocity, bolts as glowing cubes

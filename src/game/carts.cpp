@@ -3,10 +3,23 @@
 
 namespace vx {
 
-Cart& CartSystem::spawn(Vec3 pos) {
-    Cart c; c.id = nextId++; c.pos = c.prevPos = pos;
+Cart& CartSystem::spawn(Vec3 pos, CartKind kind) {
+    Cart c; c.id = nextId++; c.pos = c.prevPos = pos; c.kind = kind;
+    if (kind == CartKind::Storage) c.items.resize(STORAGE_SLOTS);
     carts.push_back(c);
     return carts.back();
+}
+
+Cart* CartSystem::storageAt(const BlockPos& p) {
+    AABB cell{{(float)p.x, (float)p.y, (float)p.z}, {p.x + 1.0f, p.y + 1.0f, p.z + 1.0f}};
+    for (auto& c : carts) {
+        if (c.removed || c.kind != CartKind::Storage) continue;
+        AABB b = c.box();
+        // the cart's centre column must be in the cell (so one cart is never served by two hoppers side by side)
+        if (c.pos.x < cell.min.x || c.pos.x >= cell.max.x || c.pos.z < cell.min.z || c.pos.z >= cell.max.z) continue;
+        if (b.min.y < cell.max.y && b.max.y > cell.min.y) return &c;
+    }
+    return nullptr;
 }
 
 Cart* CartSystem::byId(u32 id) { for (auto& c : carts) if (c.id == id && !c.removed) return &c; return nullptr; }
@@ -130,6 +143,13 @@ bool CartSystem::contact(const Cart& c, const AABB& body, Vec3 bodyVel, Vec3& no
     normal = flatNormal(c.pos, centre, (float)(c.id % 628) * 0.01f);
     approach = dot(c.vel - Vec3(bodyVel.x, 0, bodyVel.z), normal);
     return true;
+}
+
+std::vector<ItemStack> cartDrops(const Cart& c, const ItemRegistry& items, bool creative) {
+    std::vector<ItemStack> out;
+    if (!creative) out.push_back({items.id(c.kind == CartKind::Storage ? "storage_cart" : "cart"), 1, 0});
+    for (const ItemStack& s : c.items) if (!s.empty()) out.push_back(s);
+    return out;
 }
 
 void collideCartsWithMobs(CartSystem& cs, MobSystem& ms) {

@@ -48,7 +48,7 @@ build\Release\voxcraft.exe                    # Windows
 | T or / | chat and commands (`/help`) |
 | F3 | debug overlay |
 | V (remappable) | camera view: first person → behind → facing the player |
-| right-click a cart / sneak | ride it / step off (forward pushes) |
+| right-click a cart / sneak | ride it / step off (forward pushes); a storage cart opens its chest |
 | F5 | save now |
 | F11 | fullscreen |
 | Esc | pause menu (settings, save and quit to title) |

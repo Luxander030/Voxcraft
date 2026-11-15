@@ -135,6 +135,7 @@ struct Game {
     ItemStack craft[9];               // 2x2 (inventory) or 3x3 (workbench) crafting grid
     ItemStack craftResult;
     BlockPos openBlock{0, -1, 0};     // chest/kiln being viewed
+    u32 openCart = 0;                 // storage cart being viewed (Screen::Chest; 0 = a block)
     std::vector<UiSlot> slots;        // rebuilt each frame by the active screen
     int creativeScroll = 0;
 

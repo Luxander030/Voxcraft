@@ -5,15 +5,21 @@
 // its speed (so curves cost nothing). Slopes add a gravity component, powered rails boost (or
 // brake when unpowered), and friction slowly stops a coasting cart. Off rails it is a plain
 // falling box. Positions are the cart's bottom centre. Carts persist with their chunk.
+// A storage cart carries a 27-slot chest that players open and hoppers fill or empty.
 #pragma once
 #include "game/rails.h"
 #include "game/player.h"
+#include "game/items.h"
 
 namespace vx {
 class MobSystem;
 
+enum class CartKind : u8 { Plain = 0, Storage = 1 };
+
 struct Cart {
     u32 id = 0;
+    CartKind kind = CartKind::Plain;
+    std::vector<ItemStack> items;   // storage carts: STORAGE_SLOTS slots
     Vec3 pos, prevPos, vel;
     Vec3 push;   // impulses from collisions this tick; on a rail only the along-track part counts
     float yaw = 0, prevYaw = 0, pitch = 0, prevPitch = 0;
@@ -25,8 +31,11 @@ struct Cart {
 class CartSystem {
 public:
     static constexpr float MAX_SPEED = 0.4f, FRICTION = 0.997f, SLOPE_G = 0.012f, BOOST = 0.04f;
+    static constexpr int STORAGE_SLOTS = 27;
     std::vector<Cart> carts;
-    Cart& spawn(Vec3 pos);
+    Cart& spawn(Vec3 pos, CartKind kind = CartKind::Plain);
+    // The storage cart whose box reaches into block cell p (hoppers above/below a track), or null.
+    Cart* storageAt(const BlockPos& p);
     void tick(const World& w);
     void step(const World& w, Cart& c);   // one tick of one cart (exposed for tests)
     Cart* raycast(Vec3 origin, Vec3 dir, float reach, float* dist = nullptr);
@@ -45,6 +54,10 @@ public:
     static bool contact(const Cart& c, const AABB& body, Vec3 bodyVel, Vec3& normal, float& approach);
     static constexpr float CREATURE_MASS = 0.5f;   // a creature takes this share of a collision
 };
+
+// What a broken cart drops: the cart item (storage carts: the storage cart item) unless in creative,
+// and always a storage cart's contents.
+std::vector<ItemStack> cartDrops(const Cart& c, const ItemRegistry& items, bool creative);
 
 // Carts against creatures: a cart running into a creature knocks it aside (the creature takes the
 // closing speed and the cart loses CREATURE_MASS/2 of it), and overlapping bodies drift apart.

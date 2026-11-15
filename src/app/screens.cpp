@@ -94,8 +94,11 @@ void buildSlots() {
         addSlot(px + 124, py + 35, &G->craftResult, UiSlot::CraftResult, 2);
         addPlayerInventory(px, py);
         break;
-    case Screen::Chest:   // chests, hoppers, droppers, dispensers
-        if (BlockEntity* be = G->world->blockEntity(G->openBlock)) {
+    case Screen::Chest:   // chests, hoppers, droppers, dispensers, storage carts
+        if (G->openCart) {
+            if (Cart* c = G->carts->byId(G->openCart))
+                for (int i = 0; i < (int)c->items.size(); i++) addSlot(px + 8 + (i % 9) * 18, py + 18 + (i / 9) * 18, &c->items[i], UiSlot::Normal, 3);
+        } else if (BlockEntity* be = G->world->blockEntity(G->openBlock)) {
             int n = std::max(1, containerSlots(G->reg, G->world->getBlock(G->openBlock)));
             be->items.resize(n);
             int cols = n == 9 ? 3 : 9;
@@ -118,7 +121,7 @@ void buildSlots() {
 }
 
 void markContainerDirty() {
-    if (G->screen == Screen::Chest || G->screen == Screen::Kiln) {
+    if ((G->screen == Screen::Chest || G->screen == Screen::Kiln) && !G->openCart) {   // (carts save with their chunk's entities)
         if (ChunkPtr c = G->world->chunk(G->openBlock.chunk())) c->unsaved = true;
         if (G->behaviors) G->behaviors->containerChanged(G->openBlock);   // comparators reading this container
     }
@@ -252,6 +255,7 @@ void closeScreen() {
     giveOrDrop(G->cursor); G->cursor = {};
     markContainerDirty();
     G->screen = Screen::None;
+    G->openCart = 0;
     G->slots.clear();
     G->mouseLocked = true; sapp_lock_mouse(true);
 }
@@ -431,7 +435,7 @@ void drawFrameUi(int w, int h) {
     }
     case Screen::Inventory: case Screen::Workbench: case Screen::Chest: case Screen::Kiln: {
         buildSlots();
-        std::string cname = G->screen == Screen::Chest ? G->reg.def(G->world->getBlock(G->openBlock)).name : "";
+        std::string cname = G->screen != Screen::Chest ? "" : G->openCart ? "Storage cart" : G->reg.def(G->world->getBlock(G->openBlock)).name;
         if (!cname.empty()) cname[0] = (char)std::toupper((unsigned char)cname[0]);
         std::string titleS = G->screen == Screen::Workbench ? "Workbench" : G->screen == Screen::Chest ? cname : G->screen == Screen::Kiln ? "Kiln" : creative ? "Creative" : "Crafting";
         const char* title = titleS.c_str();

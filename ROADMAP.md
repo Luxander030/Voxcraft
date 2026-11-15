@@ -101,7 +101,8 @@ Long-term expansion (CLAUDE.md §25): structures, dimensions, more content, furt
 - ✅ Animal breeding: feeding, love mode, babies that grow up, persisted (creature record v3).
 - ✅ Rails (straight, curves, slopes), powered rails, rideable carts with rail physics, persisted.
 - ✅ Cart-to-cart, cart-to-creature and player-to-cart collisions; detector rails.
-- ⬜ Carts with chests or hoppers; creatures riding carts.
+- ✅ Storage carts (27-slot chest, persisted, loaded and unloaded by hoppers).
+- ⬜ Hopper carts; creatures riding carts.
 
 ## Known limitations
 - Windows: compiles in CI, but the D3D11 path (HLSL shaders compile at runtime) has not been run on a Windows machine.

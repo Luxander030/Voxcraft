@@ -111,3 +111,32 @@ TEST(sticky_piston_pulls_block_back) {
     CHECK(blocks().def(e.w.getBlock({1, 5, 0})).name == "bricks");   // pulled back
     CHECK(e.w.getBlock({2, 5, 0}) == AIR);
 }
+
+TEST(hoppers_unload_and_load_storage_carts) {
+    Env e("hopcart");
+    CartSystem carts; e.ctx.carts = &carts;
+    // unloading: track over a hopper that feeds a chest below it
+    e.put(0, 3, 0, e.st("chest"));
+    e.put(0, 4, 0, e.facing("hopper", 0));
+    e.w.setBlock({0, 5, 0}, e.st("rail"));
+    Cart& full = carts.spawn({0.5f, 5, 0.5f}, CartKind::Storage);
+    full.items[0] = it("cobblestone", 3); full.items[4] = it("coal", 2);
+    // loading: a hopper above a track pours into the cart beneath it
+    e.w.setBlock({4, 5, 0}, e.st("rail"));
+    e.put(4, 6, 0, e.facing("hopper", 0));
+    e.slots(4, 6, 0, BE_HOPPER, HOPPER_SLOTS)[0] = it("stick", 4);
+    Cart& empty = carts.spawn({4.5f, 5, 0.5f}, CartKind::Storage);
+    u32 emptyId = empty.id;
+    e.run(8 * 12);
+    int left = 0; for (auto& s : carts.carts[0].items) left += s.count;
+    CHECK_EQ(left, 0);                                   // the cart was emptied ...
+    CHECK_EQ(e.count(0, 3, 0) + e.count(0, 4, 0), 5);    // ... into the hopper and chest, nothing lost
+    int got = 0; for (auto& s : carts.byId(emptyId)->items) got += s.count;
+    CHECK_EQ(got, 4);
+    CHECK_EQ(e.count(4, 6, 0), 0);
+    // a plain cart is not a container
+    Cart& plain = carts.spawn({0.5f, 5, 0.5f});
+    (void)plain;
+    CHECK(carts.storageAt({0, 5, 0}) == &carts.carts[0]);
+    CHECK(carts.storageAt({0, 4, 0}) == nullptr);
+}

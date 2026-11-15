@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Storage carts
+- Storage carts (a chest on a cart) carry 27 slots. Right-click one to open it. Breaking it drops
+  the storage cart and spills its contents.
+- Hoppers unload a storage cart on the track above them and load one passing underneath, so a
+  track can run between a loading and an unloading station.
+- Cart entity record v2 adds the kind and the non-empty slots (v1 records still load).
+- Tests: `storage_carts_persist_contents_and_drop_them_when_broken`,
+  `hoppers_unload_and_load_storage_carts`.
+
 ### Cart collisions and detector rails
 - Carts bump each other: a moving cart hands its speed to the one it hits, and carts dropped on the
   same spot separate along the track.

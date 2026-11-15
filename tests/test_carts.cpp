@@ -210,3 +210,33 @@ TEST(detector_rail_signals_while_a_cart_is_on_it) {
     CHECK_EQ(blocks().getProp(e.w.getBlock({6, 5, 0}), "on"), 0);
     CHECK_EQ(blocks().getProp(e.w.getBlock({7, 5, 0}), "powered"), 0);
 }
+
+TEST(storage_carts_persist_contents_and_drop_them_when_broken) {
+    CartSystem cs;
+    EntityManager em(itemsReg()); em.carts = &cs;
+    Cart& c = cs.spawn({3.5f, 5.0f, 4.5f}, CartKind::Storage);
+    REQUIRE(c.items.size() == (size_t)CartSystem::STORAGE_SLOTS);
+    c.items[0] = {itemsReg().id("coal"), 12, 0};
+    c.items[26] = {itemsReg().id("iron_pickaxe"), 1, 37};
+    cs.spawn({8.5f, 5.0f, 4.5f});                            // a plain cart alongside
+    auto recs = em.collectEntities({0, 0}, true);
+    REQUIRE(recs.size() == 2);
+    em.spawnEntities({0, 0}, std::move(recs));
+    REQUIRE(cs.carts.size() == 2);
+    const Cart r = cs.carts[0].kind == CartKind::Storage ? cs.carts[0] : cs.carts[1];   // copies: spawning below reallocates
+    const Cart p = cs.carts[0].kind == CartKind::Storage ? cs.carts[1] : cs.carts[0];
+    CHECK(r.kind == CartKind::Storage); CHECK(p.kind == CartKind::Plain); CHECK(p.items.empty());
+    CHECK_EQ(r.items[0].count, 12); CHECK_EQ(r.items[26].damage, 37);
+    CHECK(r.items[26].item == itemsReg().id("iron_pickaxe"));
+    // version 1 records (before storage carts) still load as plain carts
+    ByteWriter w; w.u8_(1); w.f64_(1.5); w.f64_(5); w.f64_(1.5); w.f32_(0); w.f32_(0); w.f32_(0); w.f32_(0);
+    std::vector<EntityRecord> old; old.push_back({"cart", std::move(w.buf)});
+    em.spawnEntities({0, 0}, std::move(old));
+    CHECK(cs.carts.size() == 3 && cs.carts[2].kind == CartKind::Plain);
+    // breaking: survival gets the cart item back plus the contents; creative only the contents
+    auto drops = cartDrops(r, itemsReg(), false);
+    REQUIRE(drops.size() == 3);
+    CHECK(drops[0].item == itemsReg().id("storage_cart"));
+    CHECK_EQ(cartDrops(r, itemsReg(), true).size(), (size_t)2);
+    CHECK(cartDrops(p, itemsReg(), false)[0].item == itemsReg().id("cart"));
+}

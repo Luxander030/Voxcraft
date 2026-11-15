@@ -44,6 +44,13 @@ bool insertOne(ContainerContext& c, BlockEntity& to, BlockState toState, ItemSta
     return false;
 }
 
+// Moves one item into a plain slot list (storage carts): merge first, then the first empty slot.
+bool insertInto(ContainerContext& c, std::vector<ItemStack>& to, const ItemStack& one) {
+    for (auto& t : to) if (!t.empty() && canMerge(t, one, c.items) && t.count < c.items.maxStack(t.item)) { t.count++; return true; }
+    for (auto& t : to) if (t.empty()) { t = one; t.count = 1; return true; }
+    return false;
+}
+
 // Index of the slot a hopper below may pull from (kiln: output only).
 int pullSlot(ContainerContext& c, const BlockEntity& be, BlockState s) {
     if (c.world.reg.def(s).has(BF_INTERACT_KILN)) return be.items.size() > 2 && !be.items[2].empty() ? 2 : -1;
@@ -113,6 +120,12 @@ void tickContainers(ContainerContext& c, ChunkPos center, int radius) {
                 ItemStack one = slot; one.count = 1;
                 if (insertOne(c, *target, ts, one, dir.y < 0 ? 0 : 1)) { slot.count--; if (!slot.count) slot = {}; moved = true; if (c.behaviors) c.behaviors->containerChanged(tp); break; }
             }
+        } else if (Cart* cart = c.carts ? c.carts->storageAt(tp) : nullptr) {   // load a storage cart
+            be = c.world.blockEntity(h.p);
+            for (auto& slot : be->items) {
+                if (slot.empty()) continue;
+                if (insertInto(c, cart->items, slot)) { slot.count--; if (!slot.count) slot = {}; moved = true; break; }
+            }
         }
         // pull one item from the container above, or vacuum dropped items
         BlockPos up{h.p.x, h.p.y + 1, h.p.z};
@@ -123,6 +136,13 @@ void tickContainers(ContainerContext& c, ChunkPos center, int radius) {
             if (k >= 0) {
                 ItemStack one = source->items[k]; one.count = 1;
                 if (insertOne(c, *be, hs, one, 0)) { source->items[k].count--; if (!source->items[k].count) source->items[k] = {}; moved = true; if (c.behaviors) c.behaviors->containerChanged(up); }
+            }
+        } else if (Cart* cart = c.carts ? c.carts->storageAt(up) : nullptr) {   // unload a storage cart above
+            for (auto& slot : cart->items) {
+                if (slot.empty()) continue;
+                ItemStack one = slot; one.count = 1;
+                if (insertOne(c, *be, hs, one, 0)) { slot.count--; if (!slot.count) slot = {}; moved = true; }
+                break;
             }
         } else if (c.entities) {
             for (auto& e : c.entities->items) {

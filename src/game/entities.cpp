@@ -85,8 +85,16 @@ std::vector<EntityRecord> EntityManager::collectEntities(ChunkPos p, bool remove
     if (carts) {
         for (auto& c : carts->carts) {
             if (c.removed || ChunkPos{(int)std::floor(c.pos.x) >> 4, (int)std::floor(c.pos.z) >> 4} != p) continue;
-            ByteWriter w; w.u8_(1);
+            ByteWriter w; w.u8_(2);
             w.f64_(c.pos.x); w.f64_(c.pos.y); w.f64_(c.pos.z); w.f32_(c.vel.x); w.f32_(c.vel.y); w.f32_(c.vel.z); w.f32_(c.yaw);
+            w.u8_((u8)c.kind);   // v2: kind, then the non-empty storage slots
+            u64 n = 0; for (auto& s : c.items) if (!s.empty()) n++;
+            w.var(n);
+            for (size_t i = 0; i < c.items.size(); i++) {
+                const ItemStack& s = c.items[i];
+                if (s.empty()) continue;
+                w.u8_((u8)i); w.str(items_.def(s.item).name); w.u8_(s.count); w.var(s.damage);
+            }
             out.push_back({"cart", std::move(w.buf)});
             if (remove) c.removed = true;
         }
@@ -117,11 +125,25 @@ void EntityManager::spawnEntities(ChunkPos, std::vector<EntityRecord>&& recs) {
         }
         if (r.type == "cart" && carts) {
             ByteReader rd(r.payload);
-            if (rd.u8_() != 1) continue;
+            u8 ver = rd.u8_();
+            if (ver < 1 || ver > 2) continue;
             Vec3 pos, vel; pos.x = (float)rd.f64_(); pos.y = (float)rd.f64_(); pos.z = (float)rd.f64_();
             vel.x = rd.f32_(); vel.y = rd.f32_(); vel.z = rd.f32_(); float yaw = rd.f32_();
+            CartKind kind = CartKind::Plain;
+            std::vector<std::pair<int, ItemStack>> slots;
+            if (ver >= 2) {
+                u8 k = rd.u8_();
+                kind = k == 1 ? CartKind::Storage : CartKind::Plain;
+                u64 n = rd.var();
+                for (u64 i = 0; i < n && rd.ok() && i < 256; i++) {
+                    int slot = rd.u8_(); ItemStack s; s.item = items_.id(rd.str()); s.count = rd.u8_(); s.damage = (u16)rd.var();
+                    if (s.item == 0) { VX_WARN("storage cart: unknown item dropped"); continue; }
+                    slots.push_back({slot, s});
+                }
+            }
             if (!rd.ok()) { VX_WARN("dropping unreadable cart record"); continue; }
-            Cart& c = carts->spawn(pos); c.vel = vel; c.yaw = c.prevYaw = yaw;
+            Cart& c = carts->spawn(pos, kind); c.vel = vel; c.yaw = c.prevYaw = yaw;
+            for (auto& [slot, s] : slots) if (slot < (int)c.items.size()) c.items[slot] = s;
             continue;
         }
         if (r.type != "item") { VX_WARN("unknown entity type '%s' dropped", r.type.c_str()); continue; }

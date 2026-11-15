@@ -5,6 +5,7 @@
 #include "game/behaviors.h"
 #include "game/entities.h"
 #include "game/kiln.h"
+#include "game/carts.h"
 
 namespace vx {
 
@@ -17,6 +18,7 @@ struct ContainerContext {
     BlockBehaviors* behaviors = nullptr;   // hopper locking, comparator notifications, fluids
     EntityManager* entities = nullptr;     // dropped items (hopper vacuum, droppers)
     Rng* rng = nullptr;
+    CartSystem* carts = nullptr;           // storage carts passing over or under hoppers
     std::function<void(Vec3 pos, Vec3 vel)> shootArrow;   // dispensers with arrows
 };
 

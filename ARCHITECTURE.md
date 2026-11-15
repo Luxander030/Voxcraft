@@ -142,6 +142,13 @@ with a cheap distance reject, and carts are few. Detector rails are circuit sour
 plates: `CartSystem::onRail` reports each occupied rail cell, the rail switches on, and a
 scheduled check every 20 ticks switches it off once `cartOnRail` finds no cart in the cell.
 
+Storage carts hold their 27 slots on the `Cart` itself (no block entity: it moves). Hoppers reach
+them through `ContainerContext::carts`. A hopper with no container block in front of it loads a
+storage cart whose centre column is in that cell, and a hopper with no container above it unloads
+the cart there. A cart is matched by its centre, so it is never served by two hoppers side by side.
+The cart's chest screen reuses `Screen::Chest` with `openCart` set, and closes when the cart rolls
+more than 6 blocks away or breaks.
+
 ## Block updates and fluids
 
 `game/behaviors.cpp` subscribes to World's neighbour-update, scheduled-tick and random-tick hooks.
