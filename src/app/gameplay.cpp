@@ -1,4 +1,5 @@
 // Session lifecycle, persistence of player state, simulation tick and block interaction.
+#include "game/rails.h"
 #include "game/building.h"
 #include "app/game.h"
 #include "core/profiler.h"
@@ -169,6 +170,7 @@ bool placeHeld() {
             place = G->reg.withProp(place, "facing", f);
         }
     }
+    if (d.shape == BlockShape::Rail) { Vec3 l = G->player.look(); place = G->reg.withProp(place, "shape", std::fabs(l.x) > std::fabs(l.z) ? 1 : 0); }
     if (!G->world->setBlock(at, place)) return false;
     sfx3d("place_" + d.sound, {at.x + 0.5f, at.y + 0.5f, at.z + 0.5f}, SoundCat::Blocks);
     if (int n = containerSlots(G->reg, place)) {   // every container gets its block entity when placed
@@ -296,6 +298,9 @@ bool startSession(const std::string& worldName, const NewWorld* create, std::str
     G->entities = std::make_unique<EntityManager>(G->items);
     G->mobs = std::make_unique<MobSystem>(G->mobReg);
     G->entities->mobs = G->mobs.get();
+    G->carts = std::make_unique<CartSystem>();
+    G->entities->carts = G->carts.get();
+    G->riding = 0;
     G->entities->onPickup = [](const ItemStack&) { sfx("pickup", 0.5f); };
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
@@ -370,7 +375,7 @@ bool enterDimension(const std::string& dim, Vec3 pos, bool arrive, std::string* 
         G->world->close();
         G->world.reset();
     }
-    G->entities->items.clear(); G->mobs->mobs.clear(); G->particles.parts.clear(); G->projectiles.list.clear();
+    G->entities->items.clear(); G->mobs->mobs.clear(); G->carts->carts.clear(); G->riding = 0; G->particles.parts.clear(); G->projectiles.list.clear();
     fs::path dir = dim == "overworld" ? G->saveDir : G->saveDir / "dim" / dim;
     G->world = std::make_unique<World>(G->reg, *G->jobs, G->items.names());
     G->world->setEntityHost(G->entities.get());
@@ -471,8 +476,21 @@ void simulateTick() {
     }
     bool wasGround = p.onGround;
     Vec3 before = p.pos;
-    if (!G->stats.dead) p.tick(*G->world, in);
+    Cart* ridden = G->riding ? G->carts->byId(G->riding) : nullptr;
+    if (G->riding && (!ridden || in.sneak || G->stats.dead)) { dismountCart(); ridden = nullptr; }
+    if (ridden) {   // the rider pushes gently in the view direction; the cart does the moving
+        if (in.forward > 0) {
+            Vec3 l = p.look(); Vec3 f = normalize(Vec3(l.x, 0, l.z));
+            if (length(ridden->vel) < 0.15f) ridden->vel = ridden->vel + f * 0.006f;
+        }
+    } else if (!G->stats.dead) p.tick(*G->world, in);
     G->input.toggleFly = false;
+    G->carts->tick(*G->world);
+    if (G->riding) {
+        if (Cart* c = G->carts->byId(G->riding)) {
+            p.prevPos = before; p.pos = c->pos + Vec3(0, 0.25f, 0); p.vel = {}; p.onGround = true; p.fallDistance = 0;
+        } else dismountCart();
+    }
 
     // survival bookkeeping
     bool creative = G->creative();
@@ -684,7 +702,35 @@ MobContext mobContext() {
     return c;
 }
 
+void dismountCart() {
+    Cart* c = G->carts ? G->carts->byId(G->riding) : nullptr;
+    G->riding = 0;
+    if (!c) return;
+    Player& p = G->player;
+    // step off to the side of the track if there is room, else stand on top of the cart
+    Vec3 side = Vec3(std::cos(c->yaw), 0, std::sin(c->yaw));
+    for (Vec3 cand : {c->pos + side * 1.0f, c->pos - side * 1.0f, c->pos + Vec3(0, 0.8f, 0)}) {
+        if (!collidesAny(*G->world, p.boxAt(cand))) { p.pos = p.prevPos = cand; break; }
+    }
+    p.vel = {};
+}
+
+bool attackCart() {
+    float cd = 0;
+    Cart* c = G->carts->raycast(G->player.eye(), G->player.look(), G->creative() ? 5.0f : 3.5f, &cd);
+    if (!c || (G->target.hit && G->target.distance < cd)) return false;
+    c->hurtTicks = 10;
+    sfx3d("place_metal", c->pos + Vec3(0, 0.4f, 0), SoundCat::Blocks, 0.7f);
+    if (++c->damage >= 3 || G->creative()) {
+        if (c->id == G->riding) dismountCart();
+        if (!G->creative()) G->entities->spawnItem(c->pos + Vec3(0, 0.4f, 0), {G->items.id("cart"), 1, 0}, G->rng);
+        c->removed = true;
+    }
+    return true;
+}
+
 bool attackMob() {
+    if (attackCart()) return true;
     if (G->attackCooldown > 0) return false;
     float md = 0;
     Mob* m = G->mobs->raycast(G->player.eye(), G->player.look(), G->creative() ? 5.0f : 3.5f, &md);
@@ -742,8 +788,20 @@ void clickUse() {
             sfx3d("grazer_call", m->pos + Vec3(0, 1.6f, 0), SoundCat::Creatures, 0.6f);
             return;
         }
-        // feed a creature its food: love mode (or a growth spurt for a baby)
         ItemStack& hs = G->inv.slots[G->hotbarSel];
+        // carts: put one on a rail, or climb into one
+        float cd = 0;
+        Cart* cart = G->carts->raycast(G->player.eye(), G->player.look(), 4.0f, &cd);
+        bool holdingCart = !hs.empty() && G->items.def(hs.item).name == "cart";
+        if (cart && !holdingCart && (!G->target.hit || cd < G->target.distance)) { G->riding = cart->id; return; }
+        if (holdingCart && G->target.hit && isRail(G->reg, G->world->getBlock(G->target.block))) {
+            const BlockPos& b = G->target.block;
+            G->carts->spawn({b.x + 0.5f, (float)b.y, b.z + 0.5f});
+            sfx3d("place_metal", {b.x + 0.5f, b.y + 0.2f, b.z + 0.5f}, SoundCat::Blocks);
+            if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }
+            return;
+        }
+        // feed a creature its food: love mode (or a growth spurt for a baby)
         if (Mob* m = G->mobs->raycast(G->player.eye(), G->player.look(), 4.0f, &md); m && !hs.empty() && (!G->target.hit || md < G->target.distance)) {
             if (G->mobs->feed(*m, hs.item)) {
                 if (!G->creative()) { hs.count--; if (!hs.count) hs = {}; }

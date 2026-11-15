@@ -82,6 +82,16 @@ std::vector<EntityRecord> EntityManager::collectEntities(ChunkPos p, bool remove
         }
         if (remove) mobs->mobs.erase(std::remove_if(mobs->mobs.begin(), mobs->mobs.end(), [](const Mob& m) { return m.removed; }), mobs->mobs.end());
     }
+    if (carts) {
+        for (auto& c : carts->carts) {
+            if (c.removed || ChunkPos{(int)std::floor(c.pos.x) >> 4, (int)std::floor(c.pos.z) >> 4} != p) continue;
+            ByteWriter w; w.u8_(1);
+            w.f64_(c.pos.x); w.f64_(c.pos.y); w.f64_(c.pos.z); w.f32_(c.vel.x); w.f32_(c.vel.y); w.f32_(c.vel.z); w.f32_(c.yaw);
+            out.push_back({"cart", std::move(w.buf)});
+            if (remove) c.removed = true;
+        }
+        if (remove) carts->carts.erase(std::remove_if(carts->carts.begin(), carts->carts.end(), [](const Cart& c) { return c.removed; }), carts->carts.end());
+    }
     return out;
 }
 
@@ -103,6 +113,15 @@ void EntityManager::spawnEntities(ChunkPos, std::vector<EntityRecord>&& recs) {
             Mob& m = mobs->spawn(t, pos, rng); m.yaw = m.prevYaw = yaw; m.health = hp; m.age = age;
             m.hasHome = hasHome; m.home = home; m.seed = seed;
             m.growTicks = std::min(0, grow); m.loveTicks = love; m.breedCooldown = cool;
+            continue;
+        }
+        if (r.type == "cart" && carts) {
+            ByteReader rd(r.payload);
+            if (rd.u8_() != 1) continue;
+            Vec3 pos, vel; pos.x = (float)rd.f64_(); pos.y = (float)rd.f64_(); pos.z = (float)rd.f64_();
+            vel.x = rd.f32_(); vel.y = rd.f32_(); vel.z = rd.f32_(); float yaw = rd.f32_();
+            if (!rd.ok()) { VX_WARN("dropping unreadable cart record"); continue; }
+            Cart& c = carts->spawn(pos); c.vel = vel; c.yaw = c.prevYaw = yaw;
             continue;
         }
         if (r.type != "item") { VX_WARN("unknown entity type '%s' dropped", r.type.c_str()); continue; }

@@ -73,7 +73,8 @@ var nTicks; repeat: u16 index, var blockPalette, svar (due - worldTick), u8 prio
 var nEntities; repeat: str type, var len, u8[len] payload
                             ("mob" payload v3: u8 3, str type, f64 x3 pos, f32 yaw, f32 health, var age,
                              u8 hasHome, f32 x3 home, u32 seed, svar growTicks, var loveTicks, var breedCooldown;
-                             v1/v2 are prefixes of this layout and still load)
+                             v1/v2 are prefixes of this layout and still load;
+                             "cart" payload v1: u8 1, f64 x3 pos, f32 x3 vel, f32 yaw)
 ```
 
 Records are compressed only when larger than 96 bytes and only if compression saves space.

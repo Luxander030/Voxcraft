@@ -10,7 +10,7 @@ static BlockShape parseShape(const std::string& s) {
     if (s == "slab_thin") return BlockShape::SlabThin; if (s == "piston_head") return BlockShape::PistonHead; if (s == "model") return BlockShape::Model;
     if (s == "slab") return BlockShape::Slab; if (s == "stairs") return BlockShape::Stairs; if (s == "fence") return BlockShape::Fence;
     if (s == "pane") return BlockShape::Pane; if (s == "door") return BlockShape::Door; if (s == "trapdoor") return BlockShape::Trapdoor;
-    if (s == "fence_gate") return BlockShape::FenceGate; if (s == "wall") return BlockShape::Wall;
+    if (s == "fence_gate") return BlockShape::FenceGate; if (s == "wall") return BlockShape::Wall; if (s == "rail") return BlockShape::Rail;
     return BlockShape::Cube;
 }
 static ToolType parseTool(const std::string& s) {

@@ -6,6 +6,7 @@
 {
   "stick":          {"tex": "stick", "fuel": 100},
   "oak_door":       {"tex": "oak_door_item", "stack": 16},
+  "cart":           {"tex": "cart", "stack": 1},
   "iron_door":      {"tex": "iron_door_item", "stack": 16},
   "coal":           {"tex": "coal", "fuel": 1600},
   "raw_iron":       {"tex": "raw_iron"},

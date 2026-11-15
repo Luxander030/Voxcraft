@@ -178,6 +178,12 @@ void frame() {
             put(at(2, -4, 0), "stone_brick_stairs", {{"facing", f}}); put(at(2, -5, 0), "stone_brick_stairs", {{"facing", f}});
             put(at(3, -5, 0), "stone_brick_stairs", {{"facing", dirCW(f)}});
             for (BlockPos q : {at(2, -4, 0), at(2, -5, 0), at(3, -5, 0)}) G->world->setBlock(q, withConnections(*G->world, q, G->world->getBlock(q)));
+            // a rail loop to the left with a cart running round it
+            for (int a = 10; a <= 16; a++) for (int b = -12; b <= -6; b++) if (a == 10 || a == 16 || b == -12 || b == -6) {
+                G->world->setBlock(at(a, b, -1), G->reg.stateOf("stone_bricks"));
+                G->world->setBlock(at(a, b, 0), G->reg.stateOf("rail"));
+            }
+            { BlockPos c0 = at(10, -9, 0); Cart& c = G->carts->spawn({c0.x + 0.5f, (float)c0.y, c0.z + 0.5f}); c.vel = Vec3((float)fx, 0, (float)fz) * 0.3f; }
             G->player.pitch = -0.35f;
         }
         if (G->opt.menuState == 12 && G->frame > 30) { G->input.forward = 0; G->player.flying = false; G->player.pitch = -0.35f; }

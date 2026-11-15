@@ -24,6 +24,7 @@ inline AABB blockShapeBounds(const BlockRegistry& reg, BlockState s) {
     case BlockShape::Button: return box(5, 0, 6, 11, 2, 10);
     case BlockShape::Lever: return box(5, 0, 5, 11, 10, 11);
     case BlockShape::SlabThin: return box(0, 0, 0, 16, 2, 16);
+    case BlockShape::Rail: { int sh = d.propIndex("shape") >= 0 ? reg.getProp(s, "shape") : 0; return sh >= 2 && sh <= 5 ? box(0, 0, 0, 16, 8, 16) : box(0, 0, 0, 16, 2, 16); }
     case BlockShape::FlatWall:
         return facing == 0 ? box(0, 0, 14, 16, 16, 16) : facing == 1 ? box(0, 0, 0, 16, 16, 2) : facing == 2 ? box(14, 0, 0, 16, 16, 16) : box(0, 0, 0, 2, 16, 16);
     default: return box(0, 0, 0, 16, 16, 16);

@@ -95,6 +95,8 @@ struct Game {
     std::unique_ptr<Mixer> mixer;
     float stepDistance = 0, lastHealth = 20; double nextMusic = 45, nextAmbient = 20; bool wasInFluid = false; float digTimer = 0;
     std::unique_ptr<MobSystem> mobs;   // owned before world (persisted through entities)
+    std::unique_ptr<CartSystem> carts; // likewise
+    u32 riding = 0;                    // id of the cart the player sits in (0 = on foot)
     std::unique_ptr<JobSystem> jobs;
     std::unique_ptr<EntityManager> entities;   // declared before world: must outlive it
     std::unique_ptr<World> world;
@@ -170,7 +172,8 @@ int armorPoints();
 void respawn();
 bool enterDimension(const std::string& dim, Vec3 pos, bool arriveThroughRift, std::string* err);
 
-bool attackMob();               // left click: melee the creature under the crosshair
+bool attackMob();               // left click: hit the cart or melee the creature under the crosshair
+void dismountCart();
 MobContext mobContext();
 
 // entity_render.cpp

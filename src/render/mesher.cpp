@@ -219,6 +219,34 @@ void specialShapes(const MeshContext& ctx, const Padded& p, Emitter& em) {
             }
             break;
         }
+        case BlockShape::Rail: {
+            // A flat quad 1 px above the floor (sloped for ascending rails). The texture draws a
+            // north-south track (curves: a south-east bend); other shapes rotate/mirror its UVs.
+            int sh = d.propIndex("shape") >= 0 ? reg.getProp(b, "shape") : 0;
+            int hN = 1, hS = 1, hW = 1, hE = 1;   // heights of the north/south/west/east edges
+            if (sh == 2) { hN = 17; } else if (sh == 3) { hS = 17; } else if (sh == 4) { hW = 17; } else if (sh == 5) { hE = 17; }
+            // corners in order (x0,z0) (x0,z1) (x1,z1) (x1,z0)
+            const int cx[4] = {0, 0, 16, 16}, cz[4] = {0, 16, 16, 0};
+            int pos[4][3], uv[4][2];
+            for (int k = 0; k < 4; k++) {
+                int x = cx[k], z = cz[k];
+                int h = std::max(z == 0 ? hN : hS, x == 0 ? hW : hE);
+                if (sh == 0 || sh == 2 || sh == 3) h = z == 0 ? hN : hS;
+                if (sh == 1 || sh == 4 || sh == 5) h = x == 0 ? hW : hE;
+                pos[k][0] = x + X; pos[k][1] = h + Y; pos[k][2] = z + Z;
+                int u = x, v = z;
+                switch (sh) {
+                case 1: case 4: case 5: u = z; v = 16 - x; break;   // east-west: rotate 90
+                case 7: u = 16 - x; break;                           // S+W: mirror
+                case 8: u = 16 - x; v = 16 - z; break;               // N+W: rotate 180
+                case 9: v = 16 - z; break;                           // N+E: flip
+                default: break;
+                }
+                uv[k][0] = u; uv[k][1] = v;
+            }
+            em.flatQuad(ml, pos, uv, FACE_PY, tex[FACE_PY], sky, blk, 0xFFFFFF, sh >= 2 && sh <= 5);
+            break;
+        }
         case BlockShape::Fluid: {
             // Smooth surface: each top corner takes the mean height of the fluid cells sharing it
             // (full height if any of them has the same fluid above), so flows slope continuously.

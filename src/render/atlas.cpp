@@ -107,6 +107,10 @@ bool BlockTextures::build(const BlockRegistry& reg, const TexturePack& pack, std
                     if (l >= 0) for (int f = 0; f < 6; f++) t[f] = (u16)l;
                 }
             }
+            if (d.shape == BlockShape::Rail) {   // rails: "top" straight; "side" = curve (rail) or powered look (powered rail)
+                bool alt = d.propIndex("powered") >= 0 ? reg.getProp(s, "powered") != 0 : reg.getProp(s, "shape") >= 6;
+                for (int f = 0; f < 6; f++) t[f] = alt ? base[FACE_NX] : base[FACE_PY];
+            }
             if (d.shape == BlockShape::Door) {   // doors: "top" texture on the upper half, "side" on the lower
                 u16 l = reg.getProp(s, "upper") ? base[FACE_PY] : base[FACE_NX];
                 for (int f = 0; f < 6; f++) t[f] = l;

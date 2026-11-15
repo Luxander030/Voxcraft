@@ -464,6 +464,48 @@ def door_icon(frame, fill, glass):
         put(px, 9, 10, hexc("2a2a2a"))
     return draw
 
+# ------------------------------------------------------------------ rails (cutout; the track runs north-south)
+def track(rail_cols, tie_cols, centre=None):
+    def f(rng):
+        px = [CLEAR] * (N * N)
+        for y in range(N):
+            if y % 4 in (1, 2):   # sleepers
+                for x in range(1, 15): put(px, x, y, tie_cols[(x + y) % len(tie_cols)])
+            for x in (3, 12): put(px, x, y, rail_cols[0]); put(px, x + 1 if x == 3 else x - 1, y, rail_cols[1])
+            if centre and 6 <= y <= 9: put(px, 7, y, centre); put(px, 8, y, centre)
+        return px
+    return f
+
+def track_curve(rail_cols, tie_cols):
+    """A bend joining the south and east edges: two concentric arcs around the south-east corner,
+    with radial sleepers between them every 18 degrees."""
+    import math
+    def f(rng):
+        px = [CLEAR] * (N * N)
+        for y in range(N):
+            for x in range(N):
+                dx, dy = 15.5 - x, 15.5 - y          # vector from the pixel to the SE corner
+                d = math.hypot(dx, dy)
+                ang = math.degrees(math.atan2(dy, dx))   # 0..90 across the bend
+                if 3.0 <= d <= 4.4 or 11.6 <= d <= 13.0: put(px, x, y, rail_cols[0] if d < 4 or d > 12.4 else rail_cols[1])
+                elif 2.0 < d < 14.0 and (ang % 18) < 5: put(px, x, y, tie_cols[(x + y) % len(tie_cols)])
+        return px
+    return f
+
+TIES = pal("6e5131", "5c4326", "634426")
+RECIPES.update({
+    "rail": track(pal("9a9aa0", "c8c8d0"), TIES),
+    "rail_corner": track_curve(pal("9a9aa0", "c8c8d0"), TIES),
+    "powered_rail": track(pal("c8a040", "e8c860"), TIES, hexc("5a1a10")),
+    "powered_rail_on": track(pal("c8a040", "e8c860"), TIES, hexc("e83a20")),
+})
+
+def cart_icon(px, rng):
+    body, rim, wheel = hexc("8a8a92"), hexc("b8b8c0"), hexc("3a3a3a")
+    for y in range(5, 11):
+        for x in range(2, 14): put(px, x, y, rim if y == 5 else body)
+    for x in (4, 5, 10, 11): put(px, x, 11, wheel); put(px, x, 12, wheel)
+
 ITEM_RECIPES = {
     "bucket": bucket(None), "water_bucket": bucket(pal("3a68d8", "4a78e8")), "lava_bucket": bucket(pal("e8691e", "f8b040")),
     "stick": item(lambda px, r: [put(px, 3 + k, 12 - k, HANDLE[k % 2]) for k in range(10)]),
@@ -554,6 +596,9 @@ ENTITY_RECIPES = {
     "rockmite_shell": lambda r: [hexc("4a4844") if (i % N) % 5 == 0 or (i // N) % 6 == 0 else p for i, p in enumerate(noisy(r, pal("7a766e", "6c6862", "88847a"), 0.5, 4))],
     "rockmite_face": face(pal("7a766e", "6c6862"), pal("c82020", "ff6060"), 5, 3),
     "rockmite_leg": lambda r: noisy(r, pal("4a4844", "3c3a36"), 0.5, 4),
+    "cart_metal": lambda r: [hexc("5a5a62") if (i % N) in (0, 15) or (i // N) in (0, 15) else (hexc("d0d0d8") if (i % N) % 5 == 2 and (i // N) % 5 == 2 else p)
+                             for i, p in enumerate(noisy(r, pal("8a8a92", "7e7e86", "96969e"), 0.5, 4))],
+    "cart_wheel": lambda r: noisy(r, pal("3a3a3a", "2e2e2e", "444444"), 0.5, 2),
     # wanderer (player). Boxes sample the top-left of the tile: an 8x8 head uses x,y 0..7 and a
     # 4-wide, 12-tall limb uses rows 0..11, so the art is laid out in rows from the top.
     "wanderer_hair": lambda r: noisy(r, pal("3a2a1e", "32241a", "44322a"), 0.5, 3),
@@ -600,6 +645,7 @@ for _m, _names in ARMOR_NAMES.items():
     for _slot, _n in zip(("head", "chest", "legs", "feet"), _names): ITEM_RECIPES[_n] = armor(_slot, ARMOR_MATS[_m])
 
 ITEM_RECIPES.update({
+    "cart": item(cart_icon),
     "oak_door_item": item(door_icon(hexc("6e5131"), hexc("a8854f"), hexc("b8dcf0"))),
     "iron_door_item": item(door_icon(hexc("8a8a8a"), hexc("c8c8c8"), hexc("6a6a6a"))),
 })

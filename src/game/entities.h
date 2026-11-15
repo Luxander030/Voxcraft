@@ -5,6 +5,7 @@
 #include "game/items.h"
 #include "game/mobs.h"
 #include "game/player.h"
+#include "game/carts.h"
 
 namespace vx {
 
@@ -31,6 +32,7 @@ public:
     void spawnEntities(ChunkPos p, std::vector<EntityRecord>&& recs) override;
     std::function<void(const ItemStack&)> onPickup;   // UI/audio hook
     MobSystem* mobs = nullptr;                        // mobs persist through the same records
+    CartSystem* carts = nullptr;                      // and carts
 private:
     const ItemRegistry& items_;
 };

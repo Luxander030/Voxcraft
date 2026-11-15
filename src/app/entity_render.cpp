@@ -171,6 +171,21 @@ void buildEntityMesh(std::vector<EntityVertex>& out, Vec3 eye, float alpha, floa
         if (head >= 0) { Vec3 pv = model.bones[head].pivot; headScale = Mat4::translate(pv.x, pv.y, pv.z) * Mat4::scale(1.5f, 1.5f, 1.5f) * Mat4::translate(-pv.x, -pv.y, -pv.z); }
         for (auto& b : model.boxes) emitBox(out, b.bone == head ? world * bones[b.bone] * headScale : world * bones[b.bone], b.min, b.size, b.tex, sky, blk, tint);
     }
+    // carts
+    if (int cm = G->mobReg.modelIndex("cart"); cm >= 0) {
+        const Model& model = G->mobReg.model(cm);
+        for (const Cart& c : G->carts->carts) {
+            Vec3 pos = c.prevPos + (c.pos - c.prevPos) * alpha, rel = pos - eye;
+            if (dot(rel, rel) > maxD * maxD) continue;
+            if (!fr.visible({rel - Vec3(0.6f, 0, 0.6f), rel + Vec3(0.6f, 0.8f, 0.6f)})) continue;
+            float yaw = c.prevYaw + (float)std::remainder(c.yaw - c.prevYaw, 2 * PI) * alpha;
+            float pitch = c.prevPitch + (c.pitch - c.prevPitch) * alpha;
+            Mat4 world = Mat4::translate(rel.x, rel.y + 1 / 16.0f, rel.z) * Mat4::rotateY(-yaw) * Mat4::rotateX(pitch) * Mat4::scale(1 / 16.0f, 1 / 16.0f, 1 / 16.0f);
+            float sky, blk; lightAt(pos + Vec3(0, 0.5f, 0), sky, blk);
+            u32 tint = c.hurtTicks > 0 ? rgba(255, 110, 110) : rgba(255, 255, 255);
+            for (auto& b : model.boxes) emitBox(out, world, b.min, b.size, b.tex, sky, blk, tint);
+        }
+    }
     // projectiles: arrows as thin shafts along their velocity, bolts as glowing cubes
     for (const Projectile& pr : G->projectiles.list) {
         Vec3 pos = pr.prevPos + (pr.pos - pr.prevPos) * alpha, rel = pos - eye;

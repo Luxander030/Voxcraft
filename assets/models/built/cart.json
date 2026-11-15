@@ -1,0 +1,152 @@
+{
+ "name": "cart",
+ "source_hash": "88287a9a7bbf9b96",
+ "bones": [
+  {
+   "name": "body",
+   "parent": "",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ],
+ "boxes": [
+  {
+   "bone": "body",
+   "min": [
+    -7.0,
+    2.0,
+    -9.0
+   ],
+   "size": [
+    14.0,
+    1.0,
+    18.0
+   ],
+   "tex": "cart_metal",
+   "front": "cart_metal"
+  },
+  {
+   "bone": "body",
+   "min": [
+    -7.0,
+    3.0,
+    -9.0
+   ],
+   "size": [
+    14.0,
+    6.0,
+    1.0
+   ],
+   "tex": "cart_metal",
+   "front": "cart_metal"
+  },
+  {
+   "bone": "body",
+   "min": [
+    -7.0,
+    3.0,
+    8.0
+   ],
+   "size": [
+    14.0,
+    6.0,
+    1.0
+   ],
+   "tex": "cart_metal",
+   "front": "cart_metal"
+  },
+  {
+   "bone": "body",
+   "min": [
+    -7.0,
+    3.0,
+    -8.0
+   ],
+   "size": [
+    1.0,
+    6.0,
+    16.0
+   ],
+   "tex": "cart_metal",
+   "front": "cart_metal"
+  },
+  {
+   "bone": "body",
+   "min": [
+    6.0,
+    3.0,
+    -8.0
+   ],
+   "size": [
+    1.0,
+    6.0,
+    16.0
+   ],
+   "tex": "cart_metal",
+   "front": "cart_metal"
+  },
+  {
+   "bone": "body",
+   "min": [
+    -6.0,
+    0.0,
+    -7.0
+   ],
+   "size": [
+    2.0,
+    2.0,
+    3.0
+   ],
+   "tex": "cart_wheel",
+   "front": "cart_wheel"
+  },
+  {
+   "bone": "body",
+   "min": [
+    4.0,
+    0.0,
+    -7.0
+   ],
+   "size": [
+    2.0,
+    2.0,
+    3.0
+   ],
+   "tex": "cart_wheel",
+   "front": "cart_wheel"
+  },
+  {
+   "bone": "body",
+   "min": [
+    -6.0,
+    0.0,
+    4.0
+   ],
+   "size": [
+    2.0,
+    2.0,
+    3.0
+   ],
+   "tex": "cart_wheel",
+   "front": "cart_wheel"
+  },
+  {
+   "bone": "body",
+   "min": [
+    4.0,
+    0.0,
+    4.0
+   ],
+   "size": [
+    2.0,
+    2.0,
+    3.0
+   ],
+   "tex": "cart_wheel",
+   "front": "cart_wheel"
+  }
+ ]
+}

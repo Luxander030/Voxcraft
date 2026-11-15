@@ -123,6 +123,16 @@ Fence and pane connections are state properties ("north", ...) that neighbour up
 alive through neighbour updates. `applyPlacement` writes the upper half first without neighbour
 updates, so neither half is ever briefly alone.
 
+## Rails and carts
+
+A rail's `shape` (straight, ascending or curve) is a state property derived from neighbouring rails
+by `game/rails.cpp`, like fence connections. Slopes join rails one level apart, which face-neighbour
+updates do not reach, so a changed rail also re-checks the diagonal rails above and below it.
+`railGeometry(shape)` gives the centre line (two end points on the cell edges, with heights)
+that carts follow. A cart keeps a signed speed along that line. Past an end, it continues in that
+end's direction into the next cell with the same speed, so a curve never costs speed. Off the
+rails it is a falling box using the same `sweepAxis` as everything else.
+
 ## Block updates and fluids
 
 `game/behaviors.cpp` subscribes to World's neighbour-update, scheduled-tick and random-tick hooks.

@@ -1,5 +1,6 @@
 #include "game/behaviors.h"
 #include "game/building.h"
+#include "game/rails.h"
 
 namespace vx {
 
@@ -58,6 +59,7 @@ void BlockBehaviors::processUpdate(const BlockPos& p, const BlockPos& from) {
     const BlockDef& d = w_.reg.def(s);
     if (d.has(BF_CIRCUIT) && circuitUpdate(p, s, from)) return;
     if (isBoxedShape(d.shape)) { buildingNeighborUpdate(w_, p, [this](const BlockPos& q) { return inputPower(q); }); return; }
+    if (d.shape == BlockShape::Rail) { railNeighborUpdate(w_, p, [this](const BlockPos& q) { return inputPower(q); }); return; }
     if (d.index == riftIdx_) { if (!riftSupported(p)) w_.setBlock(p, AIR); return; }   // frame broken: collapse (cascades)
     if (d.name == "lilypad") { if (w_.reg.def(w_.getBlock({p.x, p.y - 1, p.z})).name != "water") w_.setBlock(p, AIR); return; }
     if (d.index == waterIdx_) w_.scheduleTick(p, s, WATER_DELAY);

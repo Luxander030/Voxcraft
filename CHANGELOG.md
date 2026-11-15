@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Rails and carts
+- Rails (16 from 6 iron + a stick) shape themselves from their neighbours: straight lines, curves, and
+  slopes up or down one block. Slopes connect diagonally, so a rail re-checks the rails above and
+  below it whenever it changes. Rails need a solid block underneath.
+- Powered rails (gold, a stick and glimmer dust) boost a moving cart while powered and brake it
+  while unpowered. They follow circuit signals like doors.
+- Carts (5 iron, new OpenSCAD model `cart.scad`) follow the rail's centre line and keep their
+  speed through curves. They speed up downhill, coast to a stop by friction, and roll off the end
+  of a track.
+- Right-click a rail holding a cart to place it. Right-click a cart to ride it and push with
+  forward; sneak to step off. Hitting a cart three times breaks it and drops the cart item.
+- Carts are saved with their chunk (entity record `cart` v1).
+- Tests: `rails_connect_straight_curve_and_slope`, `carts_roll_curve_climb_and_stop`,
+  `carts_slopes_and_powered_rails`, `carts_circle_a_closed_loop_without_derailing`,
+  `carts_persist_with_their_chunk`.
+
 ### Animal breeding
 - Feed grazers grain or puffbirds seeds (right-click) and they fall in love; hearts drift up from them. Two
   in love within 8 blocks walk to each other, and a baby is born.

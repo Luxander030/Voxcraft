@@ -18,9 +18,10 @@ using BlockState = u16;
 constexpr BlockState AIR = 0;
 
 enum class BlockShape : u8 { None, Cube, Cross, Fluid, Torch, FlatWall, Wire, Lever, Button, Plate, SlabThin, PistonHead, Model,
-                             Slab, Stairs, Fence, Pane, Door, Trapdoor, FenceGate, Wall };
+                             Slab, Stairs, Fence, Pane, Door, Trapdoor, FenceGate, Wall,
+                             Rail };   // Rail is flat (not boxed): no collision, outline 2 px
 // Building shapes: geometry, collision, picking and outline all come from per-state box lists.
-inline bool isBoxedShape(BlockShape s) { return s >= BlockShape::Slab; }
+inline bool isBoxedShape(BlockShape s) { return s >= BlockShape::Slab && s <= BlockShape::Wall; }
 // Horizontal directions used by 4-way "facing": 0 N(-Z) 1 S(+Z) 2 W(-X) 3 E(+X).
 inline int dirCW(int f) { static const int t[4] = {3, 2, 0, 1}; return t[f & 3]; }    // N->E->S->W
 inline int dirCCW(int f) { static const int t[4] = {2, 3, 1, 0}; return t[f & 3]; }
